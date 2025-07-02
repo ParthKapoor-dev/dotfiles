@@ -1,7 +1,7 @@
 @import "mocha.css"; 
 
 * {
-    font-family: "MesloLGS Nerd Font Mono Bold";
+    font-family: "JetBrains Mono";
     font-size: 12px;
     min-height: 0;
     font-weight: bold;
@@ -9,7 +9,7 @@
 
 window#waybar {
     background: transparent;
-    background-color: @crust;
+    background-color: @black;
     color: @overlay0;
     transition-property: background-color;
     transition-duration: 0.1s;
