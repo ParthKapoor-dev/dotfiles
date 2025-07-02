@@ -1,0 +1,224 @@
+# Starship configuration - Ultra Cool Terminal Theme
+# Matching kitty config colors for consistency
+
+# General settings
+format = """
+[╭─](bold #636363)\
+$os\
+$username\
+$hostname\
+$directory\
+$git_branch\
+$git_status\
+$git_metrics\
+$nodejs\
+$python\
+$rust\
+$java\
+$golang\
+$docker_context\
+$cmd_duration\
+$jobs\
+$battery\
+$time\
+$line_break\
+[╰─](bold #636363)$character"""
+
+# Add some right-side info
+right_format = """$memory_usage"""
+
+# OS symbol
+[os]
+disabled = false
+style = "bold #9C7CD9"
+format = "[$symbol]($style)"
+
+[os.symbols]
+Linux = " "
+Windows = " "
+Macos = " "
+
+# Username
+[username]
+disabled = false
+style_user = "bold #F7B284"
+style_root = "bold red"
+format = "[$user]($style)"
+show_always = false
+
+# Hostname
+[hostname]
+disabled = false
+ssh_only = true
+style = "bold #636363"
+format = "[@$hostname]($style) "
+
+# Directory
+[directory]
+style = "bold #9C7CD9"
+format = "[ $path]($style) "
+truncation_length = 4
+truncate_to_repo = true
+read_only = " "
+read_only_style = "red"
+home_symbol = "~"
+truncation_symbol = "…/"
+
+# Git branch
+[git_branch]
+symbol = " "
+style = "bold #F7B284"
+format = "[$symbol$branch]($style)"
+truncation_length = 16
+truncation_symbol = "…"
+
+# Git status
+[git_status]
+style = "#DDDDDD"
+format = '([\[$all_status$ahead_behind\]]($style))'
+conflicted = "⚡"
+ahead = "⇡${count}"
+behind = "⇣${count}"
+diverged = "⇕⇡${ahead_count}⇣${behind_count}"
+up_to_date = ""
+untracked = "?${count}"
+stashed = "📦"
+modified = "!${count}"
+staged = "+${count}"
+renamed = "»${count}"
+deleted = "✘${count}"
+
+# Git metrics
+[git_metrics]
+disabled = false
+added_style = "bold green"
+deleted_style = "bold red"
+format = '([+$added]($added_style) )([-$deleted]($deleted_style) )'
+
+# Character (prompt symbol)
+[character]
+success_symbol = "[❯](bold #9C7CD9)"
+error_symbol = "[❯](bold red)"
+vimcmd_symbol = "[❮](bold #F7B284)"
+
+# Command duration
+[cmd_duration]
+min_time = 2000
+style = "#636363"
+format = "[ $duration]($style)"
+
+# Jobs
+[jobs]
+style = "bold #F7B284"
+symbol = "⚙"
+format = "[$symbol$number]($style) "
+
+# Battery
+[battery]
+full_symbol = "🔋"
+charging_symbol = "⚡"
+discharging_symbol = "💀"
+format = "[$symbol$percentage]($style) "
+
+[[battery.display]]
+threshold = 15
+style = "bold red"
+
+[[battery.display]]
+threshold = 50
+style = "bold yellow"
+
+[[battery.display]]
+threshold = 100
+style = "bold green"
+
+# Time
+[time]
+disabled = false
+style = "bold #636363"
+format = '[ $time]($style)'
+time_format = "%H:%M"
+
+# Memory usage
+[memory_usage]
+disabled = false
+threshold = 1
+style = "bold #F7B284"
+format = "[RAM: ${ram_pct}]($style)" 
+
+# Languages with cool styling
+[nodejs]
+symbol = "  "
+style = "bold green"
+format = "[$symbol$version]($style) "
+
+[python]
+symbol = " "
+style = "bold #F7B284"
+format = "[$symbol$version]($style) "
+
+[rust]
+symbol = "  "
+style = "bold #9C7CD9"
+format = "[$symbol$version]($style) "
+
+[java]
+symbol = " "
+style = "bold red"
+format = "[$symbol$version]($style) "
+
+[golang]
+symbol = "  "
+style = "bold cyan"
+format = "[$symbol$version]($style) "
+
+[docker_context]
+symbol = "  "
+style = "bold blue"
+format = "[$symbol$context]($style) "
+disabled = false
+
+# Package info
+[package]
+symbol = "📦 "
+style = "bold #636363"
+format = "[$symbol$version]($style) "
+disabled = false
+
+# Cloud contexts
+[aws]
+symbol = "☁️ "
+style = "bold yellow"
+format = "[$symbol$profile]($style) "
+disabled = false
+
+[gcloud]
+symbol = "☁️ "
+style = "bold blue"
+format = "[$symbol$account(@$domain)]($style) "
+disabled = false
+
+# Status
+[status]
+disabled = false
+style = "bold red"
+format = "[✖ $status]($style) "
+
+# Shell indicator
+[shell]
+disabled = false
+bash_indicator = "bash"
+fish_indicator = "fish"
+zsh_indicator = "zsh"
+powershell_indicator = "pwsh"
+style = "bold #636363"
+format = "[$indicator]($style) "
+
+# Line break
+[line_break]
+disabled = false
+
+# Nerd Font symbols and style consistency
+[fill]
+symbol = " "
+style = "#1E1E1E"
