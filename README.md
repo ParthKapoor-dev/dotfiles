@@ -1,10 +1,6 @@
 <h1 align="center">🌌 Lnx Dotfiles</h1>
 
 <p align="center">
-  <img src="https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif" height="180" />
-</p>
-
-<p align="center">
   <b>⚡ Clean, minimal, and stow-powered dotfiles for instant Linux setup ⚡</b><br>
   <i>Effortlessly manage your dev environment across systems using symlinks</i>
 </p>
@@ -103,15 +99,4 @@ This repo is designed to be forked and extended. Clone, edit, push, profit.
 
 * Inspired by [@dotbot](https://github.com/anishathalye/dotbot), [@mathiasbynens](https://github.com/mathiasbynens/dotfiles)
 * Cool terminal vibes via `kitty + starship + zsh`
-
----
-
-<p align="center">
-  <img src="https://media.giphy.com/media/3o7btPCcdNniyf0ArS/giphy.gif" height="150" /><br>
-  <b>Happy hacking!</b> 💻
-</p>
-```
-
----
-
 
