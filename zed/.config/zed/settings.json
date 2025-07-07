@@ -1,0 +1,32 @@
+{
+  "project_panel": {
+    "dock": "right"
+  },
+  "features": {
+    "edit_prediction_provider": "zed"
+  },
+  "assistant": {
+    "default_model": {
+      "provider": "ollama",
+      "model": "deepseek-r1:8b"
+    },
+    "version": "2"
+  },
+  "icon_theme": "Catppuccin Mocha",
+  "vim_mode": true,
+  "ui_font_size": 16,
+  "buffer_font_size": 15,
+  "theme": {
+    "mode": "system",
+    "light": "CodeSandbox",
+    "dark": "One Dark"
+  },
+  "buffer_font_family": "SF Mono",
+  "buffer_font_weight": 300,
+  "terminal": {
+    "font_family": "JetBrains Mono"
+  },
+  "ui_font_family": "SF Mono",
+  "relative_line_numbers": true,
+  "soft_wrap": "editor_width"
+}
