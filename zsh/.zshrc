@@ -43,6 +43,7 @@ alias gits="git status -s"
 alias doc="sudo docker"
 alias k="kubectl"
 alias ff="fastfetch -l blackarch"
+alias img="kitty +kitten icat"
 
 eval "$(fzf --zsh)"
 
