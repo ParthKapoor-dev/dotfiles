@@ -95,6 +95,11 @@ button:hover {
     border-bottom: 2px solid @yellow;
 }
 
+#bluetooth {
+    color: @lavender;
+    border-bottom: 2px solid @lavender;
+}
+
 #idle_inhibitor {
     margin-right: 12px;
     color: #7cb342;

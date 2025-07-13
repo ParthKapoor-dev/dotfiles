@@ -1,24 +1,16 @@
 {
-  "edit_predictions": {
-    "mode": "subtle",
-    "copilot": {
-      "proxy": null,
-      "proxy_no_verify": null,
-      "enterprise_uri": null
-    },
-    "enabled_in_text_threads": false
-  },
   "project_panel": {
     "dock": "right"
   },
   "features": {
     "edit_prediction_provider": "zed"
   },
-  "agent": {
+  "assistant": {
     "default_model": {
       "provider": "ollama",
       "model": "deepseek-r1:8b"
-    }
+    },
+    "version": "2"
   },
   "icon_theme": "Catppuccin Mocha",
   "vim_mode": true,
@@ -26,7 +18,7 @@
   "buffer_font_size": 15,
   "theme": {
     "mode": "system",
-    "light": "Material Theme Deepforest High Contrast",
+    "light": "CodeSandbox",
     "dark": "One Dark"
   },
   "buffer_font_family": "SF Mono",

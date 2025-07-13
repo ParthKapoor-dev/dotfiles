@@ -2,7 +2,7 @@
   "position": "top",
   "modules-left": ["hyprland/workspaces"],
   "modules-center": ["hyprland/window"],
-  "modules-right": ["network", "pulseaudio", "battery", "clock"],
+  "modules-right": ["network", "bluetooth", "pulseaudio", "battery", "clock"],
   "clock": {
     "format": "<span foreground='#f5c2e7'>   </span>{:%a %d %H:%M}",
     "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>"
@@ -29,6 +29,20 @@
     "format-disconnected": "<span size='13000' foreground='#f5e0dc'>  </span>Disconnected",
     "tooltip-format-wifi": "Signal Strenght: {signalStrength}%"
   },
+ "bluetooth": {
+    "format": "<span size='13000' foreground='#b4befe'>{icon} </span>{status}",
+    "format-connected": "<span size='13000' foreground='#b4befe'>󰂯 </span> {device_alias}",
+    "format-disconnected": "<span size='13000' foreground='#b4befe'>󰂲 </span> Off",
+    "tooltip-format": "Bluetooth: {status}\nConnected: {device_alias}",
+    "tooltip-format-connected": "Bluetooth: {status}\nConnected: {device_alias} ({device_address})",
+    "tooltip-format-disconnected": "Bluetooth: {status}",
+    "on-click": "blueman-manager",
+    "format-icons": {
+      "enabled": "󰂯",
+      "disabled": "󰂲",
+      "connected": "󰂯"
+    }
+  }, 
   "pulseaudio": {
       "format": "{icon}  {volume}%",
       "format-muted": "",

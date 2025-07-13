@@ -44,6 +44,7 @@ alias doc="sudo docker"
 alias k="kubectl"
 alias ff="fastfetch -l blackarch"
 alias img="kitty +kitten icat"
+alias leet="nvim leetcode.nvim"
 
 eval "$(fzf --zsh)"
 
@@ -52,7 +53,7 @@ export PATH="$PATH:$(go env GOPATH)/bin"
 export PATH="$HOME/bin:$PATH"
 export PATH="/opt/flutter/bin:$PATH"
 export PATH="/opt/android-studio/bin:$PATH"
-
+export PATH="$HOME/.cargo/bin:$PATH"
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
