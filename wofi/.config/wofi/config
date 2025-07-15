@@ -1,0 +1,72 @@
+# Modern Dark Developer Theme - Wofi Configuration
+# ~/.config/wofi/config
+
+# Window and Display Settings
+width=50%
+height=60%
+location=center
+show=drun,run
+prompt=Search
+filter_rate=100
+allow_markup=true
+no_actions=true
+halign=fill
+orientation=vertical
+content_halign=fill
+insensitive=true
+
+# Performance and Behavior
+gtk_dark=true
+layer=overlay
+term=kitty
+allow_images=true
+image_size=24
+exec_search=true
+hide_search=false
+parse_search=true
+search=
+
+# Appearance and Styling
+hide_scroll=false
+matching=contains
+sort_order=alphabetical
+cache_file=/tmp/wofi-cache
+print_command=false
+
+# Advanced Features
+
+# Drun specific settings
+drun-cache_file=/tmp/wofi-drun-cache
+drun-exec_search=true
+drun-always_parse_args=true
+drun-gtk_dark=true
+drun-print_command=false
+drun-display_generic=true
+drun-generic_search=true
+
+# Run mode settings
+run-always_parse_args=true
+run-cache_file=/tmp/wofi-run-cache
+run-exec_search=true
+run-gtk_dark=true
+run-print_command=false
+
+# Window manager integration
+normal_window=false
+layer=overlay
+exclusive_zone=-1
+
+# Performance optimizations
+filter_rate=100
+scroll_rate=16
+image_size=24
+allow_images=true
+always_parse_args=true
+
+# Advanced Features
+columns=1
+multi_select=false
+click_to_exit=true
+run-always_parse_args=true
+run-cache_file=/tmp/wofi-run-cache
+run-exec_search=true

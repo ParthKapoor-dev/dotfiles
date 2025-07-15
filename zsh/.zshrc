@@ -45,6 +45,7 @@ alias k="kubectl"
 alias ff="fastfetch -l blackarch"
 alias img="kitty +kitten icat"
 alias leet="nvim leetcode.nvim"
+alias warp="warp-cli"
 
 eval "$(fzf --zsh)"
 
