@@ -201,10 +201,6 @@ vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper win
 
 -- Custom Keybinds
 
--- Tab Movement
-vim.keymap.set('n', 't', 'gt', { desc = 'Better Way to move to next tab' })
-vim.keymap.set('n', 'T', 'gT', { desc = 'Better Way to move to prev tab' })
-
 -- NOTE: Some terminals have colliding keymaps or are not able to send distinct keycodes
 -- vim.keymap.set("n", "<C-S-h>", "<C-w>H", { desc = "Move window to the left" })
 -- vim.keymap.set("n", "<C-S-l>", "<C-w>L", { desc = "Move window to the right" })
@@ -235,6 +231,9 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
     error('Error cloning lazy.nvim:\n' .. out)
   end
 end
+
+-- Custom Settings
+require 'custom'
 
 ---@type vim.Option
 local rtp = vim.opt.rtp
