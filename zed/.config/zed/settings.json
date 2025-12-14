@@ -1,4 +1,5 @@
 {
+  "formatter": "language_server",
   "edit_predictions": {
     "mode": "subtle",
     "copilot": {
@@ -22,12 +23,12 @@
   },
   "icon_theme": "Catppuccin Mocha",
   "vim_mode": true,
-  "ui_font_size": 16,
-  "buffer_font_size": 15,
+  "ui_font_size": 14,
+  "buffer_font_size": 14,
   "theme": {
     "mode": "system",
-    "light": "Material Theme Deepforest High Contrast",
-    "dark": "One Dark"
+    "light": "Catppuccin Espresso (Blur) [Heavy]",
+    "dark": "CodeSandbox"
   },
   "buffer_font_family": "SF Mono",
   "buffer_font_weight": 300,
@@ -35,6 +36,15 @@
     "font_family": "JetBrains Mono"
   },
   "ui_font_family": "SF Mono",
-  "relative_line_numbers": true,
-  "soft_wrap": "editor_width"
+  "relative_line_numbers": "enabled",
+  "soft_wrap": "editor_width",
+  "format_on_save": "on",
+  "languages": {
+    "Python": {
+      "language_servers": [
+        "ty",
+        "!basedpyright"
+      ]
+    }
+  }
 }

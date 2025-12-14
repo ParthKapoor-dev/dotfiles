@@ -35,6 +35,7 @@ alias n="nvim"
 alias shut="shutdown -h now"
 alias pac="sudo pacman"
 alias ls="eza --color=always --git --no-filesize --icons=always "
+alias zo="zoxide"
 alias hypr="nvim ~/.config/hypr/hyprland.conf"
 alias dev="npm run dev"
 alias projects="ls ~/code/dev/ --tree --level=2"
@@ -46,6 +47,8 @@ alias ff="fastfetch -l blackarch"
 alias img="kitty +kitten icat"
 alias leet="nvim leetcode.nvim"
 alias warp="warp-cli"
+alias zedx='WAYLAND_DISPLAY="" zed'
+alias bt="bluetui"
 
 eval "$(fzf --zsh)"
 
@@ -62,3 +65,11 @@ export NVM_DIR="$HOME/.nvm"
 
 # opencode
 export PATH=/home/parth/.opencode/bin:$PATH
+
+# bun completions
+[ -s "/home/parth/.bun/_bun" ] && source "/home/parth/.bun/_bun"
+
+# bun
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
