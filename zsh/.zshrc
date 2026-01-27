@@ -49,6 +49,9 @@ alias leet="nvim leetcode.nvim"
 alias warp="warp-cli"
 alias zedx='WAYLAND_DISPLAY="" zed'
 alias bt="bluetui"
+alias b="btop"
+alias clip="xclip -selection clipboard"
+
 
 eval "$(fzf --zsh)"
 
@@ -75,3 +78,11 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 export PATH="$HOME/.local/bin:$PATH"
 
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+
+# pnpm
+export PNPM_HOME="/home/parth/.local/share/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
+# pnpm end
