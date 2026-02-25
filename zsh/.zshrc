@@ -50,7 +50,7 @@ alias warp="warp-cli"
 alias zedx='WAYLAND_DISPLAY="" zed'
 alias bt="bluetui"
 alias b="btop"
-alias clip="xclip -selection clipboard"
+alias oc="opencode"
 
 
 eval "$(fzf --zsh)"

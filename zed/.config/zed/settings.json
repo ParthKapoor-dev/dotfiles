@@ -1,6 +1,30 @@
 {
+  "toolbar": {
+    "quick_actions": false,
+    "code_actions": false,
+    "breadcrumbs": false
+  },
+  "use_system_window_tabs": false,
+  "preview_tabs": {
+    "enabled": true
+  },
+  "tab_bar": {
+    "show": false
+  },
+  "title_bar": {
+    "show_branch_icon": true
+  },
+  "agent_servers": {
+    "opencode": {
+      "type": "registry"
+    },
+    "factory-droid": {
+      "type": "registry"
+    }
+  },
   "formatter": "language_server",
   "edit_predictions": {
+    "provider": "zed",
     "mode": "subtle",
     "copilot": {
       "proxy": null,
@@ -10,32 +34,42 @@
     "enabled_in_text_threads": false
   },
   "project_panel": {
-    "dock": "right"
-  },
-  "features": {
-    "edit_prediction_provider": "zed"
+    "button": true,
+    "dock": "left"
   },
   "agent": {
+    "tool_permissions": {
+      "tools": {
+        "terminal": {
+          "default_mode": "allow",
+          "always_allow": [
+            {
+              "pattern": "^sed\\s"
+            }
+          ]
+        }
+      }
+    },
     "default_model": {
-      "provider": "ollama",
-      "model": "deepseek-r1:8b"
+      "provider": "zed.dev",
+      "model": "claude-sonnet-4-5-thinking"
     }
   },
-  "icon_theme": "Catppuccin Mocha",
+  "icon_theme": "Base Charmed Icons",
   "vim_mode": true,
-  "ui_font_size": 14,
-  "buffer_font_size": 14,
+  "ui_font_size": 16.0,
+  "buffer_font_size": 15.0,
   "theme": {
     "mode": "system",
     "light": "Catppuccin Espresso (Blur) [Heavy]",
-    "dark": "CodeSandbox"
+    "dark": "Zed Legacy: Ayu Dark"
   },
-  "buffer_font_family": "SF Mono",
+  "buffer_font_family": "JetBrains Mono NL",
   "buffer_font_weight": 300,
   "terminal": {
-    "font_family": "JetBrains Mono"
+    "font_family": "Geist Mono"
   },
-  "ui_font_family": "SF Mono",
+  "ui_font_family": "SF Pro Display",
   "relative_line_numbers": "enabled",
   "soft_wrap": "editor_width",
   "format_on_save": "on",
