@@ -5,7 +5,7 @@ eval "$(starship init zsh)"
 source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
 
 # Enable zsh-syntax-highlighting
-source ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+# source ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 # Fix Ctrl + Left/Right and Ctrl + W behavior in Kitty and Zsh
 autoload -U select-word-style
