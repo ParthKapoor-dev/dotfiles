@@ -74,12 +74,13 @@
     "top": 0.18,
     "maxHeight": 404,
     "placeholder": "Search apps, files, commands…",
-    "providers": ["calculator", "apps", "windows", "clipboard", "commands", "run"],
+    "providers": ["calculator", "apps", "windows", "clipboard", "wallpapers", "commands", "run"],
     "provider": {
       "apps": { "limit": 8, "showRecent": true, "recentLimit": 6, "frecencyWeight": 0.35, "terminal": ["ghostty", "-e"] },
       "calculator": { "prefix": "=" },
       "windows": { "prefix": "@", "limit": 6 },
       "clipboard": { "prefix": ":", "prefixOnly": true, "limit": 60 },
+      "wallpapers": { "prefix": "#", "prefixOnly": true, "limit": 30, "directory": "~/Pictures", "skipScreenshots": true },
       "commands": {
         "prefix": "/",
         "limit": 6,
@@ -96,6 +97,7 @@
           { "label": "Record Screen", "icon": "record", "action": "record", "keywords": ["record", "video", "wf-recorder"] },
           { "label": "Mission Control", "icon": "grid", "action": "overview", "keywords": ["overview", "expose", "workspaces"] },
           { "label": "Clipboard History", "icon": "clip", "action": "clipboard", "keywords": ["clipboard", "paste", "cliphist"] },
+          { "label": "Choose Wallpaper", "icon": "image", "action": "wallpapers", "keywords": ["wallpaper", "background", "picture"] },
           { "label": "Next Layout", "icon": "layout", "action": "layoutNext", "keywords": ["layout", "tiling", "scrolling", "master"] },
           { "label": "Control Center", "icon": "cc", "action": "controlCenter", "keywords": ["settings"] },
           { "label": "Notification Center", "icon": "bell", "action": "notifications" },

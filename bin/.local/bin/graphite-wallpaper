@@ -2,17 +2,27 @@
 # graphite-wallpaper - choose the wallpaper for the Graphite shell
 # (replaces ii's wallpaper selector binds).
 #
-#   graphite-wallpaper pick       fuzzel list of $GRAPHITE_WALLPAPER_DIR (default ~/Pictures/Wallpapers)
-#   graphite-wallpaper random     random image from that directory
+#   graphite-wallpaper pick [--all]     fuzzel list of every image under $GRAPHITE_WALLPAPER_DIR
+#                                        (default ~/Pictures), recursively, labelled by relative path
+#   graphite-wallpaper random [--all]   random image from that list
+#   graphite-wallpaper list [--all]     print the list (absolute paths)
 #   graphite-wallpaper set <path>
+# png/jpg/jpeg/webp/avif; hidden folders are skipped, and so is Screenshots unless --all.
+# The launcher has the same list with thumbnails: type "#" (provider "wallpapers").
 # The shell draws it: qs -c graphite ipc call wallpaper set <path>
 
 set -uo pipefail
 
-dir="${GRAPHITE_WALLPAPER_DIR:-$(xdg-user-dir PICTURES 2>/dev/null || echo "$HOME/Pictures")/Wallpapers}"
+dir="${GRAPHITE_WALLPAPER_DIR:-$(xdg-user-dir PICTURES 2>/dev/null || echo "$HOME/Pictures")}"
+dir="${dir%/}"
+all=0
+for a in "$@"; do [ "$a" = "--all" ] && all=1; done
 
 list() {
-    find -L "$dir" -maxdepth 2 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' -o -iname '*.avif' \) 2>/dev/null | sort
+    local skip=()
+    [ "$all" = 1 ] || skip=(-o -name Screenshots)
+    find -L "$dir" -mindepth 1 \( -name '.*' "${skip[@]}" \) -prune -o -type f \
+        \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' -o -iname '*.avif' \) -print 2>/dev/null | sort
 }
 
 set_wp() {
@@ -30,11 +40,12 @@ case "${1:-pick}" in
         choice=$(list | sed "s|^$dir/||" | fuzzel --dmenu --prompt "Wallpaper  ") || exit 0
         [ -n "$choice" ] && set_wp "$dir/$choice"
         ;;
+    list) list ;;
     random)
         f=$(list | shuf -n 1)
         [ -n "$f" ] || { echo "graphite-wallpaper: no images in $dir" >&2; exit 1; }
         set_wp "$f"
         ;;
     set) set_wp "${2:?usage: graphite-wallpaper set <path>}" ;;
-    *) echo "usage: graphite-wallpaper pick|random|set <path>" >&2; exit 2 ;;
+    *) echo "usage: graphite-wallpaper pick|random|list [--all] | set <path>" >&2; exit 2 ;;
 esac

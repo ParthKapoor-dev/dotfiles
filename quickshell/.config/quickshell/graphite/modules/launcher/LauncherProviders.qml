@@ -14,7 +14,7 @@ import Quickshell
 //   function query(text, prefixed) -> [result]  text has the prefix stripped; prefixed = prefix was typed
 // result = { title, sub?, type?, icon? (icon-font symbol) | image? (icon path/url), highlight? ([indices in title]),
 //            score? (sort within the group), actLabel? ("Open"), confirm? ("Restart now?" = ask before running),
-//            big? ([left, leftLabel, right, rightLabel] = large calculator style row), thumb? (image url = tall row with a preview),
+//            big? ([left, leftLabel, right, rightLabel] = large calculator style row), thumb? (image url = tall row with a preview), thumbSlot? (true = tall row even while thumb is still ""),
 //            remove? (function, Shift+Delete), run: function() }
 // A provider may declare `signal resultsChanged()` (async sources): the launcher re-runs the search.
 // Per-provider shell.json options understood by the launcher itself: enabled, prefix, prefixOnly, limit, title.
@@ -25,7 +25,8 @@ Singleton {
         "commands": "Commands.qml",
         "windows": "Windows.qml",
         "run": "Run.qml",
-        "clipboard": "Clipboard.qml"
+        "clipboard": "Clipboard.qml",
+        "wallpapers": "Wallpapers.qml"
     })
     function url(id) {
         const f = registry[id];

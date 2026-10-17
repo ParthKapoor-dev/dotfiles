@@ -262,6 +262,7 @@ Singleton {
                 "apps",
                 "windows",
                 "clipboard",
+                "wallpapers",
                 "commands",
                 "run"
             ],
@@ -287,6 +288,13 @@ Singleton {
                     "prefix": ":",
                     "prefixOnly": true,
                     "limit": 60
+                },
+                "wallpapers": {
+                    "prefix": "#",
+                    "prefixOnly": true,
+                    "limit": 30,
+                    "directory": "~/Pictures",
+                    "skipScreenshots": true
                 },
                 "commands": {
                     "prefix": "/",
@@ -408,6 +416,16 @@ Singleton {
                                 "clipboard",
                                 "paste",
                                 "cliphist"
+                            ]
+                        },
+                        {
+                            "label": "Choose Wallpaper",
+                            "icon": "image",
+                            "action": "wallpapers",
+                            "keywords": [
+                                "wallpaper",
+                                "background",
+                                "picture"
                             ]
                         },
                         {

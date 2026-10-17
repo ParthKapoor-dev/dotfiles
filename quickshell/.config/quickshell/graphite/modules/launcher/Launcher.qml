@@ -426,7 +426,7 @@ Scope {
             readonly property bool asking: selected && root.confirming
             // tokens ui.selection: accent fill, or "neutral" = fill2 + 2px accent bar on the left
             readonly property bool accentSel: selected && (asking || !Theme.selectionNeutral)
-            height: (r.it.thumb ?? "") !== "" ? 52 : 40
+            height: (r.it.thumb ?? "") !== "" || r.it.thumbSlot ? 52 : 40
             radius: Theme.square ? 3 : Math.min(8, Theme.radiusMenu)
             // the selection fill is the ListView highlight (it slides); only the confirm state paints here
             color: asking ? Theme.red : "transparent"
@@ -435,7 +435,7 @@ Scope {
 
             Item {
                 id: ico
-                readonly property bool hasThumb: (r.it.thumb ?? "") !== ""
+                readonly property bool hasThumb: (r.it.thumb ?? "") !== "" || !!r.it.thumbSlot
                 x: 10; width: hasThumb ? 64 : 24; height: hasThumb ? 40 : 24
                 anchors.verticalCenter: parent.verticalCenter
                 IconImage {
