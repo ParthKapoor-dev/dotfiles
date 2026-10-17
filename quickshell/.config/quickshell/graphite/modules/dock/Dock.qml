@@ -36,7 +36,9 @@ Variants {
         // shown = on screen; with autohide only while revealed
         readonly property bool shown: Panels.dockVisible && (!autohide || revealed || menuOpen)
         property bool revealed: false
-        readonly property bool fullscreen: Hyprland.focusedWorkspace?.hasFullscreen ?? false
+        // this screen's workspace, not the focused one: a fullscreen window on another monitor
+        // must not disable this dock's hot strip
+        readonly property bool fullscreen: Hyprland.monitorFor(win.screen)?.activeWorkspace?.hasFullscreen ?? false
 
         // reveal / conceal timing (autohide)
         Timer { id: revealTimer; interval: Config.opt.dock?.revealDelay ?? 150; onTriggered: win.revealed = true }
@@ -149,12 +151,13 @@ Variants {
                 color: Theme.square ? Theme.rgba("#0A0A0A", 0.96) : Theme.rgba("#28282A", 0.82)
                 radius: Theme.square ? 3 : 8
                 border.width: Theme.rimWidth; border.color: Theme.white(0.14)
-                width: tipText.implicitWidth + 22; height: 25
-                x: target ? (target.s, tiles.x, target.mapToItem(stage, target.width / 2, 0).x - width / 2) : 0
+                width: Math.min(tipText.implicitWidth, 320) + 22; height: 25
+                x: target ? Math.max(4, Math.min(stage.width - width - 4, (target.s, tiles.x, target.mapToItem(stage, target.width / 2, 0).x - width / 2))) : 0
                 y: target ? (target.s, target.mapToItem(stage, 0, 0).y - height - 11) : 0
                 GText {
                     id: tipText
                     anchors.centerIn: parent
+                    width: Math.min(implicitWidth, 320)
                     text: tip.target?.label ?? ""
                     font.family: Theme.square ? Theme.fontLabel : Theme.fontUi
                     font.pixelSize: Theme.square ? 11 : 13
