@@ -1,6 +1,6 @@
-diff -ruN '--exclude=.git' '--exclude=__pycache__' /home/parth/code/dev/dotfiles/dots-hyprland/dots/.config/quickshell/ii/GlobalStates.qml /home/parth/code/dev/dotfiles/base0/quickshell/.config/quickshell/ii/GlobalStates.qml
---- /home/parth/code/dev/dotfiles/dots-hyprland/dots/.config/quickshell/ii/GlobalStates.qml	2026-03-05 22:35:33.802542766 +0530
-+++ /home/parth/code/dev/dotfiles/base0/quickshell/.config/quickshell/ii/GlobalStates.qml	2026-06-16 11:11:29.315252003 +0530
+diff -ruN '--exclude=.git' '--exclude=__pycache__' dots-hyprland/dots/.config/quickshell/ii/GlobalStates.qml base0/quickshell/.config/quickshell/ii/GlobalStates.qml
+--- dots-hyprland/dots/.config/quickshell/ii/GlobalStates.qml	2026-03-05 22:35:33.802542766 +0530
++++ base0/quickshell/.config/quickshell/ii/GlobalStates.qml	2026-06-16 11:11:29.315252003 +0530
 @@ -27,6 +27,10 @@
      property bool sessionOpen: false
      property bool superDown: false
@@ -12,9 +12,32 @@ diff -ruN '--exclude=.git' '--exclude=__pycache__' /home/parth/code/dev/dotfiles
      property bool wallpaperSelectorOpen: false
      property bool workspaceShowNumbers: false
  
-diff -ruN '--exclude=.git' '--exclude=__pycache__' /home/parth/code/dev/dotfiles/dots-hyprland/dots/.config/quickshell/ii/modules/ii/overview/Overview.qml /home/parth/code/dev/dotfiles/base0/quickshell/.config/quickshell/ii/modules/ii/overview/Overview.qml
---- /home/parth/code/dev/dotfiles/dots-hyprland/dots/.config/quickshell/ii/modules/ii/overview/Overview.qml	2026-03-05 22:35:33.812542743 +0530
-+++ /home/parth/code/dev/dotfiles/base0/quickshell/.config/quickshell/ii/modules/ii/overview/Overview.qml	2026-06-16 11:11:43.371902273 +0530
+diff -ruN '--exclude=.git' '--exclude=__pycache__' dots-hyprland/dots/.config/quickshell/ii/modules/ii/bar/LeftSidebarButton.qml base0/quickshell/.config/quickshell/ii/modules/ii/bar/LeftSidebarButton.qml
+--- dots-hyprland/dots/.config/quickshell/ii/modules/ii/bar/LeftSidebarButton.qml	2026-03-05 22:35:33.812542743 +0530
++++ base0/quickshell/.config/quickshell/ii/modules/ii/bar/LeftSidebarButton.qml	2026-10-17 12:33:59.093586698 +0530
+@@ -30,7 +30,8 @@
+     }
+ 
+     Connections {
+-        target: Ai
++        // Only reference the singleton when its feature is on, so it isn't started otherwise
++        target: root.aiChatEnabled ? Ai : null
+         function onResponseFinished() {
+             if (GlobalStates.sidebarLeftOpen) return;
+             root.showPing = true;
+@@ -38,7 +39,8 @@
+     }
+ 
+     Connections {
+-        target: Booru
++        // Only reference the singleton when its feature is on, so it isn't started otherwise
++        target: root.animeEnabled ? Booru : null
+         function onResponseFinished() {
+             if (GlobalStates.sidebarLeftOpen) return;
+             root.showPing = true;
+diff -ruN '--exclude=.git' '--exclude=__pycache__' dots-hyprland/dots/.config/quickshell/ii/modules/ii/overview/Overview.qml base0/quickshell/.config/quickshell/ii/modules/ii/overview/Overview.qml
+--- dots-hyprland/dots/.config/quickshell/ii/modules/ii/overview/Overview.qml	2026-03-05 22:35:33.812542743 +0530
++++ base0/quickshell/.config/quickshell/ii/modules/ii/overview/Overview.qml	2026-06-16 11:11:43.371902273 +0530
 @@ -182,9 +182,13 @@
  
          onPressed: {
@@ -42,9 +65,9 @@ diff -ruN '--exclude=.git' '--exclude=__pycache__' /home/parth/code/dev/dotfiles
              GlobalStates.superReleaseMightTrigger = false;
          }
      }
-diff -ruN '--exclude=.git' '--exclude=__pycache__' /home/parth/code/dev/dotfiles/dots-hyprland/dots/.config/quickshell/ii/services/Idle.qml /home/parth/code/dev/dotfiles/base0/quickshell/.config/quickshell/ii/services/Idle.qml
---- /home/parth/code/dev/dotfiles/dots-hyprland/dots/.config/quickshell/ii/services/Idle.qml	2026-03-05 22:35:33.819209394 +0530
-+++ /home/parth/code/dev/dotfiles/base0/quickshell/.config/quickshell/ii/services/Idle.qml	2026-07-04 09:32:00.753571581 +0530
+diff -ruN '--exclude=.git' '--exclude=__pycache__' dots-hyprland/dots/.config/quickshell/ii/services/Idle.qml base0/quickshell/.config/quickshell/ii/services/Idle.qml
+--- dots-hyprland/dots/.config/quickshell/ii/services/Idle.qml	2026-03-05 22:35:33.819209394 +0530
++++ base0/quickshell/.config/quickshell/ii/services/Idle.qml	2026-07-04 09:32:00.753571581 +0530
 @@ -11,7 +11,7 @@
      id: root
  

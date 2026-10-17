@@ -29,3 +29,6 @@ zed/.config/zed/settings_backup.json
 core
 core.*
 *.log
+
+# tmux plugins: installed by TPM (bootstrap in tmux.conf), not committed
+tmux/.config/tmux/plugins/

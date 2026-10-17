@@ -30,7 +30,8 @@ RippleButton {
     }
 
     Connections {
-        target: Ai
+        // Only reference the singleton when its feature is on, so it isn't started otherwise
+        target: root.aiChatEnabled ? Ai : null
         function onResponseFinished() {
             if (GlobalStates.sidebarLeftOpen) return;
             root.showPing = true;
@@ -38,7 +39,8 @@ RippleButton {
     }
 
     Connections {
-        target: Booru
+        // Only reference the singleton when its feature is on, so it isn't started otherwise
+        target: root.animeEnabled ? Booru : null
         function onResponseFinished() {
             if (GlobalStates.sidebarLeftOpen) return;
             root.showPing = true;

@@ -1,3 +1,6 @@
+# Keep PATH entries unique (installers keep appending the same dirs)
+typeset -U path PATH
+
 # Force proper terminal + key handling
 export TERM=xterm-256color
 

@@ -1,10 +1,11 @@
 # Local patches against upstream
 
 `quickshell-ii.patch`: diff of `quickshell/.config/quickshell/ii` vs end-4/dots-hyprland
-commit `1dcf90ac` (`dots/.config/quickshell/ii`). Three local changes:
+commit `1dcf90ac` (`dots/.config/quickshell/ii`). Local changes:
 
 - `GlobalStates.qml` / `modules/ii/overview/Overview.qml`: Super-key guard
 - `services/Idle.qml`: idle inhibitor defaults on
+- `modules/ii/bar/LeftSidebarButton.qml`: only reference Ai/Booru singletons when policies.ai/weeb are on, so the AI + booru services never start when disabled (2026-10-17)
 
 When syncing to a newer upstream ii, copy the new tree in and re-apply this patch.
 
