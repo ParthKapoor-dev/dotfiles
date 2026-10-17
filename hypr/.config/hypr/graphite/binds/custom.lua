@@ -1,11 +1,5 @@
 -- Bind group "custom": the user's own binds. Port of the old custom/keybinds.conf
--- (User, Monitors, Fixes 2026-10-17) and the jcode managed block of the old
--- hyprland.conf (both removed with ii, 2026-10-17).
---
--- jcode: `jcode setup-hotkey` still writes a managed block into
--- ~/.config/hypr/hyprland.conf (it would create the file), which the Lua config
--- does not read. TODO: retarget jcode; until then re-run it, copy the new bind
--- lines here and delete the hyprland.conf it created.
+-- (User, Monitors, Fixes 2026-10-17). jcode hotkeys dropped 2026-10-17 (user: not needed).
 
 return function(ctx)
     local C = ctx.core
@@ -31,9 +25,5 @@ return function(ctx)
         { "SUPER + Space", X("qs -c graphite ipc call launcher toggle") }, -- Spotlight-style launcher
         { "SUPER + ALT + N", X("qs -c graphite ipc call controlCenter toggle") }, -- Control Center
 
-        -- >>> jcode launch hotkeys (from hyprland.conf managed block) >>>
-        { "SUPER + semicolon", X("'" .. C.HOME .. "/.jcode/hotkey/launch_jcode_0_cmd_semicolon.sh'") }, -- jcode: devex
-        { "SUPER + apostrophe", X("'" .. C.HOME .. "/.jcode/hotkey/launch_jcode_1_cmd_quote.sh'") },     -- jcode: home
-        -- <<< jcode <<<
     }
 end
