@@ -8,7 +8,8 @@ import qs.services
 // ~/Pictures), recursively; hidden folders are skipped and so is Screenshots (skipScreenshots).
 // Rows show the path relative to the directory with a thumbnail, and the selected one is shown large
 // beside the list (result.preview); Enter sets the wallpaper
-// (same as `nox wallpaper set`). Thumbnails are made lazily, one `magick` at a time and only
+// (same as `nox wallpaper set`), Ctrl+Enter adds it to / removes it from the slideshow (rows in it
+// carry their slideshow position as a badge; provider "slideshow" orders them). Thumbnails are made lazily, one `magick` at a time and only
 // for listed rows, cached in ~/.cache/nox/wallpaper-thumbs/<md5(path:mtime)>.png.
 // The listing (`find`) runs when the prefix is typed, at most every 10 s.
 Item {
@@ -38,6 +39,7 @@ Item {
             const m = text ? Fuzzy.best(text, [[f.rel, 1]]) : { score: 0, indices: [] };
             if (!m) continue;
             const current = f.path === Wallpaper.path;
+            const pos = Wallpaper.slideshow.position(f.path);
             out.push({
                 title: f.rel,
                 highlight: m.indices,
@@ -48,6 +50,9 @@ Item {
                 actLabel: "Set Wallpaper",
                 score: m.score + (current ? 0.01 : 0),
                 file: f,
+                badge: pos ? String(pos) : "",
+                mark: () => Wallpaper.slideshow.toggle(f.path),
+                markLabel: pos ? "Remove from Slideshow" : "Add to Slideshow",
                 run: () => Wallpaper.set(f.path)
             });
         }

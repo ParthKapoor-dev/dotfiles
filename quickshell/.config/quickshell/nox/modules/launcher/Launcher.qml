@@ -13,7 +13,8 @@ import qs.services
 // Spotlight-style launcher (mock #launcher): centred glass panel, keyboard first.
 // Results come from pluggable providers (LauncherProviders registry; order/options in shell.json
 // launcher.providers + launcher.provider.<id>). Typing a provider's prefix ("=", "@", "/", ">")
-// queries only that provider. Keys: Up/Down, Tab/Shift+Tab, Ctrl+N/Ctrl+P, Enter, Esc.
+// queries only that provider. Keys: Up/Down, Tab/Shift+Tab, Ctrl+N/Ctrl+P, Enter, Esc; for results
+// that support them, Shift+Delete (remove), Ctrl+Enter (mark) and Alt+Up/Alt+Down (reorder).
 // Layer surface namespace nox:launcher; it only exists while open.
 Scope {
     id: root
@@ -123,6 +124,27 @@ Scope {
         if (!selectable.length) return;
         sel = (sel + d + selectable.length) % selectable.length;
         confirming = false;
+    }
+    // Ctrl+Enter: result.mark() toggles membership (e.g. in the wallpaper slideshow); the list stays
+    function markSelected() {
+        const cur = selectable[sel]?.item;
+        if (!cur?.mark) return false;
+        try { cur.mark(); } catch (e) { console.warn("nox: launcher mark failed:", e); }
+        search(true);
+        return true;
+    }
+    // Alt+Up/Down: result.move(delta) reorders; the selection follows the moved row (by key ?? title)
+    function reorderSelected(d) {
+        const cur = selectable[sel]?.item;
+        if (!cur?.move) return false;
+        const key = cur.key ?? cur.title;
+        let moved = false;
+        try { moved = cur.move(d) !== false; } catch (e) { console.warn("nox: launcher move failed:", e); }
+        if (!moved) return true;
+        search(true);
+        const i = selectable.findIndex(x => (x.item.key ?? x.item.title) === key);
+        if (i >= 0) sel = i;
+        return true;
     }
     function runSelected() {
         const cur = selectable[sel]?.item;
@@ -291,7 +313,11 @@ Scope {
 
                             Keys.onPressed: e => {
                                 const ctrl = e.modifiers & Qt.ControlModifier;
-                                if (e.key === Qt.Key_Down || e.key === Qt.Key_Tab || (ctrl && e.key === Qt.Key_N)) { root.move(1); e.accepted = true; }
+                                const alt = e.modifiers & Qt.AltModifier;
+                                // modified keys first: they would otherwise fall into the plain branches
+                                if (alt && (e.key === Qt.Key_Up || e.key === Qt.Key_Down)) { root.reorderSelected(e.key === Qt.Key_Up ? -1 : 1); e.accepted = true; }
+                                else if (ctrl && (e.key === Qt.Key_Return || e.key === Qt.Key_Enter)) { root.markSelected(); e.accepted = true; }
+                                else if (e.key === Qt.Key_Down || e.key === Qt.Key_Tab || (ctrl && e.key === Qt.Key_N)) { root.move(1); e.accepted = true; }
                                 else if (e.key === Qt.Key_Up || e.key === Qt.Key_Backtab || (ctrl && e.key === Qt.Key_P)) { root.move(-1); e.accepted = true; }
                                 else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) { root.runSelected(); e.accepted = true; }
                                 else if (e.key === Qt.Key_Delete && (e.modifiers & Qt.ShiftModifier)) {
@@ -418,6 +444,17 @@ Scope {
                                 visible: root.selectable.length > 0
                                 label: root.confirming ? "Confirm" : (root.selectable[root.sel]?.item.actLabel ?? "Open")
                                 keys: ["↵"]
+                            }
+                            // only while the selected result supports them
+                            Hint {
+                                visible: !!root.selectable[root.sel]?.item.mark
+                                label: root.selectable[root.sel]?.item.markLabel ?? "Mark"
+                                keys: ["ctrl", "↵"]
+                            }
+                            Hint {
+                                visible: !!root.selectable[root.sel]?.item.move
+                                label: "Reorder"
+                                keys: ["alt", "↑", "↓"]
                             }
                             Hint { label: "Navigate"; keys: ["↑", "↓"] }
                             Hint { label: "Close"; keys: ["esc"] }
@@ -572,6 +609,25 @@ Scope {
                     Glyph { anchors.centerIn: parent; visible: !r.it.glyph; name: r.it.icon ?? "dots"; size: 15; color: r.fg }
                     // literal character (emoji): the UI font's fallback is monochrome, so name the emoji font
                     Text { anchors.centerIn: parent; visible: !!r.it.glyph; text: r.it.glyph ?? ""; font.family: "Twemoji"; font.pixelSize: 16 }
+                }
+                // result.badge: small numbered pill on the icon's corner (slideshow position)
+                Rectangle {
+                    visible: (r.it.badge ?? "") !== ""
+                    x: -4; y: -4
+                    width: Math.max(height, badgeText.implicitWidth + 8); height: 16
+                    radius: Theme.square ? 3 : height / 2
+                    color: Theme.accent
+                    border.width: Theme.rimWidth
+                    border.color: Theme.rgba("#000000", 0.35)
+                    GText {
+                        id: badgeText
+                        anchors.centerIn: parent
+                        text: r.it.badge ?? ""
+                        color: Theme.onAccent
+                        font.family: Theme.labelsMono ? Theme.fontLabel : Theme.fontUi
+                        font.pixelSize: 10
+                        font.weight: Font.DemiBold
+                    }
                 }
             }
             Row {

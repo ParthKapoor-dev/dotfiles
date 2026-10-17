@@ -15,7 +15,12 @@ import Quickshell
 // result = { title, sub?, type?, icon? (icon-font symbol) | image? (icon path/url) | glyph? (literal character, e.g. an emoji), highlight? ([indices in title]),
 //            score? (sort within the group), actLabel? ("Open"), confirm? ("Restart now?" = ask before running),
 //            big? ([left, leftLabel, right, rightLabel] = large calculator style row), thumb? (image url = tall row with a preview), thumbSlot? (true = tall row even while thumb is still ""), preview? (image url = large preview beside the list while selected),
-//            remove? (function, Shift+Delete), run: function() }
+//            remove? (function, Shift+Delete), run: function(),
+//            mark? (function, Ctrl+Enter: toggle membership, the launcher stays open; markLabel? = footer hint, default "Mark"),
+//            badge? (short string, e.g. "3" = small numbered pill on the icon/thumbnail),
+//            move? (function(delta) -> false if it couldn't, Alt+Up = -1 / Alt+Down = +1: reorder; the launcher
+//                   re-runs the search and keeps the moved row selected, found by key? (stable id) ?? title) }
+// Footer hints for mark / move show only while the selected result has them.
 // A provider may declare `signal resultsChanged()` (async sources): the launcher re-runs the search.
 // Per-provider shell.json options understood by the launcher itself: enabled, prefix, prefixOnly, limit (0 = all), title.
 Singleton {
@@ -27,6 +32,7 @@ Singleton {
         "run": "Run.qml",
         "clipboard": "Clipboard.qml",
         "wallpapers": "Wallpapers.qml",
+        "slideshow": "Slideshow.qml",
         "emoji": "Emoji.qml"
     })
     function url(id) {

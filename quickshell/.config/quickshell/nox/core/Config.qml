@@ -242,7 +242,8 @@ Singleton {
             "path": "",
             "fill": "cover",
             "color": "#000000",
-            "transition": 500
+            "transition": 500,
+            "slideshowMinutes": 15
         },
         "overview": {
             "minWorkspaces": 5,

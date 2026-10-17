@@ -84,12 +84,26 @@ ShellRoot {
         function close(): void { Panels.sessionOpen = false; }
     }
     // qs -c nox ipc call wallpaper set <path> | get | fill <cover|fit|stretch|center|tile> | reset
+    //   slideshowStart | slideshowStop | slideshowNext | slideshowPrev | slideshowAdd <path>
+    //   slideshowRemove <path> | slideshowMove <path> <delta> | slideshowClear
+    //   slideshowList (paths in order) | slideshowStatus ("on|off <minutes> <count>") | slideshowInterval (minutes)
     IpcHandler {
         target: "wallpaper"
         function set(path: string): void { Wallpaper.set(path); }
         function get(): string { return Wallpaper.path; }
         function fill(mode: string): void { Wallpaper.setFill(mode); }
         function reset(): void { Wallpaper.reset(); }
+        function slideshowStart(): void { Wallpaper.slideshow.start(); }
+        function slideshowStop(): void { Wallpaper.slideshow.stop(); }
+        function slideshowNext(): void { Wallpaper.slideshow.next(); }
+        function slideshowPrev(): void { Wallpaper.slideshow.prev(); }
+        function slideshowAdd(path: string): void { Wallpaper.slideshow.add(path); }
+        function slideshowRemove(path: string): void { Wallpaper.slideshow.remove(path); }
+        function slideshowMove(path: string, delta: int): bool { return Wallpaper.slideshow.move(path, delta); }
+        function slideshowClear(): void { Wallpaper.slideshow.clear(); }
+        function slideshowList(): string { return Wallpaper.slideshow.paths.join("\n"); }
+        function slideshowStatus(): string { const s = Wallpaper.slideshow; return (s.on ? "on " : "off ") + s.minutes + " " + s.paths.length; }
+        function slideshowInterval(): real { return Wallpaper.slideshow.minutes; }
     }
     // qs -c nox ipc call action run <name>   (names: services/Actions.qml) | list
     IpcHandler {

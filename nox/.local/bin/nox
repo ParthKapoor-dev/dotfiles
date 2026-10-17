@@ -18,6 +18,7 @@ usage: nox <command> [args]
   shot   region|copy|screen|window|ocr
   record [--fullscreen] [--sound]
   wallpaper pick|random|list [--all]|set <path>|prep <image|dir>...
+            slideshow start|stop|next|prev|status|list|clear|add <path>...|remove <path>...
   dpms   on|off|toggle [monitor]
   hypr   status|check|on [--live]|off
   greeter sync|test|nested|install|on|off|status  (login screen on greetd)

@@ -3,41 +3,51 @@
 
   nox wallpaper prep [--out DIR] [--force] [--jobs N] <image|dir|@listfile>...
 
-Each image becomes <out>/<name>.jpg at the screen's shape (2560 wide or the screen, whichever is
-bigger; 16:9 here). Defaults: out = ~/Pictures/Wallpapers/prepped. Originals are never touched.
+Each image becomes <out>/<name>.jpg at exactly the size the shell draws the wallpaper (logical
+screen x the rounded-up scale: 3072x1728 on a 1920x1080 panel at 1.25), so nothing is resampled
+twice. Default out = ~/Pictures/Wallpapers/prepped. Originals are never touched.
 
   landscape (wider than 1.3:1)  cover-crop; the crop window follows the subject (edge energy) and
                                 puts it on a third when there is room
-  portrait / square             full-height on the right third, edges feathered into a blurred,
-                                darkened copy of itself (no black bars, no stretched pixels)
-  then, for every image:        Lanczos upscale (+ light sharpen) when needed, near-blacks pulled
-                                to the theme's page color, top strip darkened behind the bar,
-                                grain (stronger the more it was upscaled)
+  portrait / square             full height against the right edge of the screen, the rest plain
+                                page colour (dark-edged art fades in on its left side, a light-edged
+                                poster keeps a hard edge)
+  then, for every image:        sources smaller than the screen are upscaled with Real-ESRGAN first
+                                (Lanczos if it isn't installed), near-blacks pulled to the theme's
+                                page colour, top strip darkened behind the bar, bright images
+                                graded down, light grain on the picture (not on empty black)
 
-Theme page color comes from ~/.local/state/nox/tokens.json. Needs ImageMagick 7 (magick).
-NOX_WALLPAPER_SIZE=WxH overrides the size.
+Theme page colour comes from ~/.local/state/nox/tokens.json. Needs ImageMagick 7 (magick).
+Upscaler: realesrgan-ncnn-vulkan (release zip from github.com/xinntao/Real-ESRGAN unpacked into
+~/.local/share/nox/realesrgan, or NOX_UPSCALER=<binary>); NOX_UPSCALER_GPU picks the Vulkan
+device (default 0; `-g` of the binary). NOX_WALLPAPER_SIZE=WxH overrides the size.
 """
-import json, os, re, subprocess, sys
+import json, math, os, re, subprocess, sys, tempfile, threading
 from concurrent.futures import ThreadPoolExecutor
 
 EXTS = (".png", ".jpg", ".jpeg", ".webp", ".avif")
 STATE = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state")), "nox")
+UPSCALER = os.environ.get("NOX_UPSCALER") or os.path.expanduser("~/.local/share/nox/realesrgan/realesrgan-ncnn-vulkan")
+GPU = os.environ.get("NOX_UPSCALER_GPU", "0")
+gpu_lock = threading.Lock()  # one upscale at a time; the GPU is the bottleneck
 
 
 def target_size():
     env = os.environ.get("NOX_WALLPAPER_SIZE", "")
     if re.fullmatch(r"\d+x\d+", env):
         return tuple(map(int, env.split("x")))
-    w, h = 1920, 1080
+    w, h, scale = 1920, 1080, 1.0
     try:
         mons = json.loads(subprocess.run(["hyprctl", "-j", "monitors"], capture_output=True, text=True).stdout)
         m = max(mons, key=lambda m: m["width"] * m["height"])
-        w, h = m["width"], m["height"]
+        w, h, scale = m["width"], m["height"], m.get("scale", 1.0) or 1.0
         if m.get("transform", 0) % 2:
             w, h = h, w
     except Exception:
         pass
-    k = max(1.0, 2560 / w)  # headroom above fractional scaling
+    # Qt draws at a whole device-pixel ratio (1.25 -> 2) and the compositor scales the buffer
+    # down; matching that size means the image is decoded 1:1
+    k = math.ceil(scale - 1e-6) / scale
     return round(w * k / 2) * 2, round(h * k / 2) * 2
 
 
@@ -49,7 +59,7 @@ def page_color():
         return "#000000"
 
 
-def magick(*args, out=True):
+def magick(*args):
     r = subprocess.run(["magick", *map(str, args)], capture_output=True)
     if r.returncode:
         raise RuntimeError(r.stderr.decode(errors="replace").strip()[:300])
@@ -59,6 +69,10 @@ def magick(*args, out=True):
 def size_of(src):
     w, h = magick(src + "[0]", "-format", "%w %h", "info:").split()
     return int(w), int(h)
+
+
+def mean_light(src):
+    return float(magick(src + "[0]", "-resize", "64x64!", "-colorspace", "gray", "-format", "%[fx:mean]", "info:"))
 
 
 def subject_center(src, n=64):
@@ -93,84 +107,82 @@ def crop_offset(slack, center, full):
     return int(min(max(want, 0), slack))
 
 
-def mean_light(src):
-    return float(magick(src + "[0]", "-resize", "64x64!", "-colorspace", "gray", "-format", "%[fx:mean]", "info:"))
+def edge_is_light(src):
+    """True when the image's left/right borders are light (a poster with a pale margin)."""
+    v = float(magick(src + "[0]", "-auto-orient", "-colorspace", "gray", "-alpha", "off",
+                     "(", "+clone", "-gravity", "west", "-crop", "4%x100%+0+0", ")",
+                     "(", "-clone", "0", "-gravity", "east", "-crop", "4%x100%+0+0", ")",
+                     "-delete", "0", "+append", "-format", "%[fx:mean]", "info:"))
+    return v > 0.35
+
+
+def upscale(src, need, tmpdir):
+    """Real-ESRGAN x4 when the image has to grow by more than 5%; returns (path, factor)."""
+    if need <= 1.05 or not os.access(UPSCALER, os.X_OK):
+        return src, 1
+    flat = os.path.join(tmpdir, "in.png")
+    out = os.path.join(tmpdir, "x4.png")
+    magick(src + "[0]", "-auto-orient", "-colorspace", "sRGB", "-alpha", "remove", "-alpha", "off", flat)
+    models = os.path.join(os.path.dirname(UPSCALER), "models")
+    with gpu_lock:
+        r = subprocess.run([UPSCALER, "-i", flat, "-o", out, "-n", "realesrgan-x4plus", "-s", "4",
+                            "-m", models, "-g", GPU], capture_output=True)
+    if r.returncode or not os.path.exists(out):
+        return src, 1
+    return out, 4
 
 
 def prep(src, dst, W, H, page):
     w, h = size_of(src)
     light = mean_light(src)
     cx, cy = subject_center(src)
-    head = [src + "[0]", "-auto-orient", "-colorspace", "sRGB", "-alpha", "remove", "-alpha", "off"]
-    if w / h >= 1.3:
-        k = max(W / w, H / h)
-        rw, rh = round(w * k), round(h * k)
-        ox = crop_offset(rw - W, cx, rw)
-        # vertical: favour keeping the bottom (the top gets the bar), but follow the subject
-        oy = crop_offset(rh - H, min(cy + 0.05, 1), rh)
-        body = ["-filter", "Lanczos", "-resize", f"{rw}x{rh}!", "-crop", f"{W}x{H}+{ox}+{oy}", "+repage"]
-        scale = k
-        mode = "fill"
-    else:
-        k = H / h
-        fw = round(w * k)
-        if fw > W * 0.9:  # nearly the screen's shape anyway: just cover
-            return prep_cover(src, dst, W, H, page, head, w, h, cx, cy, light)
-        x = int(min(max(W * 0.64 - fw / 2, W * 0.04), W - fw - W * 0.02))
-        edge, light_edge = edge_color(src)
-        # dark-edged art melts into the background; a light-edged poster gets a clean hard edge
-        # (feathering it leaves a glowing seam)
-        ramp = 1 if light_edge else max(1, round(fw * 0.22))
-        body = [
-            # background: the image's own edge color, with a faint, very blurred, dark copy over it
-            "(", "+clone", "-resize", f"{W // 16}x{H // 16}^", "-gravity", "center", "-extent", f"{W // 16}x{H // 16}",
-            "-blur", "0x4", "-filter", "Gaussian", "-resize", f"{W}x{H}!", "-modulate", "40,60",
-            "(", "-size", f"{W}x{H}", f"xc:{edge}", ")", "+swap",
-            "-compose", "blend", "-define", "compose:args=35", "-composite", ")",
-            # foreground: full height, sides feathered
-            "(", "-clone", "0", "-filter", "Lanczos", "-resize", f"{fw}x{H}!",
-            "(", "-size", f"{fw}x1", "xc:", "-fx", f"min(1,min(i,w-1-i)/{ramp})", "-scale", f"{fw}x{H}!", ")",
-            "-alpha", "off", "-compose", "CopyOpacity", "-composite", ")",
-            "-delete", "0", "-gravity", "northwest", "-compose", "over", "-geometry", f"+{x}+0", "-composite",
-        ]
-        scale = k
-        mode = "compose"
-    finish(head + body, dst, W, H, page, scale, light)
-    return mode, w, h, scale
+    portrait = w / h < 1.3 and round(w * H / h) <= W * 0.9
+    need = H / h if portrait else max(W / w, H / h)
+    with tempfile.TemporaryDirectory(prefix="nox-wp-") as tmp:
+        work, ai = upscale(src, need, tmp)
+        ww, wh = w * ai, h * ai
+        head = [work + "[0]", "-auto-orient", "-colorspace", "sRGB", "-alpha", "remove", "-alpha", "off"]
+        grain = 0.18 + 0.22 * min(1.0, max(0.0, need - 1.0))  # attenuate: ~1.4% native, ~3% at 2x+
+        soften = ai == 1 and need > 1.3  # plain Lanczos upscale: sharpen a little
+        if not portrait:
+            k = max(W / ww, H / wh)
+            rw, rh = round(ww * k), round(wh * k)
+            ox = crop_offset(rw - W, cx, rw)
+            # vertical: favour keeping the bottom (the top gets the bar), but follow the subject
+            oy = crop_offset(rh - H, min(cy + 0.05, 1), rh)
+            body = ["-filter", "Lanczos", "-resize", f"{rw}x{rh}!", "-crop", f"{W}x{H}+{ox}+{oy}", "+repage"]
+            body += ["-unsharp", "0x1+0.45+0.02"] if soften else []
+            body += grain_ops(W, H, grain)
+            mode = "fill"
+        else:
+            fw = round(ww * H / wh)
+            # dark-edged art fades into the black on its left; a light-edged poster keeps a hard edge
+            ramp = 1 if edge_is_light(src) else max(1, round(fw * 0.10))
+            fg = ["-filter", "Lanczos", "-resize", f"{fw}x{H}!"]
+            fg += ["-unsharp", "0x1+0.45+0.02"] if soften else []
+            fg += grain_ops(fw, H, grain)
+            body = [
+                "(", "-size", f"{W}x{H}", f"xc:{page}", ")",
+                "(", "-clone", "0", *fg,
+                "(", "-size", f"{fw}x1", "xc:", "-fx", f"min(1,i/{ramp})", "-scale", f"{fw}x{H}!", ")",
+                "-alpha", "off", "-compose", "CopyOpacity", "-composite", ")",
+                "-delete", "0", "-gravity", "northeast", "-compose", "over", "-geometry", "+0+0", "-composite",
+                "-gravity", "northwest",
+            ]
+            mode = "right"
+        finish(head + body, dst, W, H, page, light)
+    return mode + ("+ai" if ai > 1 else ""), w, h, need
 
 
-def edge_color(src):
-    """Average color of the outer 4% columns (what the feathered sides fade into)."""
-    rgb = magick(src + "[0]", "-auto-orient", "-colorspace", "sRGB", "-alpha", "off",
-                 "(", "+clone", "-gravity", "west", "-crop", "4%x100%+0+0", ")",
-                 "(", "-clone", "0", "-gravity", "east", "-crop", "4%x100%+0+0", ")",
-                 "-delete", "0", "+append", "-resize", "1x1!", "-format", "%[pixel:p{0,0}]", "info:").decode()
-    m = re.findall(r"[\d.]+%?", rgb)
-    if len(m) >= 3:
-        v = [float(x[:-1]) * 2.55 if x.endswith("%") else float(x) for x in m[:3]]
-        # never lighter than a dark grey: the desktop stays dark
-        k = min(1.0, 60 / max(max(v), 1))
-        return "#%02x%02x%02x" % tuple(int(c * k) for c in v), max(v) > 90
-    return "#000000", False
+def grain_ops(w, h, amount):
+    # mono noise added around 0 (softlight brightened dark images and banded them)
+    return ["(", "-size", f"{w}x{h}", "xc:gray50", "-attenuate", f"{amount:.2f}", "+noise", "Gaussian",
+            "-modulate", "100,0", ")", "-compose", "Mathematics", "-define", "compose:args=0,1,1,-0.5", "-composite"]
 
 
-def prep_cover(src, dst, W, H, page, head, w, h, cx, cy, light):
-    k = max(W / w, H / h)
-    rw, rh = round(w * k), round(h * k)
-    body = ["-filter", "Lanczos", "-resize", f"{rw}x{rh}!",
-            "-crop", f"{W}x{H}+{crop_offset(rw - W, cx, rw)}+{crop_offset(rh - H, cy, rh)}", "+repage"]
-    finish(head + body, dst, W, H, page, k, light)
-    return "cover", w, h, k
-
-
-def finish(cmd, dst, W, H, page, scale, light=0.0):
+def finish(cmd, dst, W, H, page, light):
     bar = round(H * 0.10)
-    grain = 0.3 + 0.4 * min(1.0, max(0.0, scale - 1.0))  # attenuate: ~2% at native, ~4% at 2x+
-    cmd += [] if scale <= 1.3 else ["-unsharp", "0x1+0.45+0.02"]
-    cmd += [
-        # near-blacks -> page color
-        "-level", "1.5%,100%",
-    ]
+    cmd += ["-level", "1.5%,100%"]  # near-blacks -> black (then page colour below)
     if light > 0.30:
         # bright image on a dark desktop: lower the midtones (gamma) more than the highlights, mute
         # colour a little, and add a soft vignette so the edges sit with the black UI
@@ -182,14 +194,10 @@ def finish(cmd, dst, W, H, page, scale, light=0.0):
         cmd += ["+level-colors", f"{page},white"]
     cmd += [
         # darken the strip behind the bar
-        "(", "-size", f"{W}x{bar}", f"gradient:{page}-{page}", "(", "-size", f"{W}x{bar}", "gradient:gray(60%)-black", ")",
+        "(", "-size", f"{W}x{bar}", f"xc:{page}", "(", "-size", f"{W}x{bar}", "gradient:gray(60%)-black", ")",
         "-alpha", "off", "-compose", "CopyOpacity", "-composite", ")",
         "-gravity", "north", "-compose", "over", "-composite",
-        # grain
-        # grain: mono noise added around 0 (softlight brightened dark images and banded them)
-        "(", "-size", f"{W}x{H}", "xc:gray50", "-attenuate", f"{grain:.2f}", "+noise", "Gaussian", "-modulate", "100,0", ")",
-        "-compose", "Mathematics", "-define", "compose:args=0,1,1,-0.5", "-composite",
-        "-strip", "-sampling-factor", "4:4:4", "-quality", "90", dst + ".part.jpg",
+        "-strip", "-sampling-factor", "4:4:4", "-quality", "95", dst + ".part.jpg",
     ]
     magick(*cmd)
     os.replace(dst + ".part.jpg", dst)
@@ -205,8 +213,8 @@ def gather(args):
     for a in args:
         if a.startswith("@"):
             for line in open(a[1:]):
-                line = line.strip()
-                if line and not line.startswith("#"):
+                line = line.rstrip("\n")
+                if line.strip() and not line.startswith("#"):
                     yield line
         elif os.path.isdir(a):
             for root, dirs, files in os.walk(a):
@@ -245,14 +253,15 @@ def main(argv):
         if not force and os.path.exists(dst) and os.path.getmtime(dst) >= os.path.getmtime(src):
             continue
         work.append((src, dst))
-    print(f"{len(work)} to do -> {out} at {W}x{H}, page {page}")
-    env_threads = os.environ.setdefault("MAGICK_THREAD_LIMIT", "2")
+    up = "Real-ESRGAN" if os.access(UPSCALER, os.X_OK) else "Lanczos (no upscaler found)"
+    print(f"{len(work)} to do -> {out} at {W}x{H}, page {page}, upscale: {up}")
+    os.environ.setdefault("MAGICK_THREAD_LIMIT", "2")
 
     def one(job):
         src, dst = job
         try:
             mode, w, h, k = prep(src, dst, W, H, page)
-            return f"ok   {mode:7} {w}x{h} x{k:.2f}  {os.path.basename(dst)}"
+            return f"ok   {mode:8} {w}x{h} x{k:.2f}  {os.path.basename(dst)}"
         except Exception as e:
             return f"FAIL {os.path.basename(src)}: {e}"
 

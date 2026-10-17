@@ -3,10 +3,14 @@
 # (replaces ii's wallpaper selector binds).
 #
 #   nox wallpaper pick [--all]     fuzzel list of every image under $NOX_WALLPAPER_DIR
-#                                        (default ~/Pictures), recursively, labelled by relative path
+#                                        (default ~/Pictures/Wallpapers/prepped, else ~/Pictures),
+#                                        recursively, labelled by relative path
 #   nox wallpaper random [--all]   random image from that list
 #   nox wallpaper list [--all]     print the list (absolute paths)
-#   nox wallpaper set <path>
+#   nox wallpaper set <path>       (stops a running slideshow unless <path> is in it)
+#   nox wallpaper slideshow start|stop|next|prev|status|list|clear|add <path>...|remove <path>...
+#                                  cycle an ordered list every shell.json wallpaper.slideshowMinutes
+#                                  (default 15); launcher: "%" lists it, Ctrl+Enter in "#" adds/removes
 #   nox wallpaper prep [--out DIR] [--force] <image|dir>...
 #                                  make images into nox wallpapers (screen shape, subject on a third,
 #                                  dark top strip, grain) -> ~/Pictures/Wallpapers/prepped; see wallpaper-prep
@@ -16,7 +20,10 @@
 
 set -uo pipefail
 
-dir="${NOX_WALLPAPER_DIR:-$(xdg-user-dir PICTURES 2>/dev/null || echo "$HOME/Pictures")}"
+pics="$(xdg-user-dir PICTURES 2>/dev/null || echo "$HOME/Pictures")"
+# the processed set (nox wallpaper prep) when there is one, like the launcher's "#" list
+dir="${NOX_WALLPAPER_DIR:-$pics/Wallpapers/prepped}"
+[ -d "$dir" ] || dir="$pics"
 dir="${dir%/}"
 all=0
 for a in "$@"; do [ "$a" = "--all" ] && all=1; done
@@ -37,6 +44,26 @@ set_wp() {
     fi
 }
 
+ipc() { qs -c nox ipc call wallpaper "$@" 2>/dev/null || { echo "nox wallpaper: nox shell is not running" >&2; exit 1; }; }
+
+slideshow() {
+    local cmd="${1:-status}" p
+    [ $# -gt 0 ] && shift
+    case "$cmd" in
+        start | stop | next | prev | list | clear | status)
+            ipc "slideshow${cmd^}" ;;
+        add | remove)
+            [ $# -gt 0 ] || { echo "usage: nox wallpaper slideshow $cmd <path>..." >&2; exit 2; }
+            for a in "$@"; do
+                # remove also takes paths that no longer exist
+                if [ "$cmd" = add ]; then p=$(realpath -e -- "$a" 2>/dev/null) || { echo "nox wallpaper: no such file: $a" >&2; continue; }
+                else p=$(realpath -m -- "$a"); fi
+                ipc "slideshow${cmd^}" "$p" >/dev/null
+            done ;;
+        *) echo "usage: nox wallpaper slideshow start|stop|next|prev|status|list|clear|add <path>...|remove <path>..." >&2; exit 2 ;;
+    esac
+}
+
 case "${1:-pick}" in
     pick)
         pkill -x fuzzel && exit 0
@@ -50,6 +77,7 @@ case "${1:-pick}" in
         set_wp "$f"
         ;;
     set) set_wp "${2:?usage: nox wallpaper set <path>}" ;;
+    slideshow) shift; slideshow "$@" ;;
     prep) shift; exec "$(dirname "$(realpath "$0")")/wallpaper-prep" "$@" ;;
-    *) echo "usage: nox wallpaper pick|random|list [--all] | set <path> | prep <image|dir>..." >&2; exit 2 ;;
+    *) echo "usage: nox wallpaper pick|random|list [--all] | set <path> | slideshow <cmd> | prep <image|dir>..." >&2; exit 2 ;;
 esac
