@@ -42,7 +42,16 @@ return {
     -- Tiling layouts cycled by Super+\ (next) / Super+Shift+\ (previous) and by
     -- `graphite-layout`. The first one is the default. Built-in names (0.55.4):
     -- dwindle, master, scrolling, monocle.
-    layouts = { "dwindle", "scrolling", "master" },
+    layouts = { "dwindle", "scrolling", "master", "monocle" },
+    -- Per-layout options, tuned so each layout looks clearly different even with
+    -- two windows (defaults made scrolling = 50/50 columns = same as dwindle).
+    layout_options = {
+        master = { mfact = 0.62, new_status = "master" },       -- big main window left, stack right
+        scrolling = { column_width = 0.8, fullscreen_on_one_column = true }, -- wide columns, neighbours peek in
+    },
+    -- Show the layout name on screen when it changes (graphite shell HUD).
+    layout_hud = true,
+    layout_labels = { dwindle = "Tiling", scrolling = "Scrolling", master = "Master + stack", monocle = "Monocle (one at a time)" },
     -- Keep the runtime choice across config reloads for the rest of the session
     -- ($XDG_RUNTIME_DIR file). Never survives a logout.
     layout_persist = true,

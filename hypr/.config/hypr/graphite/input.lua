@@ -45,6 +45,8 @@ return function(ctx)
             smart_split = false,
             smart_resizing = false,
         },
+        master = (S.layout_options or {}).master,
+        scrolling = (S.layout_options or {}).scrolling,
 
         misc = {
             disable_hyprland_logo = true,

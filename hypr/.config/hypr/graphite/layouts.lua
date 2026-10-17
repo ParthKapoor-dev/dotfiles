@@ -94,6 +94,12 @@ function L.set(S, name)
     hl.config({ general = { layout = name } })
     if S.layout_persist ~= false then write_state(name) end
     hl.exec_cmd(notify_cmd(name))
+    if S.layout_hud ~= false then
+        local label = (S.layout_labels or {})[name] or name
+        local ok, gp = pcall(require, "graphite.shells.graphite")
+        local qs = ok and type(gp) == "table" and gp.QS or "qs -c graphite"
+        hl.exec_cmd(string.format("%s ipc call hud show '%s' >/dev/null 2>&1", qs, label:gsub("'", "")))
+    end
     return name
 end
 
