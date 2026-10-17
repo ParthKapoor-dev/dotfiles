@@ -53,7 +53,8 @@
   },
   "controlCenter": {
     "sections": ["connectivity", "performance", "display", "sound", "media", "tiles"],
-    "tiles": ["screenshot", "record", "darkMode", "lock"]
+    "tiles": ["screenshot", "record", "look", "lock"],
+    "looks": ["default", "telemetry"]
   },
   "session": {
     "items": ["lock", "logout", "sleep", "restart", "poweroff"],

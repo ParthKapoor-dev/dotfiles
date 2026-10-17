@@ -199,8 +199,12 @@ Singleton {
             "tiles": [
                 "screenshot",
                 "record",
-                "darkMode",
+                "look",
                 "lock"
+            ],
+            "looks": [
+                "default",
+                "telemetry"
             ]
         },
         "session": {

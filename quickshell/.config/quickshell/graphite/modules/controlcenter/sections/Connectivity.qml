@@ -5,7 +5,8 @@ import qs.components
 import qs.services
 
 // Top block of the Control Center (mock grid rows 1-2): Wi-Fi / Bluetooth / Airplane (2x2 module),
-// Focus (Do Not Disturb), Night Light and Caffeine tiles.
+// Focus (Do Not Disturb), Night Light and Caffeine tiles. Focus is 56 tall so the tiles under it
+// are 76 like the bottom row (one tile size everywhere).
 Item {
     id: root
     readonly property real col: (width - 30) / 4
@@ -46,7 +47,7 @@ Item {
     }
     Card {
         x: root.col * 2 + 20
-        width: root.col * 2 + 10; height: 66
+        width: root.col * 2 + 10; height: 56
         ControlToggle {
             width: parent.width
             anchors.verticalCenter: parent.verticalCenter
@@ -57,15 +58,15 @@ Item {
         }
     }
     ControlTile {
-        x: root.col * 2 + 20; y: 76
-        width: root.col; height: 66
-        icon: "sunset"; name: "Night"; sub: "Light"
+        x: root.col * 2 + 20; y: 66
+        width: root.col; height: 76
+        icon: "sunset"; name: "Night Light"
         on: NightLight.on
         onClicked: NightLight.toggle()
     }
     ControlTile {
-        x: root.col * 3 + 30; y: 76
-        width: root.col; height: 66
+        x: root.col * 3 + 30; y: 66
+        width: root.col; height: 76
         icon: "coffee"; name: "Caffeine"
         on: Panels.caffeine
         onClicked: Panels.caffeine = !Panels.caffeine
