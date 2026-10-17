@@ -101,7 +101,7 @@ Scope {
                 Image {
                     id: backdrop
                     anchors.fill: parent
-                    source: Wallpaper.url
+                    source: Wallpaper.displayUrl
                     fillMode: Image.PreserveAspectCrop
                     asynchronous: true
                     cache: true
@@ -182,7 +182,7 @@ Scope {
                                         clip: true
                                         Image {
                                             anchors.fill: parent
-                                            source: Wallpaper.url
+                                            source: Wallpaper.displayUrl
                                             fillMode: Image.PreserveAspectCrop
                                             sourceSize.width: 352
                                             asynchronous: true

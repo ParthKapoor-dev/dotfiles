@@ -25,6 +25,10 @@ export NOX_GREETER_SHELL="$ETC/shell"
 export XDG_CACHE_HOME="$CACHE/cache" XDG_STATE_HOME="$CACHE/state" XDG_DATA_HOME="$CACHE/data" XDG_CONFIG_HOME="$CACHE/config"
 mkdir -p "$XDG_CACHE_HOME" "$XDG_STATE_HOME" "$XDG_DATA_HOME" "$XDG_CONFIG_HOME" 2>/dev/null
 export XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=Hyprland QT_QPA_PLATFORM=wayland XCURSOR_SIZE=24
+# no session bus: otherwise Qt activates xdg-desktop-portal(+hyprland) for the greeter user at
+# every boot (slower start, and the portal segfaults when the greeter compositor exits). The
+# greeter only needs the system bus (UPower, NetworkManager, logind) and the greetd socket.
+export DBUS_SESSION_BUS_ADDRESS=disabled:
 marker="${XDG_RUNTIME_DIR:-/tmp}/nox-greeter-launched"
 rm -f "$marker"
 

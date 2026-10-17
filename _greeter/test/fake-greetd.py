@@ -10,6 +10,9 @@ import json, os, socket, struct, sys
 
 path = sys.argv[1]
 password = os.environ.get("NOX_GREETER_FAKE_PW", "nox")
+# like real greetd right after a failed attempt: refuse the next create_session once
+refuse_after_fail = os.environ.get("NOX_GREETER_FAKE_REFUSE", "") != ""
+state = {"refuse": False}
 
 
 def send(c, obj):
@@ -47,6 +50,11 @@ def serve(c):
             shown["response"] = "*" * len(shown["response"])
         print("req", json.dumps(shown), flush=True)
         if kind == "create_session":
+            if state["refuse"]:
+                state["refuse"] = False
+                send(c, {"type": "error", "error_type": "error",
+                         "description": "Unable to send message: Connection refused (os error 111)"})
+                continue
             user, authed = req.get("username"), False
             send(c, {"type": "auth_message", "auth_message_type": "secret", "auth_message": "Password: "})
         elif kind == "post_auth_message_response":
@@ -55,6 +63,7 @@ def serve(c):
                 send(c, {"type": "success"})
             else:
                 user = None
+                state["refuse"] = refuse_after_fail
                 send(c, {"type": "error", "error_type": "auth_error", "description": "pam_authenticate: AUTH_ERR"})
         elif kind == "start_session":
             if authed:

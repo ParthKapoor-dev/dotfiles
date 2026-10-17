@@ -35,10 +35,10 @@ Variants {
         // the new image fades in over the previous one, which is then released
         property string cur: ""
         property string prev: ""
-        Component.onCompleted: cur = Wallpaper.url
+        Component.onCompleted: cur = Wallpaper.displayUrl
         Connections {
             target: Wallpaper
-            function onUrlChanged() { if (Wallpaper.url !== win.cur) { win.prev = win.cur; win.cur = Wallpaper.url; } }
+            function onDisplayUrlChanged() { if (Wallpaper.displayUrl !== win.cur) { win.prev = win.cur; win.cur = Wallpaper.displayUrl; } }
         }
         component Layer: Image {
             anchors.fill: parent

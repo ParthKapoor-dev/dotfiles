@@ -70,20 +70,35 @@ Item {
         }
         if (field.text === "") { shake.restart(); return; }
         pending = field.text;
+        retryPw = field.text; retries = 0;
         phase = "auth"; message = "";
         if (testMode && !Greetd.available) { fakeAuth.restart(); return; }
         if (!Greetd.available) { fail("greetd is not available"); return; }
         if (Greetd.state !== GreetdState.Inactive) Greetd.cancelSession();
         Greetd.createSession(user);
     }
+    // greetd can refuse the next request while it is still tearing down a failed attempt
+    // ("Unable to send message: Connection refused"): retry the same password a few times
+    property string retryPw: ""
+    property int retries: 0
+    Timer {
+        id: retryTimer; interval: 500
+        onTriggered: {
+            if (g.phase !== "auth" || g.retryPw === "") return;
+            if (Greetd.state !== GreetdState.Inactive) Greetd.cancelSession();
+            g.pending = g.retryPw;
+            Greetd.createSession(g.user);
+        }
+    }
     function wrong(msg) {
-        pending = ""; field.text = "";
+        pending = ""; retryPw = ""; field.text = "";
         phase = "wrong"; message = msg || "Incorrect password";
         shake.restart();
         field.forceActiveFocus();
     }
-    function fail(msg) { pending = ""; phase = "error"; message = msg; field.forceActiveFocus(); }
+    function fail(msg) { pending = ""; retryPw = ""; phase = "error"; message = msg; field.forceActiveFocus(); }
     function launch() {
+        retryPw = "";
         phase = "launching"; message = "";
         saveLast.setText(String(sessionIx) + "\n");
         leave.start();
@@ -102,7 +117,11 @@ Item {
         function onAuthFailure(msg) { g.wrong(""); }   // quickshell cancels the session itself
         function onReadyToLaunch() { g.launch(); }
         function onLaunched() { launchedMark.running = true; }
-        function onError(err) { g.fail("Login error: " + err); }
+        function onError(err) {
+            console.warn("greeter: greetd error:", err);
+            if (g.phase === "auth" && g.retryPw !== "" && g.retries < 3) { g.retries++; retryTimer.restart(); return; }
+            if (g.phase === "auth" || g.phase === "launching") g.fail("Login service didn't answer, try again");
+        }
     }
     // after the leave animation: ask greetd to start the session, then mark + quit
     // (the launch wrapper sees the marker and exits cleanly instead of falling back to tuigreet)
@@ -206,9 +225,9 @@ Item {
         SequentialAnimation {
             id: leave
             ParallelAnimation {
-                NumberAnimation { target: content; property: "opacity"; to: 0; duration: 380 }
-                NumberAnimation { target: content; property: "scale"; to: 1.06; duration: 560; easing.type: g.easeType; easing.bezierCurve: g.curve }
-                NumberAnimation { target: fadeOut; property: "opacity"; to: 1; duration: 560 }
+                NumberAnimation { target: content; property: "opacity"; to: 0; duration: 220 }
+                NumberAnimation { target: content; property: "scale"; to: 1.05; duration: 300; easing.type: g.easeType; easing.bezierCurve: g.curve }
+                NumberAnimation { target: fadeOut; property: "opacity"; to: 1; duration: 300 }
             }
             ScriptAction { script: g.startSession() }
         }
@@ -262,6 +281,7 @@ Item {
         // ---- user block ----
         Item {
             id: userBlock
+            z: 2           // above the power row: the session menu opens over it
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
             anchors.bottomMargin: g.tele ? 112 : 128
@@ -441,6 +461,7 @@ Item {
     }
     component MsgLine: Text {
         height: 16
+        elide: Text.ElideRight
         horizontalAlignment: g.tele ? Text.AlignLeft : Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
         text: g.up(g.message !== "" ? g.message : g.caps ? "Caps Lock is on" : "")
