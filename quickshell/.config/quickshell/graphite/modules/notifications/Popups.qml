@@ -57,6 +57,8 @@ Scope {
                 y: win.topY - win.margins.top
                 width: root.cardWidth
                 spacing: 8
+                // older banners glide down when a new one arrives on top (and up when one goes)
+                move: Transition { NumberAnimation { properties: "y"; duration: Theme.durSheet; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveSheet } }
                 Repeater {
                     // ScriptModel diffs by identity: only added/removed banners create/destroy
                     // delegates (a plain JS array model rebuilt every delegate on any change, so
