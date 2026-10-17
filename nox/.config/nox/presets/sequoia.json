@@ -76,7 +76,7 @@
   "desktop": {
     "wallpaper": "sequoia",
     "widgets": false,
-    "wallpaperPath": "~/Pictures/Wallpapers/gradient-1-clean.png"
+    "wallpaperPath": "~/Pictures/Wallpapers/nox/classic/gradient-1-clean.png"
   },
   "theme": {
     "gnomeAccent": "blue"
