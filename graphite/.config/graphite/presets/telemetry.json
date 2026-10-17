@@ -1,0 +1,141 @@
+{
+  "_comment": "Preset overlay: Telemetry (HUD / dot-matrix: true black, signal red, no blur, square-ish corners, Doto numerals, numbered workspaces, dot meters).",
+  "name": "telemetry",
+  "color": {
+    "bg": "#0A0A0A",
+    "surface": "#141414",
+    "raised": "#202020",
+    "glass": "#080808",
+    "labelAlpha": 0.9,
+    "label3Alpha": 0.3,
+    "sepAlpha": 0.1,
+    "rimAlpha": 0.13,
+    "hairAlpha": 0.14,
+    "fillAlpha": 0.06,
+    "fill2Alpha": 0.11,
+    "accent": "#FF3B1F",
+    "onAccent": "#120402",
+    "green": "#3DDC97",
+    "orange": "#FF8A3D",
+    "red": "#FF3B1F",
+    "yellow": "#FFC24B",
+    "teal": "#3FD5E0",
+    "blue": "#5AA9FF",
+    "purple": "#C792EA",
+    "pink": "#FF5C8A",
+    "trafficClose": "#FF3B1F",
+    "trafficMin": "#6A6A6A",
+    "trafficZoom": "#6A6A6A",
+    "trafficOff": "#2E2E2E",
+    "signal2": "#3FD5E0"
+  },
+  "terminal": {
+    "background": "#070707",
+    "foreground": "#E6E6E6",
+    "cursor": "#FF3B1F",
+    "selection": "#2A1410",
+    "black": "#121212",
+    "red": "#FF3B1F",
+    "green": "#3DDC97",
+    "yellow": "#FFC24B",
+    "blue": "#5AA9FF",
+    "magenta": "#C792EA",
+    "cyan": "#3FD5E0",
+    "white": "#CFCFCF",
+    "brightBlack": "#555555",
+    "brightRed": "#FF6A50",
+    "brightGreen": "#6BEBB4",
+    "brightYellow": "#FFD580",
+    "brightBlue": "#8CC4FF",
+    "brightMagenta": "#DDB3F5",
+    "brightCyan": "#7BE6EE"
+  },
+  "glass": {
+    "alpha": 1.0,
+    "menubarAlpha": 1.0,
+    "launcherAlpha": 1.0,
+    "blurSize": 0,
+    "blurPasses": 0,
+    "saturation": 1.0
+  },
+  "radius": {
+    "window": 4,
+    "menu": 4,
+    "control": 3,
+    "panel": 6
+  },
+  "size": {
+    "menubar": 28,
+    "dock": 46,
+    "dockMagnify": 1.0,
+    "gapsIn": 4,
+    "gapsOut": 8,
+    "rim": 1.0
+  },
+  "font": {
+    "icon": "Material Symbols Sharp",
+    "iconSize": 16,
+    "numericAxes": {
+      "wght": 800,
+      "ROND": 100
+    },
+    "numeric": "Doto"
+  },
+  "motion": {
+    "ease": [
+      0.2,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "sheet": [
+      0.2,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "snap": [
+      0.2,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "pop": 100,
+    "fade": 160,
+    "window": 260,
+    "sheetMs": 240,
+    "workspace": 320
+  },
+  "shadow": {
+    "focused": {
+      "range": 30,
+      "alpha": 0.8,
+      "offsetY": 10
+    },
+    "unfocused": {
+      "range": 14,
+      "alpha": 0.55,
+      "offsetY": 4
+    }
+  },
+  "ui": {
+    "meter": "dot-matrix",
+    "focusDecor": "corner-brackets",
+    "dockIcons": "monochrome-until-running",
+    "workspaceStyle": "numbers"
+  },
+  "desktop": {
+    "wallpaper": "signal-grid",
+    "dotGrid": {
+      "enabled": true
+    },
+    "widgets": true
+  },
+  "card": {
+    "style": "hairline",
+    "brackets": true
+  },
+  "theme": {
+    "gnomeAccent": "red"
+  }
+}

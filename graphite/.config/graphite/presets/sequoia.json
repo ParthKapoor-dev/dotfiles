@@ -1,0 +1,81 @@
+{
+  "_comment": "Preset overlay: Sequoia Graphite (the original macOS-like look: graphite greys, Apple blue, SF Pro, real glass).",
+  "name": "sequoia-graphite",
+  "color": {
+    "page": "#070708",
+    "bg": "#1C1C1E",
+    "surface": "#2C2C2E",
+    "raised": "#3A3A3C",
+    "glass": "#1E1E20",
+    "sepAlpha": 0.1,
+    "rimAlpha": 0.16,
+    "hairAlpha": 0.12,
+    "accent": "#0A84FF",
+    "onAccent": "#FFFFFF",
+    "trafficOff": "#4D4D4D"
+  },
+  "terminal": {
+    "background": "#1C1C1E",
+    "foreground": "#E5E5E7",
+    "cursor": "#0A84FF",
+    "selection": "#3A3A3C",
+    "black": "#1C1C1E",
+    "red": "#FF453A",
+    "green": "#30D158",
+    "yellow": "#FFD60A",
+    "blue": "#0A84FF",
+    "magenta": "#BF5AF2",
+    "cyan": "#64D2FF",
+    "white": "#D1D1D6",
+    "brightBlack": "#636366",
+    "brightRed": "#FF6961",
+    "brightGreen": "#4CE06E",
+    "brightYellow": "#FFE04A",
+    "brightBlue": "#409CFF",
+    "brightMagenta": "#DA8FFF",
+    "brightCyan": "#8ADDFF"
+  },
+  "glass": {
+    "alpha": 0.6,
+    "menubarAlpha": 0.54,
+    "launcherAlpha": 0.78,
+    "blurSize": 8,
+    "blurPasses": 3,
+    "saturation": 1.8
+  },
+  "size": {
+    "dock": 56,
+    "rim": 0.8
+  },
+  "font": {
+    "ui": "SF Pro Text",
+    "display": "SF Pro Display",
+    "mono": "SF Mono",
+    "label": "SF Pro Text",
+    "labelCase": "none",
+    "labelTracking": 0,
+    "numeric": "SF Pro Display",
+    "numericWeight": 300
+  },
+  "shadow": {
+    "focused": {
+      "range": 40,
+      "alpha": 0.5,
+      "offsetY": 12
+    },
+    "unfocused": {
+      "range": 20,
+      "alpha": 0.24
+    }
+  },
+  "ui": {
+    "sectionLabels": "plain"
+  },
+  "desktop": {
+    "wallpaper": "sequoia",
+    "widgets": false
+  },
+  "theme": {
+    "gnomeAccent": "blue"
+  }
+}

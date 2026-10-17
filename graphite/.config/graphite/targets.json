@@ -6,7 +6,8 @@
     "        apply: list of hooks run by `graphite-theme apply` (all string fields are templates; {{ _.output }} = this target's rendered file).",
     "Hook types: write{path,content} | copy{path[,from]} | symlink{path[,to]} | line{path,match(regex),line} (replace first match or append)",
     "            | ini{path, from_output?, values?{section:{key:val}}, exclude_sections?[]} | gsettings{schema,key,value(GVariant text)}",
-    "Every hook may carry requires:[paths]; the hook is skipped with a warning if any is missing (e.g. an icon theme not installed yet)."
+    "Every hook may carry requires:[paths]; the hook is skipped with a warning if any is missing (e.g. an icon theme not installed yet).",
+    "reload: {SIGNAL: [process names]} sent by `graphite-theme switch` after re-applying (e.g. ghostty USR2, kitty USR1)."
   ],
   "targets": [
     {
@@ -17,13 +18,23 @@
       "apply": []
     },
     {
+      "name": "tokens-json",
+      "template": "tokens.json",
+      "output": "../tokens.json",
+      "check": "json",
+      "apply": []
+    },
+    {
       "name": "gtk3",
       "template": "gtk-3.0/gtk.css",
       "output": "gtk-3.0/gtk.css",
       "check": "css",
       "apply": [
-        { "type": "write", "path": "~/.config/gtk-3.0/gtk.css",
-          "content": "/* Graphite: managed by graphite-theme (revert: graphite-theme revert) */\n@import url(\"file://{{ _.output }}\");\n" }
+        {
+          "type": "write",
+          "path": "~/.config/gtk-3.0/gtk.css",
+          "content": "/* Graphite: managed by graphite-theme (revert: graphite-theme revert) */\n@import url(\"file://{{ _.output }}\");\n"
+        }
       ]
     },
     {
@@ -32,30 +43,109 @@
       "output": "gtk-4.0/gtk.css",
       "check": "css",
       "apply": [
-        { "type": "write", "path": "~/.config/gtk-4.0/gtk.css",
-          "content": "/* Graphite: managed by graphite-theme (revert: graphite-theme revert) */\n@import url(\"file://{{ _.output }}\");\n" }
+        {
+          "type": "write",
+          "path": "~/.config/gtk-4.0/gtk.css",
+          "content": "/* Graphite: managed by graphite-theme (revert: graphite-theme revert) */\n@import url(\"file://{{ _.output }}\");\n"
+        }
       ]
     },
     {
       "name": "gtk-settings",
       "apply": [
-        { "type": "ini", "path": "~/.config/gtk-3.0/settings.ini",
-          "values": { "Settings": {
-            "gtk-theme-name": "{{ theme.gtk }}",
-            "gtk-font-name": "{{ font.ui }} {{ font.uiPt }}",
-            "gtk-application-prefer-dark-theme": "1" } } },
-        { "type": "ini", "path": "~/.config/gtk-3.0/settings.ini", "requires": ["/usr/share/icons/{{ theme.icons }}"],
-          "values": { "Settings": { "gtk-icon-theme-name": "{{ theme.icons }}" } } },
-        { "type": "ini", "path": "~/.config/gtk-3.0/settings.ini", "requires": ["/usr/share/icons/{{ theme.cursor }}"],
-          "values": { "Settings": { "gtk-cursor-theme-name": "{{ theme.cursor }}", "gtk-cursor-theme-size": "{{ theme.cursorSize }}" } } },
-        { "type": "gsettings", "schema": "org.gnome.desktop.interface", "key": "gtk-theme", "value": "'{{ theme.gtk }}'" },
-        { "type": "gsettings", "schema": "org.gnome.desktop.interface", "key": "color-scheme", "value": "'prefer-dark'" },
-        { "type": "gsettings", "schema": "org.gnome.desktop.interface", "key": "accent-color", "value": "'blue'" },
-        { "type": "gsettings", "schema": "org.gnome.desktop.interface", "key": "font-name", "value": "'{{ font.ui }} {{ font.uiPt }}'" },
-        { "type": "gsettings", "schema": "org.gnome.desktop.interface", "key": "monospace-font-name", "value": "'{{ font.mono }} {{ font.monoPt }}'" },
-        { "type": "gsettings", "schema": "org.gnome.desktop.interface", "key": "icon-theme", "value": "'{{ theme.icons }}'", "requires": ["/usr/share/icons/{{ theme.icons }}"] },
-        { "type": "gsettings", "schema": "org.gnome.desktop.interface", "key": "cursor-theme", "value": "'{{ theme.cursor }}'", "requires": ["/usr/share/icons/{{ theme.cursor }}"] },
-        { "type": "gsettings", "schema": "org.gnome.desktop.interface", "key": "cursor-size", "value": "{{ theme.cursorSize }}", "requires": ["/usr/share/icons/{{ theme.cursor }}"] }
+        {
+          "type": "ini",
+          "path": "~/.config/gtk-3.0/settings.ini",
+          "values": {
+            "Settings": {
+              "gtk-theme-name": "{{ theme.gtk }}",
+              "gtk-font-name": "{{ font.ui }} {{ font.uiPt }}",
+              "gtk-application-prefer-dark-theme": "1"
+            }
+          }
+        },
+        {
+          "type": "ini",
+          "path": "~/.config/gtk-3.0/settings.ini",
+          "requires": [
+            "/usr/share/icons/{{ theme.icons }}"
+          ],
+          "values": {
+            "Settings": {
+              "gtk-icon-theme-name": "{{ theme.icons }}"
+            }
+          }
+        },
+        {
+          "type": "ini",
+          "path": "~/.config/gtk-3.0/settings.ini",
+          "requires": [
+            "/usr/share/icons/{{ theme.cursor }}"
+          ],
+          "values": {
+            "Settings": {
+              "gtk-cursor-theme-name": "{{ theme.cursor }}",
+              "gtk-cursor-theme-size": "{{ theme.cursorSize }}"
+            }
+          }
+        },
+        {
+          "type": "gsettings",
+          "schema": "org.gnome.desktop.interface",
+          "key": "gtk-theme",
+          "value": "'{{ theme.gtk }}'"
+        },
+        {
+          "type": "gsettings",
+          "schema": "org.gnome.desktop.interface",
+          "key": "color-scheme",
+          "value": "'prefer-dark'"
+        },
+        {
+          "type": "gsettings",
+          "schema": "org.gnome.desktop.interface",
+          "key": "accent-color",
+          "value": "'{{ theme.gnomeAccent }}'"
+        },
+        {
+          "type": "gsettings",
+          "schema": "org.gnome.desktop.interface",
+          "key": "font-name",
+          "value": "'{{ font.ui }} {{ font.uiPt }}'"
+        },
+        {
+          "type": "gsettings",
+          "schema": "org.gnome.desktop.interface",
+          "key": "monospace-font-name",
+          "value": "'{{ font.mono }} {{ font.monoPt }}'"
+        },
+        {
+          "type": "gsettings",
+          "schema": "org.gnome.desktop.interface",
+          "key": "icon-theme",
+          "value": "'{{ theme.icons }}'",
+          "requires": [
+            "/usr/share/icons/{{ theme.icons }}"
+          ]
+        },
+        {
+          "type": "gsettings",
+          "schema": "org.gnome.desktop.interface",
+          "key": "cursor-theme",
+          "value": "'{{ theme.cursor }}'",
+          "requires": [
+            "/usr/share/icons/{{ theme.cursor }}"
+          ]
+        },
+        {
+          "type": "gsettings",
+          "schema": "org.gnome.desktop.interface",
+          "key": "cursor-size",
+          "value": "{{ theme.cursorSize }}",
+          "requires": [
+            "/usr/share/icons/{{ theme.cursor }}"
+          ]
+        }
       ]
     },
     {
@@ -64,8 +154,18 @@
       "output": "kde/Graphite.colors",
       "check": "ini",
       "apply": [
-        { "type": "symlink", "path": "~/.local/share/color-schemes/Graphite.colors" },
-        { "type": "ini", "path": "~/.config/kdeglobals", "from_output": true, "exclude_sections": ["General"] }
+        {
+          "type": "symlink",
+          "path": "~/.local/share/color-schemes/Graphite.colors"
+        },
+        {
+          "type": "ini",
+          "path": "~/.config/kdeglobals",
+          "from_output": true,
+          "exclude_sections": [
+            "General"
+          ]
+        }
       ]
     },
     {
@@ -74,9 +174,26 @@
       "output": "kde/kdeglobals.ini",
       "check": "ini",
       "apply": [
-        { "type": "ini", "path": "~/.config/kdeglobals", "from_output": true, "exclude_sections": ["Icons"] },
-        { "type": "ini", "path": "~/.config/kdeglobals", "requires": ["/usr/share/icons/{{ theme.icons }}"],
-          "values": { "Icons": { "Theme": "{{ theme.icons }}" } } }
+        {
+          "type": "ini",
+          "path": "~/.config/kdeglobals",
+          "from_output": true,
+          "exclude_sections": [
+            "Icons"
+          ]
+        },
+        {
+          "type": "ini",
+          "path": "~/.config/kdeglobals",
+          "requires": [
+            "/usr/share/icons/{{ theme.icons }}"
+          ],
+          "values": {
+            "Icons": {
+              "Theme": "{{ theme.icons }}"
+            }
+          }
+        }
       ]
     },
     {
@@ -85,9 +202,18 @@
       "output": "ghostty/graphite",
       "check": "keyvalue",
       "apply": [
-        { "type": "line", "path": "~/.config/ghostty/config", "match": "^config-file\\s*=.*graphite",
-          "line": "config-file = ?{{ _.output }}" }
-      ]
+        {
+          "type": "line",
+          "path": "~/.config/ghostty/config",
+          "match": "^config-file\\s*=.*graphite",
+          "line": "config-file = ?{{ _.output }}"
+        }
+      ],
+      "reload": {
+        "USR2": [
+          "ghostty"
+        ]
+      }
     },
     {
       "name": "kitty",
@@ -95,9 +221,18 @@
       "output": "kitty/graphite.conf",
       "check": "text",
       "apply": [
-        { "type": "line", "path": "~/.config/kitty/kitty.conf", "match": "^include\\s+.*graphite",
-          "line": "include {{ _.output }}" }
-      ]
+        {
+          "type": "line",
+          "path": "~/.config/kitty/kitty.conf",
+          "match": "^include\\s+.*graphite",
+          "line": "include {{ _.output }}"
+        }
+      ],
+      "reload": {
+        "USR1": [
+          "kitty"
+        ]
+      }
     },
     {
       "name": "fuzzel",
@@ -105,7 +240,12 @@
       "output": "fuzzel/graphite.ini",
       "check": "ini",
       "apply": [
-        { "type": "line", "path": "~/.config/fuzzel/fuzzel.ini", "match": "^include\\s*=", "line": "include={{ _.output }}" }
+        {
+          "type": "line",
+          "path": "~/.config/fuzzel/fuzzel.ini",
+          "match": "^include\\s*=",
+          "line": "include={{ _.output }}"
+        }
       ]
     },
     {
@@ -114,8 +254,11 @@
       "output": "hyprlock/colors.conf",
       "check": "keyvalue",
       "apply": [
-        { "type": "write", "path": "~/.config/hypr/hyprlock/colors.conf",
-          "content": "# Graphite: managed by graphite-theme (revert: graphite-theme revert)\nsource = {{ _.output }}\n" }
+        {
+          "type": "write",
+          "path": "~/.config/hypr/hyprlock/colors.conf",
+          "content": "# Graphite: managed by graphite-theme (revert: graphite-theme revert)\nsource = {{ _.output }}\n"
+        }
       ]
     },
     {
@@ -125,8 +268,11 @@
       "output": "hyprland/colors.conf",
       "check": "keyvalue",
       "apply": [
-        { "type": "write", "path": "~/.config/hypr/hyprland/colors.conf",
-          "content": "# Graphite: managed by graphite-theme (revert: graphite-theme revert)\nsource = {{ _.output }}\n" }
+        {
+          "type": "write",
+          "path": "~/.config/hypr/hyprland/colors.conf",
+          "content": "# Graphite: managed by graphite-theme (revert: graphite-theme revert)\nsource = {{ _.output }}\n"
+        }
       ]
     },
     {
@@ -135,9 +281,16 @@
       "output": "btop/graphite.theme",
       "check": "keyvalue",
       "apply": [
-        { "type": "symlink", "path": "~/.config/btop/themes/graphite.theme" },
-        { "type": "line", "path": "~/.config/btop/btop.conf", "match": "^color_theme\\s*=",
-          "line": "color_theme = \"{{ _.home }}/.config/btop/themes/graphite.theme\"" }
+        {
+          "type": "symlink",
+          "path": "~/.config/btop/themes/graphite.theme"
+        },
+        {
+          "type": "line",
+          "path": "~/.config/btop/btop.conf",
+          "match": "^color_theme\\s*=",
+          "line": "color_theme = \"{{ _.home }}/.config/btop/themes/graphite.theme\""
+        }
       ]
     },
     {
@@ -146,7 +299,10 @@
       "output": "quickshell/colors.json",
       "check": "json",
       "apply": [
-        { "type": "copy", "path": "~/.local/state/quickshell/user/generated/colors.json" }
+        {
+          "type": "copy",
+          "path": "~/.local/state/quickshell/user/generated/colors.json"
+        }
       ]
     },
     {
@@ -155,7 +311,10 @@
       "output": "terminal/sequences.txt",
       "check": "text",
       "apply": [
-        { "type": "copy", "path": "~/.local/state/quickshell/user/generated/terminal/sequences.txt" }
+        {
+          "type": "copy",
+          "path": "~/.local/state/quickshell/user/generated/terminal/sequences.txt"
+        }
       ]
     }
   ]
