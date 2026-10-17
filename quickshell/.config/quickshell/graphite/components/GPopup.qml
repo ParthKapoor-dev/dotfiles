@@ -86,7 +86,12 @@ Scope {
             readonly property real bodyX: wantX - margins.left
             implicitWidth: bodyX + root.popupWidth + root.shadowPad
             implicitHeight: root.fillHeight ? 0 : bodyH + root.gap + root.shadowPad
-            readonly property real bodyH: root.fillHeight ? win.height - root.gap - root.edge : loaderItem.implicitHeight + root.padding * 2
+            // tallest body that still fits on screen (window sits under the bar's exclusive zone,
+            // or above the dock for fromBottom); longer content scrolls instead of running off-screen
+            readonly property real maxBodyH: Math.max(80, (win.screen ? win.screen.height : 1080)
+                - Theme.barHeight - root.gap - root.edge - (root.fromBottom ? root.bottomOffset : 0))
+            readonly property real contentH: loaderItem.implicitHeight + root.padding * 2
+            readonly property real bodyH: root.fillHeight ? win.height - root.gap - root.edge : Math.min(contentH, maxBodyH)
             mask: Region { item: body }
 
             HyprlandFocusGrab {
@@ -134,12 +139,22 @@ Scope {
                     focus: true
                     Keys.onEscapePressed: Panels.close(root.popupId)
                 }
-                Loader {
-                    id: loaderItem
+                Flickable {
+                    id: scroller
                     x: root.padding; y: root.padding
                     width: parent.width - root.padding * 2
-                    height: root.fillHeight ? parent.height - root.padding * 2 : implicitHeight
-                    sourceComponent: root.content
+                    height: parent.height - root.padding * 2
+                    contentWidth: width
+                    contentHeight: root.fillHeight ? height : loaderItem.implicitHeight
+                    interactive: !root.fillHeight && contentHeight > height + 0.5
+                    clip: interactive
+                    boundsBehavior: Flickable.StopAtBounds
+                    Loader {
+                        id: loaderItem
+                        width: scroller.width
+                        height: root.fillHeight ? scroller.height : implicitHeight
+                        sourceComponent: root.content
+                    }
                 }
             }
         }
