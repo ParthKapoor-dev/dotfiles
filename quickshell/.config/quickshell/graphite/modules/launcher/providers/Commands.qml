@@ -5,7 +5,9 @@ import qs.services
 
 // System actions from shell.json launcher.provider.commands.items:
 //   { label, icon, keywords?, confirm? ("Restart now?" = Enter twice), command: [argv] | action: "<builtin>" }
-// Builtin actions: dnd, controlCenter, notifications, dock, launcher.
+// action = any services/Actions name (lock, sleep, nightLight, caffeine, screenshot, wallpapers, …).
+// Before, only five builtins ran and every other configured action (Lock Screen, Sleep, Night
+// Light, …) logged "unknown launcher action" and did nothing.
 // Typing "/" lists all of them.
 Item {
     id: root
@@ -30,6 +32,13 @@ Item {
         return true;
     }
 
+    // on/off state for toggles, shown next to the title
+    function status(a) {
+        const v = a === "dnd" ? Notifs.dnd : a === "nightLight" ? NightLight.on : a === "caffeine" ? Panels.caffeine
+                : a === "record" ? Recorder.recording : null;
+        return v === null ? "" : v ? "Currently on" : "Currently off";
+    }
+
     function query(text, prefixed) {
         if (!text && !prefixed) return [];
         const out = [];
@@ -40,7 +49,7 @@ Item {
             const key = it.label;
             out.push({
                 title: it.label,
-                sub: it.action === "dnd" ? (Notifs.dnd ? "Currently on" : "Currently off") : "",
+                sub: root.status(it.action),
                 icon: it.icon || "terminal",
                 highlight: m.indices,
                 type: "Command",
@@ -49,7 +58,12 @@ Item {
                 score: m.score + Frecency.score("commands", key) * 10,
                 run: () => {
                     Frecency.record("commands", key);
-                    if (it.action) { const f = root.builtins[it.action]; if (f) f(); else console.warn("graphite: unknown launcher action", it.action); }
+                    if (it.action) {
+                        const f = root.builtins[it.action];
+                        if (f) f();
+                        else if (Actions.has(it.action)) Actions.run(it.action);
+                        else console.warn("graphite: unknown launcher action", it.action);
+                    }
                     else if (it.command) Quickshell.execDetached(it.command);
                 }
             });
