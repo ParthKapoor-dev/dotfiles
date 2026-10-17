@@ -1,0 +1,10 @@
+[Unit]
+Description=Re-sync the nox login screen when the look or wallpaper changes
+
+[Path]
+PathChanged=%h/.local/state/nox/tokens.json
+PathChanged=%h/.local/state/nox/wallpaper.json
+Unit=nox-greeter-sync.service
+
+[Install]
+WantedBy=default.target

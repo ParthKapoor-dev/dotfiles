@@ -5,7 +5,7 @@
 set -euo pipefail
 LIB="${NOX_LIB:-$(cd "$(dirname "$(readlink -f "$0")")/../lib/nox" && pwd)}"
 QS=(qs -c nox)
-MODULES="theme shell layout shot record wallpaper dpms hypr"
+MODULES="theme shell layout shot record wallpaper dpms hypr greeter"
 
 usage() {
     cat <<'EOF'
@@ -20,6 +20,7 @@ usage: nox <command> [args]
   wallpaper pick|random|list [--all]|set <path>
   dpms   on|off|toggle [monitor]
   hypr   status|check|on [--live]|off
+  greeter sync|test|nested|install|on|off|status  (login screen on greetd)
   status                                        (hypr + shell + theme + idle at a glance)
   help [command]
 EOF
@@ -35,7 +36,7 @@ module_help() {
 cmd="${1:-help}"
 [ $# -gt 0 ] && shift
 case "$cmd" in
-    theme | shell | layout | shot | record | wallpaper | dpms | hypr) exec "$LIB/$cmd" "$@" ;;
+    theme | shell | layout | shot | record | wallpaper | dpms | hypr | greeter) exec "$LIB/$cmd" "$@" ;;
     ipc)
         [ $# -ge 2 ] || { echo "usage: nox ipc <target> <function> [args]   (targets: qs -c nox ipc show)" >&2; exit 2; }
         exec "${QS[@]}" ipc call "$@" ;;

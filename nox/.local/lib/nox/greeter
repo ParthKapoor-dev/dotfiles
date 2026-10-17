@@ -1,0 +1,202 @@
+#!/usr/bin/env bash
+# nox greeter sync|test|nested|install|on|off|status - the nox login screen (greetd greeter).
+#   nox greeter sync [--to DIR]   theme, wallpaper (cropped + blurred for the look), fonts, user -> DIR
+#                                  (default /var/lib/nox-greeter; also run by `nox theme switch` and
+#                                  `nox wallpaper set` once the greeter is installed)
+#   nox greeter test [--fake|--demo] [--look NAME] [stop]
+#                                  preview in this session (a full-screen layer; Esc clears, type
+#                                  `wrong...` to fail). --fake = against a fake greetd socket (default),
+#                                  --demo = no greetd at all
+#   nox greeter nested [stop]      the boot setup (greeter Hyprland + greeter) nested in a window,
+#                                  against the fake greetd
+#   nox greeter install            (sudo) copy to /etc/nox-greeter, create the data/cache dirs, sync,
+#                                  check every file as the greeter user. Does not switch the login.
+#   nox greeter on | off           (sudo) point /etc/greetd/config.toml at the nox greeter / back to
+#                                  tuigreet (the previous file is kept as config.toml.before-nox)
+#   nox greeter check              (sudo) test every file as the greeter user
+#   nox greeter status
+# Source: base0/_greeter (shell/, hyprland.lua, launch.sh, test/fake-greetd.py).
+set -euo pipefail
+
+SRC="${NOX_GREETER_SRC:-$(cd "$(dirname "$(readlink -f "$0")")/../../../.." && pwd)/_greeter}"
+ETC=/etc/nox-greeter
+DATA=/var/lib/nox-greeter
+CACHE=/var/cache/nox-greeter
+GREETD=/etc/greetd/config.toml
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/nox"
+RUN="${XDG_RUNTIME_DIR:-/tmp}/nox-greeter-test"
+say() { printf 'nox greeter: %s\n' "$*"; }
+die() { printf 'nox greeter: %s\n' "$*" >&2; exit 1; }
+[ -d "$SRC/shell" ] || die "greeter source not found: $SRC"
+
+# ---------- sync ----------
+do_sync() {
+    local out="$DATA"
+    [ "${1:-}" = "--to" ] && { out="${2:?--to DIR}"; }
+    [ -d "$out" ] && [ -w "$out" ] || die "$out is not writable (run: nox greeter install)"
+    local tokens="$STATE/tokens.json"
+    [ -f "$tokens" ] || die "no rendered tokens ($tokens): run nox theme render"
+    python3 -I - "$tokens" "$out" "$STATE/wallpaper.json" "$HOME" <<'PY'
+import json, os, shutil, subprocess, sys
+tokens_path, out, wp_state, home = sys.argv[1:5]
+t = json.load(open(tokens_path))
+forced = os.environ.get("NOX_GREETER_LOOK", "")
+if forced:   # preview another look (test only): base tokens + that preset, no manual wallpaper
+    def merge(a, b):
+        for k, v in b.items():
+            a[k] = merge(a.get(k, {}), v) if isinstance(v, dict) and isinstance(a.get(k), dict) else v
+        return a
+    cfg = os.path.join(home, ".config/nox")
+    t = json.load(open(os.path.join(cfg, "tokens.json")))
+    if forced != "ember":
+        t = merge(t, json.load(open(os.path.join(cfg, "presets", forced + ".json"))))
+    t["name"] = forced
+    wp_state = ""
+look = t.get("name", "ember")
+def expand(p): return os.path.expanduser(p) if p else ""
+
+# wallpaper: the manual pick (nox wallpaper set) wins over the look's own
+src = ""
+try: src = expand(json.load(open(wp_state)).get("path", ""))
+except Exception: pass
+if not src or not os.path.isfile(src): src = expand(t.get("desktop", {}).get("wallpaperPath", ""))
+if src and os.path.isfile(src):
+    # lock-screen treatment per look (mock .lk-bg): blur + brightness (+ saturation)
+    fx = {"telemetry": ["-modulate", "80"],
+          "sequoia": ["-blur", "0x19", "-modulate", "60,125"]}.get(look, ["-blur", "0x20", "-modulate", "50,110"])
+    tmp = os.path.join(out, ".wallpaper.tmp.jpg")
+    subprocess.run(["magick", src + "[0]", "-auto-orient", "-resize", "1920x1080^", "-gravity", "center",
+                    "-extent", "1920x1080", *fx, "-quality", "90", tmp], check=True)
+    os.chmod(tmp, 0o644); os.replace(tmp, os.path.join(out, "wallpaper.jpg"))
+else:
+    print("nox greeter: no wallpaper found, the greeter shows the page color")
+
+# fonts the greeter user cannot see (installed under $HOME)
+fdir = os.path.join(out, "fonts"); os.makedirs(fdir, exist_ok=True)
+fams = {t["font"].get(k) for k in ("ui", "display", "mono", "label", "numeric", "icon") if t["font"].get(k)}
+fonts = []
+for fam in sorted(fams):
+    r = subprocess.run(["fc-list", f":family={fam}", "file"], capture_output=True, text=True)
+    for line in r.stdout.splitlines():
+        f = line.split(":")[0].strip()
+        if f.startswith(home + "/") and os.path.isfile(f):
+            name = os.path.basename(f)
+            shutil.copyfile(f, os.path.join(fdir, name)); os.chmod(os.path.join(fdir, name), 0o644)
+            fonts.append(name)
+
+# user + sessions; shell.json "greeter" overrides
+user = os.environ.get("USER", "parth")
+name = ""
+try: name = subprocess.run(["getent", "passwd", user], capture_output=True, text=True).stdout.split(":")[4].split(",")[0]
+except Exception: pass
+if not name:
+    name = subprocess.run(["git", "config", "--global", "user.name"], capture_output=True, text=True).stdout.strip() or user
+conf = {"user": user, "name": name, "keyboard": "EN", "keyboardLong": "EN · US", "fonts": sorted(set(fonts))}
+try:
+    sj = json.load(open(os.path.join(home, ".config/nox/shell.json"))).get("greeter", {})
+    conf.update({k: v for k, v in sj.items() if not k.startswith("_")})
+except Exception: pass
+for name_, data in (("theme.json", t), ("greeter.json", conf)):
+    tmp = os.path.join(out, "." + name_)
+    with open(tmp, "w") as f: json.dump(data, f, indent=1)
+    os.chmod(tmp, 0o644); os.replace(tmp, os.path.join(out, name_))
+
+# avatar: ~/.face or ~/.config/nox/avatar.png
+for a in (os.path.join(home, ".face"), os.path.join(home, ".config/nox/avatar.png")):
+    if os.path.isfile(a):
+        subprocess.run(["magick", a + "[0]", "-resize", "256x256^", "-gravity", "center", "-extent", "256x256",
+                        os.path.join(out, "avatar.png")], check=True)
+        os.chmod(os.path.join(out, "avatar.png"), 0o644)
+        conf["avatar"] = True
+        with open(os.path.join(out, "greeter.json"), "w") as f: json.dump(conf, f, indent=1)
+        break
+print(f"nox greeter: synced look={look} wallpaper={os.path.basename(src) or '-'} fonts={len(set(fonts))} -> {out}")
+PY
+}
+
+# ---------- local rehearsals ----------
+fake_start() {   # fake greetd on $RUN/greetd.sock (password: the one in $NOX_GREETER_FAKE_PW, default "nox")
+    mkdir -p "$RUN"
+    [ -S "$RUN/greetd.sock" ] && pkill -f "fake-greetd.py $RUN/greetd.sock" 2>/dev/null || true
+    rm -f "$RUN/greetd.sock"
+    setsid -f python3 -I "$SRC/test/fake-greetd.py" "$RUN/greetd.sock" >"$RUN/fake-greetd.log" 2>&1 </dev/null
+    for _ in $(seq 30); do [ -S "$RUN/greetd.sock" ] && return 0; sleep 0.1; done
+    die "fake greetd did not start (see $RUN/fake-greetd.log)"
+}
+test_stop() {
+    pkill -f "qs -p $SRC/shell" 2>/dev/null || true
+    pkill -f "fake-greetd.py $RUN/greetd.sock" 2>/dev/null || true
+    say "test stopped"
+}
+do_test() {
+    local mode="fake"
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            stop) test_stop; return ;;
+            --demo) mode=demo ;;
+            --fake) ;;
+            --look) export NOX_GREETER_LOOK="${2:?--look NAME}"; shift ;;
+            *) die "usage: nox greeter test [--fake|--demo] [--look NAME] [stop]" ;;
+        esac
+        shift
+    done
+    test_stop >/dev/null
+    mkdir -p "$RUN/data"
+    do_sync --to "$RUN/data"
+    # HOME / XDG_DATA_HOME elsewhere: fontconfig then sees only system fonts, like the greeter user
+    mkdir -p "$RUN/home"
+    local env=(NOX_GREETER_DATA="$RUN/data" NOX_GREETER_TEST=1 XDG_STATE_HOME="$RUN" HOME="$RUN/home" XDG_DATA_HOME="$RUN/home/.local/share" XDG_CONFIG_HOME="$RUN/home/.config" XDG_CACHE_HOME="$RUN/home/.cache")
+    if [ "$mode" = fake ]; then fake_start; env+=(GREETD_SOCK="$RUN/greetd.sock"); else env+=(GREETD_SOCK=); fi
+    env "${env[@]}" setsid -f qs -p "$SRC/shell" -n >"$RUN/qs.log" 2>&1 </dev/null
+    say "running ($mode). log: $RUN/qs.log   stop: nox greeter test stop"
+}
+
+do_nested() {
+    if [ "${1:-}" = stop ]; then
+        pkill -f "Hyprland -c $SRC/hyprland.lua" 2>/dev/null || true
+        test_stop >/dev/null; say "nested stopped"; return
+    fi
+    test_stop >/dev/null
+    mkdir -p "$RUN/data" "$RUN/cache" "$RUN/home"
+    [ "${1:-}" = "--look" ] && export NOX_GREETER_LOOK="${2:?--look NAME}"
+    do_sync --to "$RUN/data"
+    fake_start
+    rm -f "$RUN/launch.rc"
+    # the real launch.sh, pointed at the source tree; its fallback only reports itself here
+    env HOME="$RUN/home" NOX_GREETER_ETC="$SRC" NOX_GREETER_CACHE="$RUN/cache" NOX_GREETER_DATA="$RUN/data" \
+        NOX_GREETER_TEST=1 GREETD_SOCK="$RUN/greetd.sock" NOX_GREETER_FALLBACK="echo FALLBACK: tuigreet would start" \
+        setsid -f sh -c "sh '$SRC/launch.sh' >'$RUN/launch.out' 2>&1; echo \$? >'$RUN/launch.rc'" </dev/null
+    say "nested greeter starting (window). logs: $RUN/cache/hyprland.log $RUN/launch.out  stop: nox greeter nested stop"
+}
+
+root() { say "sudo: $SRC/root.sh $*"; sudo sh "$SRC/root.sh" "$@"; }
+do_status() {
+    local cmd; cmd=$(sed -n 's/^command *= *"\(.*\)"/\1/p' "$GREETD" 2>/dev/null | head -1)
+    say "greetd command: ${cmd:-?}"
+    case "$cmd" in "$ETC/launch.sh") say "login screen:   nox greeter (ON)" ;; *) say "login screen:   not the nox greeter (off)" ;; esac
+    [ -x "$ETC/launch.sh" ] && say "installed:      $ETC" || say "installed:      no (nox greeter install)"
+    if [ -f "$DATA/theme.json" ]; then
+        say "synced:         $(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("name"))' "$DATA/theme.json") look, $(stat -c %y "$DATA/theme.json" | cut -d. -f1)"
+    fi
+    systemctl --user is-enabled nox-greeter-sync.path >/dev/null 2>&1 && say "auto-sync:      on (nox-greeter-sync.path)" || say "auto-sync:      off"
+    [ -f "$CACHE/greeter.log" ] && { say "fallbacks (last 3):"; tail -3 "$CACHE/greeter.log" 2>/dev/null | sed 's/^/  /'; } || true
+    diff -rq "$SRC/shell" "$ETC/shell" >/dev/null 2>&1 || { [ -d "$ETC" ] && say "note: $ETC differs from $SRC (re-run nox greeter install)"; } || true
+}
+
+case "${1:-status}" in
+    install)
+        root install "$SRC" "$USER"
+        do_sync
+        root check
+        systemctl --user daemon-reload
+        systemctl --user enable --now nox-greeter-sync.path >/dev/null 2>&1 && say "auto-sync on (theme / wallpaper changes re-sync the login screen)" || say "auto-sync unit not found (stow systemd-desktop)"
+        say "installed. Switch the login screen with: nox greeter on" ;;
+    on) root on ;;
+    off) root off ;;
+    check) root check ;;
+    status) do_status ;;
+    sync) shift; do_sync "$@" ;;
+    test) shift; do_test "$@" ;;
+    nested) shift; do_nested "$@" ;;
+    *) die "unknown command '${1}' (sync|test|nested|install|on|off|status)" ;;
+esac

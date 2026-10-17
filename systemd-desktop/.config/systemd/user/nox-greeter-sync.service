@@ -1,0 +1,7 @@
+[Unit]
+Description=Sync theme + wallpaper to the nox login screen (/var/lib/nox-greeter)
+ConditionPathIsDirectory=/var/lib/nox-greeter
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/nox greeter sync
