@@ -42,7 +42,17 @@ GPopup {
             offset.y: 8; blur: 24; spread: -6
             color: Theme.rgba("#000000", Theme.glassOpaque ? 0.45 : 0.32)
         }
-        Glass { id: cardBg; anchors.fill: parent; menu: true; color: Theme.cardGlass; radius: Theme.square ? 6 : 16 }
+        // the rim is drawn over the fill, not as the Rectangle's own border: a translucent border
+        // replaces the fill under it, and that 0.5-1px band showed the blurred wallpaper as a
+        // red/orange edge around every card
+        Glass { id: cardBg; anchors.fill: parent; menu: true; color: Theme.cardGlass; radius: Theme.square ? 6 : 16; border.width: 0 }
+        Rectangle {
+            anchors.fill: parent
+            radius: cardBg.radius
+            color: "transparent"
+            border.width: Theme.glassOpaque ? 1 : Theme.rimWidth
+            border.color: Theme.glassOpaque ? Theme.hair : Theme.rim
+        }
         Item { id: inner; x: 14; y: card.padY; width: card.width - 28; height: childrenRect.height }
     }
     component GroupLabel: Item {

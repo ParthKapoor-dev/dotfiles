@@ -8,6 +8,7 @@ import qs.core
 GText {
     width: parent ? parent.width : implicitWidth
     wrapMode: Text.Wrap
+    elide: Text.ElideNone          // elide + wrap without a fixed height measured one line only
     leftPadding: 10; rightPadding: 10; topPadding: 8; bottomPadding: 3
     font.family: Theme.labelsMono ? Theme.fontLabel : Theme.fontUi
     font.pixelSize: Theme.labelsMono ? 10 : Theme.fontSizeSmall
