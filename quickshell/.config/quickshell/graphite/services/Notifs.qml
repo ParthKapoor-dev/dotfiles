@@ -129,7 +129,7 @@ Singleton {
 
     LazyLoader {
         id: server
-        active: root.enabled
+        active: root.enabled && Config.loaded
         NotificationServer {
             bodySupported: true
             bodyMarkupSupported: true

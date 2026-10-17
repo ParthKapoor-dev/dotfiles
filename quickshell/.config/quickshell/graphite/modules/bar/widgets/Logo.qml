@@ -3,19 +3,20 @@ import QtQuick
 import Quickshell
 import qs.core
 import qs.components
+import qs.services
 
-// System menu button. Menu entries come from shell.json widgets.logo.menu:
-// { "label": "...", "command": [argv...] } or { "separator": true }
+// System menu (mock logo menu). Entries: shell.json widgets.logo.menu, each
+// { "label", "action": "<Actions name>" | "command": [argv], "shortcut"? } or { "separator": true }.
 BarButton {
     id: root
     property string widgetId: "logo"
     readonly property var options: Config.widget(widgetId)
     readonly property string popupId: "bar:" + widgetId
-    hpad: 9
     active: Panels.popup === popupId
     onClicked: Panels.toggle(popupId)
+    onEntered: if (Panels.popup.startsWith("bar:menu:") ) Panels.open(popupId)
 
-    LogoGlyph { size: 16; anchors.verticalCenter: parent.verticalCenter }
+    Glyph { name: "logo"; size: 16; anchors.verticalCenter: parent.verticalCenter }
 
     GPopup {
         popupId: root.popupId
@@ -27,12 +28,11 @@ BarButton {
                 MenuRow {
                     required property var modelData
                     width: parent.width
-                    text: modelData.label ?? ""
+                    text: (modelData.label ?? "").replace("$USER", Quickshell.env("USER") ?? "")
+                    shortcut: modelData.shortcut ?? ""
                     separator: !!modelData.separator
-                    onTriggered: {
-                        Panels.close();
-                        if (modelData.command) Quickshell.execDetached(modelData.command);
-                    }
+                    header: !!modelData.header
+                    onTriggered: { Panels.close(); Actions.runItem(modelData); }
                 }
             }
         }

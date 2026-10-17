@@ -7,9 +7,11 @@ import Quickshell
 Singleton {
     readonly property var registry: ({
         "connectivity": "Connectivity.qml",
+        "performance": "Performance.qml",
         "display": "Display.qml",
         "sound": "Sound.qml",
         "media": "Media.qml",
+        "tiles": "Tiles.qml",
         "notifications": "Notifications.qml"
     })
     function url(id) {

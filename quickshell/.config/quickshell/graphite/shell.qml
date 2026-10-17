@@ -13,15 +13,26 @@ import qs.modules.controlcenter
 import qs.modules.launcher
 import qs.modules.osd
 import qs.modules.notifications
+import qs.modules.wallpaper
+import qs.modules.corners
+import qs.modules.overview
+import qs.modules.session
+import qs.modules.polkit
 
 ShellRoot {
-    LazyLoader { active: Config.moduleEnabled("bar"); component: Bar {} }
-    LazyLoader { active: Config.moduleEnabled("dock"); component: Dock {} }
-    LazyLoader { active: Config.moduleEnabled("controlCenter"); component: ControlCenter {} }
-    LazyLoader { active: Config.moduleEnabled("launcher"); component: Launcher {} }
-    LazyLoader { active: Config.moduleEnabled("osd"); component: Osd {} }
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("bar"); component: Bar {} }
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("dock"); component: Dock {} }
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("controlCenter"); component: ControlCenter {} }
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("launcher"); component: Launcher {} }
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("osd"); component: Osd {} }
     // The notification D-Bus server itself is in services/Notifs (same switch).
-    LazyLoader { active: Config.moduleEnabled("notifications"); component: Notifications {} }
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("notifications"); component: Notifications {} }
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("wallpaper"); component: Background {} }
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("corners"); component: Corners {} }
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("overview"); component: Overview {} }
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("session"); component: Session {} }
+    // the polkit agent registers on load (only one agent per session; see modules/polkit)
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("polkit"); component: Polkit {} }
 
     // qs -c graphite ipc call controlCenter toggle
     IpcHandler {
@@ -33,9 +44,10 @@ ShellRoot {
     // qs -c graphite ipc call dock toggle
     IpcHandler {
         target: "dock"
-        function toggle(): void { Panels.dockVisible = !Panels.dockVisible; }
-        function open(): void { Panels.dockVisible = true; }   // ("show" is reserved by the qs ipc CLI)
-        function close(): void { Panels.dockVisible = false; }
+        // with dock.autohide these reveal/conceal it; otherwise they show/hide it (and its reserved space)
+        function toggle(): void { if (Config.opt.dock?.autohide) Panels.dockRevealed = !Panels.dockRevealed; else Panels.dockVisible = !Panels.dockVisible; }
+        function open(): void { Panels.dockVisible = true; if (Config.opt.dock?.autohide) Panels.dockRevealed = true; }   // ("show" is reserved by the qs ipc CLI)
+        function close(): void { if (Config.opt.dock?.autohide) Panels.dockRevealed = false; else Panels.dockVisible = false; }
     }
     // qs -c graphite ipc call popup toggle bar:network   (ids: "controlCenter", "bar:<widgetId>")
     // qs -c graphite ipc call popup close                  (closes whatever popup is open)
@@ -45,6 +57,51 @@ ShellRoot {
         function open(id: string): void { Panels.open(id); }
         function close(): void { Panels.close(); }
         function current(): string { return Panels.popup; }
+    }
+
+    // qs -c graphite ipc call overview toggle | open | close
+    IpcHandler {
+        target: "overview"
+        function toggle(): void { Panels.overviewOpen = !Panels.overviewOpen; }
+        function open(): void { Panels.overviewOpen = true; }
+        function close(): void { Panels.overviewOpen = false; }
+    }
+    // qs -c graphite ipc call session toggle | open | close
+    IpcHandler {
+        target: "session"
+        function toggle(): void { Panels.sessionOpen = !Panels.sessionOpen; }
+        function open(): void { Panels.sessionOpen = true; }
+        function close(): void { Panels.sessionOpen = false; }
+    }
+    // qs -c graphite ipc call wallpaper set <path> | get | fill <cover|fit|stretch|center|tile> | reset
+    IpcHandler {
+        target: "wallpaper"
+        function set(path: string): void { Wallpaper.set(path); }
+        function get(): string { return Wallpaper.path; }
+        function fill(mode: string): void { Wallpaper.setFill(mode); }
+        function reset(): void { Wallpaper.reset(); }
+    }
+    // qs -c graphite ipc call action run <name>   (names: services/Actions.qml) | list
+    IpcHandler {
+        target: "action"
+        function run(name: string): bool { return Actions.run(name); }
+        function list(): string { return Object.keys(Actions.table).join(" "); }
+    }
+    // qs -c graphite ipc call hud show "<text>"
+    IpcHandler {
+        target: "hud"
+        function show(text: string): void { Panels.hud(text, "check"); }
+    }
+
+    // qs -c graphite ipc call layout changed <name>   (sent by graphite-layout after every change)
+    // qs -c graphite ipc call layout get | next | prev | set <name>
+    IpcHandler {
+        target: "layout"
+        function changed(name: string): void { Layout.changed(name); }
+        function get(): string { return Layout.name; }
+        function next(): void { Layout.next(); }
+        function prev(): void { Layout.prev(); }
+        function set(name: string): void { Layout.set(name); }
     }
 
     // launcher IPC (toggle|open|close|search|results) lives in modules/launcher/Launcher.qml
@@ -63,35 +120,70 @@ ShellRoot {
         function status(): string { return "server=" + Notifs.running + " dnd=" + Notifs.dnd + " count=" + Notifs.count + " popups=" + Notifs.popups.length; }
     }
 
-    // Hyprland global shortcuts (appid "graphite"): bind with hl.dsp.global("graphite:<name>").
-    // launcherToggleRelease + launcherToggleReleaseInterrupt = "tap Super to open" (same pattern as ii).
-    GlobalShortcut {
-        appid: "graphite"; name: "launcherToggle"; description: "Toggle the launcher"
-        onPressed: Panels.launcherOpen = !Panels.launcherOpen
-    }
-    GlobalShortcut {
-        id: superTap
-        appid: "graphite"; name: "launcherToggleRelease"; description: "Toggle the launcher when Super is released alone"
-        property bool mightTrigger: false
-        property bool pressGuard: false
-        onPressed: { mightTrigger = true; pressGuard = true; }
-        onReleased: {
-            pressGuard = false;
-            if (mightTrigger) Panels.launcherOpen = !Panels.launcherOpen;
-            mightTrigger = false;
+    // Hyprland global shortcuts (appid "graphite"). Not registered in lint runs (GRAPHITE_LINT=1),
+    // so a syntax check never competes with the live instance for the same shortcut names.
+    LazyLoader {
+        active: !Quickshell.env("GRAPHITE_LINT")
+        component: Scope {
+        // shortcuts (appid "graphite"): bind with hl.dsp.global("graphite:<name>").
+        // launcherToggleRelease + launcherToggleReleaseInterrupt = "tap Super to open" (same pattern as ii).
+        GlobalShortcut {
+            appid: "graphite"; name: "launcherToggle"; description: "Toggle the launcher"
+            onPressed: Panels.launcherOpen = !Panels.launcherOpen
         }
-    }
-    GlobalShortcut {
-        appid: "graphite"; name: "launcherToggleReleaseInterrupt"; description: "Cancel the Super-tap launcher toggle (bind to a catchall)"
-        // the catchall also fires on the Super press itself (Hyprland 0.55.3+): absorb that one
-        onPressed: { if (superTap.pressGuard) { superTap.pressGuard = false; return; } superTap.mightTrigger = false; }
-    }
-    GlobalShortcut {
-        appid: "graphite"; name: "notificationCenterToggle"; description: "Toggle the Notification Center"
-        onPressed: Panels.toggle("notifications")
-    }
-    GlobalShortcut {
-        appid: "graphite"; name: "dndToggle"; description: "Toggle Do Not Disturb"
-        onPressed: Notifs.toggleDnd()
+        GlobalShortcut {
+            id: superTap
+            appid: "graphite"; name: "launcherToggleRelease"; description: "Toggle the launcher when Super is released alone"
+            property bool mightTrigger: false
+            property bool pressGuard: false
+            onPressed: { mightTrigger = true; pressGuard = true; }
+            onReleased: {
+                pressGuard = false;
+                if (mightTrigger) Panels.launcherOpen = !Panels.launcherOpen;
+                mightTrigger = false;
+            }
+        }
+        GlobalShortcut {
+            appid: "graphite"; name: "launcherToggleReleaseInterrupt"; description: "Cancel the Super-tap launcher toggle (bind to a catchall)"
+            // the catchall also fires on the Super press itself (Hyprland 0.55.3+): absorb that one
+            onPressed: { if (superTap.pressGuard) { superTap.pressGuard = false; return; } superTap.mightTrigger = false; }
+        }
+        GlobalShortcut {
+            appid: "graphite"; name: "notificationCenterToggle"; description: "Toggle the Notification Center"
+            onPressed: Panels.toggle("notifications")
+        }
+        GlobalShortcut {
+            appid: "graphite"; name: "dndToggle"; description: "Toggle Do Not Disturb"
+            onPressed: Notifs.toggleDnd()
+        }
+        GlobalShortcut {
+            appid: "graphite"; name: "controlCenterToggle"; description: "Toggle the Control Center"
+            onPressed: Panels.toggle("controlCenter")
+        }
+        GlobalShortcut {
+            appid: "graphite"; name: "overviewToggle"; description: "Toggle Mission Control"
+            onPressed: Panels.overviewOpen = !Panels.overviewOpen
+        }
+        GlobalShortcut {
+            appid: "graphite"; name: "sessionToggle"; description: "Toggle the power menu"
+            onPressed: Panels.sessionOpen = !Panels.sessionOpen
+        }
+        GlobalShortcut {
+            appid: "graphite"; name: "clipboardToggle"; description: "Clipboard history in the launcher"
+            onPressed: { if (Panels.launcherOpen) Panels.launcherOpen = false; else Panels.openLauncher(":"); }
+        }
+        GlobalShortcut {
+            appid: "graphite"; name: "dockToggle"; description: "Reveal / hide the dock"
+            onPressed: { if (Config.opt.dock?.autohide) Panels.dockRevealed = !Panels.dockRevealed; else Panels.dockVisible = !Panels.dockVisible; }
+        }
+        GlobalShortcut {
+            appid: "graphite"; name: "screenshot"; description: "Region screenshot"
+            onPressed: Actions.run("screenshot")
+        }
+        GlobalShortcut {
+            appid: "graphite"; name: "recordToggle"; description: "Start / stop screen recording"
+            onPressed: Recorder.toggle()
+        }
+        }
     }
 }

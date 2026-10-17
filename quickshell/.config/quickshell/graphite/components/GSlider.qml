@@ -1,61 +1,47 @@
 import QtQuick
 import qs.core
 
-// Pill slider (mock .sld): white fill, dark glyph on the left. value 0..1; moved(v) while dragging/scrolling.
-// tokens ui.meter = "dot-matrix": glyph + two rows of cells (accent = filled) + mono percentage.
+// Pill slider (mock .sld): 28px, white 13% track, white 92% fill that is never narrower than the
+// knob (28 + (w-28)*v), dark glyph at 7px. value 0..1; moved(v) while dragging/scrolling.
+// tokens ui.meter = "dot-matrix": mock telemetry .sld = 21px dot grid, white lit dots, no glyph.
 Item {
     id: root
     property real value: 0
     property string icon: ""
     property real step: 0.05
     signal moved(real v)
-    implicitHeight: 28
+    implicitHeight: Theme.dotMatrix ? 21 : 28
     implicitWidth: 200
+    readonly property real v: Math.max(0, Math.min(1, value))
 
     Rectangle {
         visible: !Theme.dotMatrix
         anchors.fill: parent
         radius: height / 2
-        color: Theme.fill2
-        clip: true
+        color: Theme.white(0.13)
         Rectangle {
             height: parent.height
             radius: height / 2
-            width: Math.max(parent.height, parent.width * Math.max(0, Math.min(1, root.value)))
+            width: parent.height + (parent.width - parent.height) * root.v
             color: Theme.white(0.92)
         }
+        Glyph {
+            x: 7; anchors.verticalCenter: parent.verticalCenter
+            name: root.icon; size: 16
+            color: Qt.rgba(0, 0, 0, 0.62)
+        }
     }
-    GIcon {
-        visible: !Theme.dotMatrix
-        x: 6; anchors.verticalCenter: parent.verticalCenter
-        name: root.icon; size: 16; filled: true
-        color: Qt.rgba(0, 0, 0, 0.62)
-    }
-    // dot-matrix variant
-    Item {
+    DotMeter {
         visible: Theme.dotMatrix
         anchors.fill: parent
-        GIcon { id: dGlyph; x: 2; anchors.verticalCenter: parent.verticalCenter; name: root.icon; size: 16; color: Theme.label2 }
-        DotMeter {
-            anchors.left: dGlyph.right; anchors.leftMargin: 8
-            anchors.right: dPct.left; anchors.rightMargin: 8
-            anchors.verticalCenter: parent.verticalCenter
-            rows: 2; cell: 4; gap: 2
-            value: root.value
-        }
-        GText {
-            id: dPct
-            anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
-            width: 26; horizontalAlignment: Text.AlignRight
-            text: Math.round(root.value * 100)
-            font.family: Theme.fontMono; small: true; secondary: true
-        }
+        style: "dots"
+        value: root.v
     }
     MouseArea {
         anchors.fill: parent
-        function at(x) { return Math.max(0, Math.min(1, x / width)); }
-        onPressed: m => root.moved(at(m.x))
-        onPositionChanged: m => { if (pressed) root.moved(at(m.x)); }
+        function at(x) { return Math.max(0, Math.min(1, (x - 14) / Math.max(1, width - 28))); }
+        onPressed: m => root.moved(Theme.dotMatrix ? Math.max(0, Math.min(1, m.x / width)) : at(m.x))
+        onPositionChanged: m => { if (pressed) root.moved(Theme.dotMatrix ? Math.max(0, Math.min(1, m.x / width)) : at(m.x)); }
         onWheel: w => root.moved(Math.max(0, Math.min(1, root.value + (w.angleDelta.y > 0 ? root.step : -root.step))))
     }
 }

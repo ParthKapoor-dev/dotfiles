@@ -4,7 +4,8 @@ import Quickshell
 import Quickshell.Wayland
 import qs.core
 
-// Menu bar: flush top, full width, glass (namespace graphite:bar), reserves its height.
+// Menu bar (mock #menubar): flush top, full width, glass (namespace graphite:bar), reserves its
+// height, 8px side padding, 1px hairline at the bottom.
 Variants {
     model: Config.screensFor(Config.opt.bar?.screens)
 
@@ -27,11 +28,11 @@ Variants {
         Rectangle {
             anchors.fill: parent
             color: Theme.menubarGlass
-            // mock: inset 0 -.5px 0 rgba(255,255,255,.07)
+            // mock: inset 0 -1px 0 rgba(255,255,255,.07) (.1 in Telemetry)
             Rectangle {
                 anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
-                height: Theme.rimWidth
-                color: Theme.fill
+                height: 1
+                color: Theme.sep
             }
             // click on empty bar closes popups
             MouseArea { anchors.fill: parent; onClicked: Panels.close() }

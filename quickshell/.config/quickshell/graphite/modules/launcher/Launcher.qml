@@ -32,8 +32,9 @@ Scope {
     onOpenChanged: {
         if (open) {
             hideTimer.stop();
-            text = initialText;
+            text = initialText || Panels.launcherQuery;
             initialText = "";
+            Panels.launcherQuery = "";
             search();
             shown = true;
         } else {
@@ -51,7 +52,10 @@ Scope {
         delegate: Loader {
             required property string modelData
             source: LauncherProviders.url(modelData)
-            onLoaded: if (item.hasOwnProperty("providerId")) item.providerId = modelData
+            onLoaded: {
+                if (item.hasOwnProperty("providerId")) item.providerId = modelData;
+                if (item.resultsChanged) item.resultsChanged.connect(() => { if (root.open) root.search(true); });
+            }
         }
     }
 
@@ -73,7 +77,8 @@ Scope {
         return out;
     }
 
-    function search() {
+    function search(keepSel) {
+        const prevSel = sel;
         const all = activeProviders();
         footerHints = all.filter(x => x.prefix).map(x => [x.prefix, x.title ?? x.p.name]);
         // the longest typed prefix wins and is queried alone
@@ -99,7 +104,7 @@ Scope {
         }
         rows = r;
         selectable = s;
-        sel = 0;
+        sel = keepSel ? Math.min(prevSel, Math.max(0, s.length - 1)) : 0;
         confirming = false;
     }
 
@@ -123,6 +128,8 @@ Scope {
         function open(): void { Panels.launcherOpen = true; }
         function close(): void { Panels.launcherOpen = false; }
         // open with a query already typed
+        // clipboard history (cliphist) inside the launcher
+        function clipboard(): void { if (Panels.launcherOpen) { root.text = ":"; root.search(); } else { root.initialText = ":"; Panels.launcherOpen = true; } }
         function search(query: string): void {
             if (Panels.launcherOpen) { root.text = query; root.search(); }
             else { root.initialText = query; Panels.launcherOpen = true; }
@@ -188,6 +195,7 @@ Scope {
             Glass {
                 id: body
                 strong: true
+                brackets: Theme.cardBrackets
                 x: win.shadowPad; y: win.shadowPad
                 width: root.opts.width ?? 680
                 height: col.implicitHeight
@@ -204,7 +212,7 @@ Scope {
                     // ---- input (mock .ln-in) ----
                     Item {
                         width: parent.width; height: 56
-                        GIcon { id: glass; x: 18; anchors.verticalCenter: parent.verticalCenter; name: "search"; size: 22; color: Theme.label2 }
+                        Glyph { id: glass; x: 18; anchors.verticalCenter: parent.verticalCenter; name: "search"; size: 22; color: Theme.label2 }
                         TextInput {
                             id: input
                             anchors.left: glass.right; anchors.leftMargin: 12
@@ -213,8 +221,10 @@ Scope {
                             color: Theme.label
                             selectionColor: Theme.accent
                             selectedTextColor: Theme.onAccent
-                            font.family: Theme.fontDisplay
-                            font.pixelSize: Theme.fontSizeLarge
+                            // Telemetry: mono 18px input (mock .ln-in input)
+                            readonly property bool mono: Theme.square && Theme.labelsMono
+                            font.family: mono ? Theme.fontLabel : Theme.fontDisplay
+                            font.pixelSize: mono ? 18 : Theme.fontSizeLarge
                             clip: true
                             focus: true
                             onTextEdited: { root.text = text; root.search(); }
@@ -230,8 +240,8 @@ Scope {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: root.opts.placeholder ?? "Search"
                                 color: Theme.label3
-                                font.family: Theme.fontDisplay
-                                font.pixelSize: Theme.fontSizeLarge
+                                font.family: input.font.family
+                                font.pixelSize: input.font.pixelSize
                             }
 
                             Keys.onPressed: e => {
@@ -239,6 +249,10 @@ Scope {
                                 if (e.key === Qt.Key_Down || e.key === Qt.Key_Tab || (ctrl && e.key === Qt.Key_N)) { root.move(1); e.accepted = true; }
                                 else if (e.key === Qt.Key_Up || e.key === Qt.Key_Backtab || (ctrl && e.key === Qt.Key_P)) { root.move(-1); e.accepted = true; }
                                 else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) { root.runSelected(); e.accepted = true; }
+                                else if (e.key === Qt.Key_Delete && (e.modifiers & Qt.ShiftModifier)) {
+                                    const it = root.selectable[root.sel]?.item;
+                                    if (it?.remove) { it.remove(); e.accepted = true; }
+                                }
                                 else if (e.key === Qt.Key_Escape) {
                                     if (root.confirming) root.confirming = false;
                                     else Panels.launcherOpen = false;
@@ -348,8 +362,8 @@ Scope {
             readonly property bool asking: selected && root.confirming
             // tokens ui.selection: accent fill, or "neutral" = fill2 + 2px accent bar on the left
             readonly property bool accentSel: selected && (asking || !Theme.selectionNeutral)
-            height: 40
-            radius: Math.min(8, Theme.radiusMenu)
+            height: (r.it.thumb ?? "") !== "" ? 52 : 40
+            radius: Theme.square ? 3 : Math.min(8, Theme.radiusMenu)
             color: asking ? Theme.red : !selected ? "transparent" : Theme.selectionNeutral ? Theme.fill2 : Theme.accent
             readonly property color fg: accentSel ? Theme.onAccent : Theme.label
             readonly property color fg2: accentSel ? Theme.rgba(Theme.t.color.onAccent, 0.75) : Theme.label2
@@ -357,20 +371,35 @@ Scope {
 
             Item {
                 id: ico
-                x: 10; width: 24; height: 24
+                readonly property bool hasThumb: (r.it.thumb ?? "") !== ""
+                x: 10; width: hasThumb ? 64 : 24; height: hasThumb ? 40 : 24
                 anchors.verticalCenter: parent.verticalCenter
                 IconImage {
                     anchors.fill: parent
-                    visible: !!r.it.image
+                    visible: !!r.it.image && !ico.hasThumb
                     source: r.it.image ?? ""
                     asynchronous: true
                 }
                 Rectangle {
                     anchors.fill: parent
-                    visible: !r.it.image
-                    radius: 6
+                    visible: ico.hasThumb
+                    radius: 5
+                    color: Theme.fill2
+                    clip: true
+                    Image {
+                        anchors.fill: parent
+                        source: r.it.thumb ?? ""
+                        fillMode: Image.PreserveAspectCrop
+                        sourceSize.width: 128; sourceSize.height: 80
+                        asynchronous: true
+                    }
+                }
+                Rectangle {
+                    anchors.fill: parent
+                    visible: !r.it.image && !ico.hasThumb
+                    radius: Theme.square ? 3 : 6
                     color: r.accentSel ? Theme.rgba(Theme.t.color.onAccent, 0.22) : Theme.fill2
-                    GIcon { anchors.centerIn: parent; name: r.it.icon ?? "circle"; size: 15; color: r.fg }
+                    Glyph { anchors.centerIn: parent; name: r.it.icon ?? "dots"; size: 15; color: r.fg }
                 }
             }
             Row {

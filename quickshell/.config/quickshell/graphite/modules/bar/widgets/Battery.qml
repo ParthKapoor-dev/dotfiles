@@ -3,10 +3,11 @@ import QtQuick
 import Quickshell.Services.UPower
 import qs.core
 import qs.components
+import qs.services
 
-// Battery (UPower display device). Percentage shown on hover by default
-// (widgets.battery.showPercent: "hover" | "always" | "never"); popup has details.
-// tokens ui.meter = "dot-matrix": a row of cells + "87%" in the mono font instead of the drawn glyph.
+// Battery (UPower display device). Mock glyph; percentage on hover by default
+// (widgets.battery.showPercent: "hover" | "always" | "never"). tokens ui.meter = "dot-matrix":
+// 5 bars + "87%" in the label font (Telemetry). Popover: %, power source, time, power mode.
 BarButton {
     id: root
     property string widgetId: "battery"
@@ -19,9 +20,10 @@ BarButton {
     readonly property bool charging: dev?.state === UPowerDeviceState.Charging
     readonly property bool full: dev?.state === UPowerDeviceState.FullyCharged
     readonly property bool plugged: charging || full || dev?.state === UPowerDeviceState.PendingCharge || !UPower.onBattery
-    readonly property bool low: pct <= (options.lowPercent ?? 20)
+    readonly property bool low: pct <= (options.lowPercent ?? 20) && !plugged
     readonly property string mode: options.showPercent ?? "hover"
     visible: present
+    hpad: 7
     active: Panels.popup === popupId
     onClicked: Panels.toggle(popupId)
     spacing: 5
@@ -29,7 +31,7 @@ BarButton {
     function duration(s) {
         if (!s || s <= 0) return "";
         const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
-        return h > 0 ? h + " h " + m + " min" : m + " min";
+        return h + ":" + String(m).padStart(2, "0");
     }
 
     GText {
@@ -38,58 +40,58 @@ BarButton {
         text: root.pct + "%"
         font.features: ({ "tnum": 1 })
     }
-    // dot-matrix: cell bar + mono percentage
+    BatteryGlyph {
+        visible: !Theme.dotMatrix
+        anchors.verticalCenter: parent.verticalCenter
+        level: root.level; charging: root.charging; low: root.low
+    }
+    // dot-matrix (mock telemetry .bdots: 5 bars 4x10, gap 2, + .bpct)
     Row {
         visible: Theme.dotMatrix
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 1.5
+        spacing: 2
         Repeater {
-            model: 8
+            model: 5
             Rectangle {
                 required property int index
-                width: 3; height: 9
-                anchors.verticalCenter: parent.verticalCenter
-                color: index < Math.ceil(root.level * 8)
-                    ? (root.low && !root.plugged ? Theme.red : root.charging ? Theme.green : Theme.accent)
-                    : Theme.fill3
+                width: 4; height: 10
+                color: index < Math.round(root.level * 5) ? (root.low ? Theme.red : Theme.label) : Theme.fill3
             }
         }
     }
     GText {
         visible: Theme.dotMatrix
         anchors.verticalCenter: parent.verticalCenter
-        text: root.pct + "%"
-        font.family: Theme.fontMono
-        font.pixelSize: Theme.fontSizeSmall
-    }
-    BatteryGlyph {
-        visible: !Theme.dotMatrix
-        anchors.verticalCenter: parent.verticalCenter
-        level: root.level; charging: root.charging; low: root.low && !root.plugged
+        text: (root.charging ? "+" : "") + root.pct + "%"
+        font.family: Theme.fontLabel
+        font.pixelSize: 11
+        font.weight: Font.Medium
     }
 
     GPopup {
         popupId: root.popupId
         anchorItem: root
-        popupWidth: 250
+        align: "itemRight"
         content: Column {
-            Item {
-                width: parent.width; height: 32
-                GText { x: 10; anchors.verticalCenter: parent.verticalCenter; text: "Battery"; font.weight: Font.DemiBold }
-                GText { anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter; text: root.pct + "%"; secondary: true }
-            }
-            GText {
-                x: 10; width: parent.width - 20; height: 22
-                text: "Power Source: " + (root.plugged ? "Power Adapter" : "Battery")
-                secondary: true; small: true
-            }
-            GText {
-                x: 10; width: parent.width - 20; height: 22
+            PopHeader { width: parent.width; title: "Battery"; value: root.pct + "%" }
+            SectionLabel {
+                topPadding: 0
                 readonly property string t: root.charging ? root.duration(root.dev?.timeToFull) : root.duration(root.dev?.timeToEmpty)
-                visible: t !== "" && !root.full
-                text: root.charging ? t + " until full" : t + " remaining"
-                secondary: true; small: true
+                text: "Power Source: " + (root.plugged ? "Power Adapter" : "Battery")
+                      + (root.full ? " · Fully charged" : t ? " · " + t + (root.charging ? " until full" : " left") : "")
             }
+            SectionLabel { visible: Power.available; text: "Power Mode" }
+            Item {
+                visible: Power.available
+                width: parent.width; height: 38
+                Segmented {
+                    x: 8; y: 2; width: parent.width - 16
+                    model: Power.modes.map(m => ({ id: m.id, label: m.label === "Performance" ? "Perf" : m.label }))
+                    current: Power.profile
+                    onPicked: id => Power.set(id)
+                }
+            }
+            Item { width: 1; height: 4 }
         }
     }
 }
