@@ -74,7 +74,9 @@ Item {
     }
     Process { id: remover; onExited: root.refresh() }
 
-    // thumbnails: decode the first few image entries, one process at a time
+    // thumbnails: decode the first few image entries, one process at a time. Decoded to a temp
+    // name and renamed, so an Image (or a second shell instance) never reads a half-written file
+    // ("Unable to read image data" in the log).
     property var pending: []
     function queueThumbs() {
         pending = entries.filter(e => e.image && !thumbs[e.id]).slice(0, 12);
@@ -86,7 +88,7 @@ Item {
         pending = pending.slice(1);
         thumber.target = thumbDir + "/" + e.id + "." + (e.ext === "jpg" ? "jpeg" : e.ext);
         thumber.eid = e.id;
-        thumber.command = ["sh", "-c", "mkdir -p \"$1\" && [ -s \"$3\" ] || cliphist decode \"$2\" > \"$3\"", "sh", thumbDir, e.id, thumber.target];
+        thumber.command = ["sh", "-c", "mkdir -p \"$1\" && { [ -s \"$3\" ] || { cliphist decode \"$2\" > \"$3.$$\" && mv -f \"$3.$$\" \"$3\"; }; }", "sh", thumbDir, e.id, thumber.target];
         thumber.running = true;
     }
     Process {

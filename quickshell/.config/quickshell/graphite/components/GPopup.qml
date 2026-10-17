@@ -84,7 +84,9 @@ Scope {
             margins.left: Math.max(0, wantX - root.shadowPad)
             margins.bottom: root.fromBottom ? root.bottomOffset : 0
             readonly property real bodyX: wantX - margins.left
-            implicitWidth: bodyX + root.popupWidth + root.shadowPad
+            // the window never runs past the screen's right edge (an oversized layer surface
+            // could be clamped/shifted by the compositor and cut the body's right side)
+            implicitWidth: bodyX + root.popupWidth + Math.max(0, Math.min(root.shadowPad, sw - wantX - root.popupWidth))
             implicitHeight: root.fillHeight ? 0 : bodyH + root.gap + root.shadowPad
             // tallest body that still fits on screen (window sits under the bar's exclusive zone,
             // or above the dock for fromBottom); longer content scrolls instead of running off-screen

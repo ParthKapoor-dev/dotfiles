@@ -34,11 +34,24 @@ Variants {
         readonly property bool menuOpen: Panels.popup === menu.popupId
         readonly property bool hovering: hover.hovered
         // shown = on screen; with autohide only while revealed
-        readonly property bool shown: Panels.dockVisible && (!autohide || revealed || menuOpen)
+        // autohide stays revealed on an empty desktop (no windows on this screen's workspace;
+        // minimized windows live in special:minimized and don't count)
+        readonly property bool shown: Panels.dockVisible && (!autohide || revealed || menuOpen || (emptyDesktop && !fullscreen))
         property bool revealed: false
         // this screen's workspace, not the focused one: a fullscreen window on another monitor
         // must not disable this dock's hot strip
-        readonly property bool fullscreen: Hyprland.monitorFor(win.screen)?.activeWorkspace?.hasFullscreen ?? false
+        readonly property var monWs: Hyprland.monitorFor(win.screen)?.activeWorkspace ?? null
+        readonly property bool fullscreen: monWs?.hasFullscreen ?? false
+        readonly property bool wsEmpty: !!monWs && monWs.toplevels.values.length === 0
+        // settled a beat (a window closing while the next one maps, workspace switch events
+        // arriving in pieces) so the dock doesn't bob
+        property bool emptyDesktop: false
+        onWsEmptyChanged: emptyTimer.restart()
+        Component.onCompleted: emptyDesktop = wsEmpty
+        Timer { id: emptyTimer; interval: 120; onTriggered: win.emptyDesktop = win.wsEmpty }
+        // a window appeared while the pointer is on the dock (launched from it): keep it up until
+        // the pointer leaves, like a normal reveal
+        onEmptyDesktopChanged: if (!emptyDesktop && autohide && hovering) revealed = true
 
         // reveal / conceal timing (autohide)
         Timer { id: revealTimer; interval: Config.opt.dock?.revealDelay ?? 150; onTriggered: win.revealed = true }
@@ -147,18 +160,28 @@ Variants {
             Rectangle {
                 id: tip
                 property var target: null
-                visible: target !== null && !win.menuOpen
+                // the tile the tooltip belongs to, kept while it fades out (target is already null)
+                property var last: null
+                onTargetChanged: if (target) last = target
+                readonly property bool on: target !== null && !win.menuOpen
+                opacity: on ? 1 : 0
+                visible: opacity > 0.01 && last !== null
+                Behavior on opacity { NumberAnimation { duration: tip.on ? Theme.durHover : Theme.durFade; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+                transform: Translate {
+                    y: tip.on ? 0 : 3
+                    Behavior on y { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+                }
                 color: Theme.square ? Theme.rgba("#0A0A0A", 0.96) : Theme.rgba("#28282A", 0.82)
                 radius: Theme.square ? 3 : 8
                 border.width: Theme.rimWidth; border.color: Theme.white(0.14)
                 width: Math.min(tipText.implicitWidth, 320) + 22; height: 25
-                x: target ? Math.max(4, Math.min(stage.width - width - 4, (target.s, tiles.x, target.mapToItem(stage, target.width / 2, 0).x - width / 2))) : 0
-                y: target ? (target.s, target.mapToItem(stage, 0, 0).y - height - 11) : 0
+                x: last ? Math.max(4, Math.min(stage.width - width - 4, (last.s, tiles.x, last.mapToItem(stage, last.width / 2, 0).x - width / 2))) : 0
+                y: last ? (last.s, last.mapToItem(stage, 0, 0).y - height - 11) : 0
                 GText {
                     id: tipText
                     anchors.centerIn: parent
                     width: Math.min(implicitWidth, 320)
-                    text: tip.target?.label ?? ""
+                    text: tip.last?.label ?? ""
                     font.family: Theme.square ? Theme.fontLabel : Theme.fontUi
                     font.pixelSize: Theme.square ? 11 : 13
                     font.capitalization: Theme.square ? Font.AllUppercase : Font.MixedCase

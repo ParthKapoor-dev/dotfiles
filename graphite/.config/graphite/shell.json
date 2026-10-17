@@ -2,7 +2,7 @@
   "_comment": "Graphite shell (qs -c graphite) user config. Live-reloaded. Missing keys fall back to built-in defaults (core/Config.qml). Widget ids: modules/bar/BarWidgets.qml; control-center section ids: modules/controlcenter/CcSections.qml; launcher provider ids: modules/launcher/LauncherProviders.qml; action names (logo menu, session, commands): services/Actions.qml.",
   "modules": {
     "bar": true, "dock": true, "controlCenter": true, "launcher": true, "osd": true, "notifications": true,
-    "wallpaper": true, "corners": true, "overview": true, "session": true, "polkit": true, "clipboard": true
+    "wallpaper": true, "corners": true, "overview": true, "session": true, "polkit": true, "clipboard": true, "cheatsheet": true
   },
   "terminal": ["ghostty"],
   "bar": {
@@ -27,7 +27,7 @@
         { "label": "Log Out $USER…", "action": "session" }
       ]
     },
-    "appName": { "fallback": "Desktop" },
+    "appName": { "fallback": "Desktop", "width": 148 },
     "menus": { "items": ["File", "Edit", "View", "Window", "Help"] },
     "windowTitle": { "maxWidth": 360 },
     "workspaces": { "minCount": 5, "scroll": true },
@@ -66,6 +66,7 @@
   "wallpaper": { "path": "~/Pictures/Wallpapers/gradient-1-clean.png", "fill": "cover", "color": "#000000", "transition": 500 },
   "overview": { "minWorkspaces": 5, "live": true },
   "corners": { "hideOnFullscreen": true },
+  "cheatsheet": { "labels": {}, "groups": {}, "showUnlabeled": false },
   "launcher": {
     "width": 680,
     "top": 0.18,

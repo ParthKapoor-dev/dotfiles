@@ -26,7 +26,7 @@ BarButton {
     hpad: 7
     active: Panels.popup === popupId
     onClicked: Panels.toggle(popupId)
-    spacing: 5
+    spacing: Theme.dotMatrix ? 5 : 0
 
     function duration(s) {
         if (!s || s <= 0) return "";
@@ -34,11 +34,23 @@ BarButton {
         return h + ":" + String(m).padStart(2, "0");
     }
 
-    GText {
+    // hover percentage eases open (width + fade) instead of popping; the glyph keeps its own
+    // 5px gap inside the box so the row spacing doesn't jump when it closes
+    readonly property bool showPct: !Theme.dotMatrix && (root.mode === "always" || (root.mode === "hover" && (root.hovered || root.active)))
+    Item {
+        visible: !Theme.dotMatrix
         anchors.verticalCenter: parent.verticalCenter
-        visible: !Theme.dotMatrix && (root.mode === "always" || (root.mode === "hover" && (root.hovered || root.active)))
-        text: root.pct + "%"
-        font.features: ({ "tnum": 1 })
+        height: pctText.implicitHeight
+        width: root.showPct ? pctText.implicitWidth + 5 : 0
+        clip: true
+        Behavior on width { NumberAnimation { duration: Theme.durSheet; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveSheet } }
+        GText {
+            id: pctText
+            text: root.pct + "%"
+            font.features: ({ "tnum": 1 })
+            opacity: root.showPct ? 1 : 0
+            Behavior on opacity { NumberAnimation { duration: Theme.durFade; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+        }
     }
     BatteryGlyph {
         visible: !Theme.dotMatrix

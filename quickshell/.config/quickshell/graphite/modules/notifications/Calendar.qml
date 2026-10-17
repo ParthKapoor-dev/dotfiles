@@ -37,9 +37,16 @@ Column {
                 model: [["chevL", -1], ["chevR", 1]]
                 Item {
                     required property var modelData
+                    id: chev
                     width: 16; height: 16
-                    Glyph { anchors.centerIn: parent; name: parent.modelData[0]; size: 12; color: Theme.label2 }
-                    MouseArea { anchors.fill: parent; onClicked: root.offset += parent.modelData[1] }
+                    Rectangle {
+                        anchors.fill: parent; radius: Theme.square ? 3 : 8
+                        color: Theme.fill2
+                        opacity: chevMouse.containsMouse ? 1 : 0
+                        Behavior on opacity { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+                    }
+                    Glyph { anchors.centerIn: parent; name: chev.modelData[0]; size: 12; color: chevMouse.containsMouse ? Theme.label : Theme.label2 }
+                    MouseArea { id: chevMouse; anchors.fill: parent; hoverEnabled: true; onClicked: root.offset += chev.modelData[1] }
                 }
             }
         }
@@ -68,6 +75,17 @@ Column {
                 readonly property bool isToday: modelData.toDateString() === root.today.toDateString()
                 readonly property bool other: modelData.getMonth() !== root.month.getMonth()
                 width: grid.cw; height: 26
+                // hover: soft round fill behind the day
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: 24; height: 24; radius: Theme.square ? 4 : 12
+                    color: Theme.fill2
+                    opacity: dayMouse.containsMouse && !day.isToday ? 1 : 0
+                    scale: dayMouse.containsMouse ? 1 : 0.85
+                    Behavior on opacity { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+                    Behavior on scale { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+                }
+                MouseArea { id: dayMouse; anchors.fill: parent; hoverEnabled: true }
                 Rectangle {
                     visible: day.isToday
                     anchors.centerIn: parent

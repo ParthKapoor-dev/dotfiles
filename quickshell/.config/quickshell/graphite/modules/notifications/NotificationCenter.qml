@@ -8,10 +8,12 @@ import qs.core
 import qs.components
 import qs.services
 
-// Notification Center (mock #nc): a 356px column at the right edge (bar+6 to 8px above the
-// bottom) that slides in from the right. Header with Do Not Disturb + Clear All pills, then
-// notifications grouped by app in glass cards, a month calendar and a batteries card
-// (laptop + Bluetooth devices that report a level). Popup id "notifications" (clock click,
+// Notification Center (mock #nc): a 356px column at the right edge, 8px under the bar and 10px
+// from the screen edge (the same column as the banners), that slides in from the right. A header
+// card with Do Not Disturb + Clear All, then notifications grouped by app, a month calendar and a
+// batteries card (laptop + Bluetooth devices that report a level). Every block is a card of the
+// same width and glass (tokens glass.cardAlpha: near-opaque, so a saturated wallpaper blurred
+// behind the layer can't tint them). Popup id "notifications" (clock click,
 // `qs -c graphite ipc call notifications toggle`).
 GPopup {
     id: nc
@@ -19,16 +21,39 @@ GPopup {
     popupId: "notifications"
     align: "right"
     popupWidth: opts.width ?? 356
+    edge: 10
+    gap: 8
     padding: 0
     bare: true
     fillHeight: true
     slide: "left"
 
     FileView { id: hostFile; path: "/etc/hostname"; blockLoading: true; printErrors: false }
-    component CardShadow: RectangularShadow {
-        radius: Theme.square ? 6 : 16
-        offset.y: 10; blur: 30; spread: -4
-        color: Theme.rgba("#000000", 0.3)
+    // one NC card: soft shadow + near-opaque glass; `inner` is the content box (14/12 padding)
+    component NcCard: Item {
+        id: card
+        default property alias content: inner.data
+        property real padY: 12
+        width: parent?.width ?? 0
+        implicitHeight: inner.childrenRect.height + padY * 2
+        RectangularShadow {
+            anchors.fill: parent
+            radius: cardBg.radius
+            offset.y: 8; blur: 24; spread: -6
+            color: Theme.rgba("#000000", Theme.glassOpaque ? 0.45 : 0.32)
+        }
+        // the rim is drawn over the fill, not as the Rectangle's own border: a translucent border
+        // replaces the fill under it, and that 0.5-1px band showed the blurred wallpaper as a
+        // red/orange edge around every card
+        Glass { id: cardBg; anchors.fill: parent; menu: true; color: Theme.cardGlass; radius: Theme.square ? 6 : 16; border.width: 0 }
+        Rectangle {
+            anchors.fill: parent
+            radius: cardBg.radius
+            color: "transparent"
+            border.width: Theme.glassOpaque ? 1 : Theme.rimWidth
+            border.color: Theme.glassOpaque ? Theme.hair : Theme.rim
+        }
+        Item { id: inner; x: 14; y: card.padY; width: card.width - 28; height: childrenRect.height }
     }
     component GroupLabel: Item {
         property string leftText
@@ -64,89 +89,73 @@ GPopup {
             width: flick.width
             spacing: 10
 
-            // header (mock .nc-h). The NC is floating cards on a transparent full-height layer, so
-            // whatever is behind the header is an app window, not wallpaper: the mock's bare title
-            // with a 4px text-shadow is unreadable on a light window. The title gets the same glass
-            // capsule as the mock's .pillbtn pills next to it, so the whole row reads as three
-            // pills and stays legible on any background.
-            Item {
-                width: parent.width; height: 28
-                Rectangle {
-                    id: titlePill
-                    anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
-                    height: 28
-                    width: Math.min(titleText.implicitWidth + 24, parent.width - pills.width - 8)
-                    radius: Theme.square ? 4 : height / 2
-                    color: Theme.menuGlass
-                    border.width: Theme.glassOpaque ? 1 : Theme.rimWidth
-                    border.color: Theme.glassOpaque ? Theme.hair : Theme.rim
+            // header (mock .nc-h). The mock's bare title + floating pills sit on wallpaper; here
+            // the column floats over app windows, so the header is the column's first card: same
+            // width and edges as the cards below, title at the cards' 14px text inset, the two
+            // pills inside it on the right (flat fill pills, accent when DND is on).
+            NcCard {
+                padY: 0
+                Item {
+                    width: parent.width; height: 40
                     GText {
-                        id: titleText
-                        anchors.centerIn: parent
-                        width: Math.min(implicitWidth, parent.width - 24)
+                        anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
+                        width: Math.min(implicitWidth, parent.width - pills.width - 10)
                         text: "Notifications"; font.pixelSize: 15; font.weight: Font.DemiBold
                     }
-                }
-                Row {
-                    id: pills
-                    anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
-                    spacing: 6
-                    PillButton { icon: "moonF"; text: Notifs.dnd ? "Focus on" : "Do Not Disturb"; on: Notifs.dnd; onClicked: Notifs.toggleDnd() }
-                    PillButton { visible: Notifs.count > 0; text: "Clear All"; onClicked: Notifs.clearAll() }
+                    Row {
+                        id: pills
+                        anchors.right: parent.right; anchors.rightMargin: -6
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 6
+                        PillButton { flat: true; icon: "moonF"; text: Notifs.dnd ? "Focus on" : "Do Not Disturb"; on: Notifs.dnd; onClicked: Notifs.toggleDnd() }
+                        PillButton { flat: true; visible: Notifs.count > 0; text: "Clear All"; onClicked: Notifs.clearAll() }
+                    }
                 }
             }
 
             // empty state
-            Item {
+            NcCard {
                 visible: Notifs.count === 0
-                width: parent.width; height: 52
-                CardShadow { anchors.fill: emptyCard }
-                Glass {
-                    id: emptyCard
-                    anchors.fill: parent; menu: true; radius: Theme.square ? 6 : 16
-                    GText { anchors.centerIn: parent; text: Notifs.running ? "No Notifications" : "Notifications are handled by another daemon"; secondary: true }
+                padY: 0
+                Item {
+                    width: parent.width; height: 52
+                    GText { anchors.centerIn: parent; width: Math.min(implicitWidth, parent.width); text: Notifs.running ? "No Notifications" : "Notifications are handled by another daemon"; secondary: true }
                 }
             }
 
             Repeater {
                 model: flick.groups
-                Column {
+                NcCard {
                     id: grp
                     required property var modelData
                     width: col.width
-                    spacing: 6
                     // group label (mock .grp) sits inside the card as its first row: outside it
-                    // floated over app windows with no backing, like the header did
-                    Item {
-                        width: parent.width; height: gcol.implicitHeight + 24
-                        CardShadow { anchors.fill: parent }
-                        Glass { anchors.fill: parent; menu: true; radius: Theme.square ? 6 : 16 }
-                        Column {
-                            id: gcol
-                            x: 14; y: 12; width: parent.width - 28
-                            spacing: 12
-                            GroupLabel {
+                    // floated over app windows with no backing
+                    Column {
+                        id: gcol
+                        width: parent.width
+                        spacing: 12
+                        GroupLabel {
+                            width: gcol.width
+                            leftText: grp.modelData.app
+                            rightText: grp.modelData.list.length > 6 ? "6 of " + grp.modelData.list.length
+                                : grp.modelData.list.length > 1 ? grp.modelData.list.length + " notifications" : ""
+                        }
+                        Repeater {
+                            model: grp.modelData.list.slice(0, 6)
+                            Column {
+                                id: entry
+                                required property var modelData
+                                required property int index
                                 width: gcol.width
-                                leftText: grp.modelData.app
-                                rightText: grp.modelData.list.length > 6 ? "6 of " + grp.modelData.list.length
-                                    : grp.modelData.list.length > 1 ? grp.modelData.list.length + " notifications" : ""
-                            }
-                            Repeater {
-                                model: grp.modelData.list.slice(0, 6)
-                                Column {
-                                    id: entry
-                                    required property var modelData
-                                    required property int index
-                                    width: gcol.width
-                                    spacing: 12
-                                    Rectangle { visible: entry.index > 0; width: parent.width; height: 1; color: Theme.sep }
-                                    NotificationCard {
-                                        width: parent.width
-                                        notification: entry.modelData
-                                        compact: false
-                                        card: false
-                                        onCloseRequested: Notifs.dismiss(entry.modelData)
-                                    }
+                                spacing: 12
+                                Rectangle { visible: entry.index > 0; width: parent.width; height: 1; color: Theme.sep }
+                                NotificationCard {
+                                    width: parent.width
+                                    notification: entry.modelData
+                                    compact: false
+                                    card: false
+                                    onCloseRequested: Notifs.dismiss(entry.modelData)
                                 }
                             }
                         }
@@ -155,16 +164,14 @@ GPopup {
             }
 
             // calendar (mock .cal)
-            Item {
+            NcCard {
                 visible: nc.opts.calendar !== false
-                width: parent.width; height: cal.implicitHeight + 24
-                CardShadow { anchors.fill: parent }
-                Glass { anchors.fill: parent; menu: true; radius: Theme.square ? 6 : 16 }
-                Calendar { id: cal; x: 14; y: 12; width: parent.width - 28 }
+                Calendar { width: parent.width }
             }
 
-            // batteries (mock .batt rings)
-            Item {
+            // batteries (mock .batt: title, then a 3-column grid of 52px rings with "87%" and the
+            // device name under each, 11px grey, centred in its column)
+            NcCard {
                 id: batt
                 readonly property var items: {
                     const out = [];
@@ -174,22 +181,25 @@ GPopup {
                     return out.slice(0, 3);
                 }
                 visible: nc.opts.batteries !== false && items.length > 0
-                width: parent.width; height: 120
-                CardShadow { anchors.fill: parent }
-                Glass { anchors.fill: parent; menu: true; radius: Theme.square ? 6 : 16 }
-                CardTitle { x: 14; y: 12; width: parent.width - 28; text: "Batteries" }
-                Row {
-                    x: 14; y: 38; width: parent.width - 28
-                    Repeater {
-                        model: batt.items
-                        Column {
-                            id: bi
-                            required property var modelData
-                            width: (batt.width - 28) / 3
-                            spacing: 4
-                            Ring { anchors.horizontalCenter: parent.horizontalCenter; value: bi.modelData.p; glyph: bi.modelData.glyph }
-                            GText { anchors.horizontalCenter: parent.horizontalCenter; text: Math.round(bi.modelData.p * 100) + "%"; small: true; secondary: true; font.features: ({ "tnum": 1 }) }
-                            GText { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: bi.modelData.name; small: true; secondary: true }
+                Column {
+                    width: parent.width
+                    spacing: 8
+                    CardTitle { width: parent.width; text: "Batteries" }
+                    Row {
+                        width: parent.width
+                        spacing: 8
+                        Repeater {
+                            model: batt.items
+                            Column {
+                                id: bi
+                                required property var modelData
+                                width: (batt.width - 28 - 16) / 3
+                                spacing: 0
+                                Ring { anchors.horizontalCenter: parent.horizontalCenter; value: bi.modelData.p; glyph: bi.modelData.glyph }
+                                Item { width: 1; height: 4 }
+                                GText { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: Math.round(bi.modelData.p * 100) + "%"; small: true; secondary: true; font.features: ({ "tnum": 1 }) }
+                                GText { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: bi.modelData.name; small: true; secondary: true }
+                            }
                         }
                     }
                 }

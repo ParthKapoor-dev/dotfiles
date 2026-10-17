@@ -24,7 +24,8 @@ Singleton {
             "overview": true,
             "session": true,
             "polkit": true,
-            "clipboard": true
+            "clipboard": true,
+            "cheatsheet": true
         },
         "terminal": [
             "ghostty"
@@ -98,7 +99,8 @@ Singleton {
                 ]
             },
             "appName": {
-                "fallback": "Desktop"
+                "fallback": "Desktop",
+                "width": 148
             },
             "menus": {
                 "items": [
@@ -226,6 +228,11 @@ Singleton {
         },
         "corners": {
             "hideOnFullscreen": true
+        },
+        "cheatsheet": {
+            "labels": {},
+            "groups": {},
+            "showUnlabeled": false
         },
         "launcher": {
             "width": 680,

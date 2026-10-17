@@ -14,8 +14,10 @@ Item {
         id: ci
         width: 30; height: 30; radius: Theme.square ? 4 : 15
         anchors.verticalCenter: parent.verticalCenter
-        color: root.on ? Theme.accent : Theme.white(0.14)
-        Behavior on color { ColorAnimation { duration: Theme.durFade } }
+        color: root.on ? Theme.accent : Theme.white(togMouse.containsMouse ? 0.2 : 0.14)
+        Behavior on color { ColorAnimation { duration: Theme.durHover } }
+        scale: togMouse.pressed ? 0.94 : 1
+        Behavior on scale { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
         Glyph { anchors.centerIn: parent; name: root.icon; size: 16; color: root.on ? Theme.onAccent : Theme.label }
     }
     Column {
@@ -31,5 +33,5 @@ Item {
             font.letterSpacing: Theme.square ? 0.5 : 0
         }
     }
-    MouseArea { anchors.fill: parent; onClicked: root.clicked() }
+    MouseArea { id: togMouse; anchors.fill: parent; hoverEnabled: true; onClicked: root.clicked() }
 }

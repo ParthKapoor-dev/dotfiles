@@ -12,11 +12,63 @@ import qs.services
 // Item: { label, shortcut?, check?, dis?, act } | { sep: true } | { head: "text" }
 Singleton {
     id: root
-    readonly property var toplevel: ToplevelManager.activeToplevel
-    readonly property bool hasWindow: !!toplevel && toplevel.activated
-    readonly property string appId: hasWindow ? toplevel.appId : ""
-    readonly property var entry: { Apps.entriesRev; return appId ? Apps.entryFor(appId) : null; }
-    readonly property string appName: entry?.name || appId || (Config.widget("appName").fallback ?? "Desktop")
+    // The focused app, held stable. ToplevelManager.activeToplevel alone flickers: its `activated`
+    // drops whenever keyboard focus goes to a layer surface (our own menus/popovers/launcher,
+    // other layer clients) and comes back a frame later, and it goes null in between switches.
+    // So focus changes are sampled 150 ms after the last change and only a real toplevel switch
+    // (or an empty desktop on the focused workspace) changes the app; while nothing is activated
+    // the last app stays as long as its window lives on the focused workspace.
+    property var toplevel: null
+    readonly property bool hasWindow: !!toplevel
+    property string appId: ""
+    property var entry: null
+    property string appName: fallbackName
+    readonly property string fallbackName: Config.widget("appName").fallback ?? "Desktop"
+    property var nameCache: ({})           // appId -> { entry, name }: one desktop-entry lookup per app
+
+    function resolve(id) {
+        let c = nameCache[id];
+        if (!c || !c.entry) {              // retry misses (desktop entries load after startup)
+            const e = Apps.entryFor(id);
+            c = { entry: e, name: e?.name || id };
+            nameCache = Object.assign({}, nameCache, { [id]: c });
+        }
+        return c;
+    }
+    function hyprOf(t) { return t ? Hyprland.toplevels.values.find(x => x.wayland === t) ?? null : null; }
+    function sample() {
+        const a = ToplevelManager.activeToplevel;
+        let next = toplevel;
+        if (a && a.activated && a.appId) next = a;
+        else {
+            const shellUi = Panels.popup !== "" || Panels.launcherOpen || Panels.overviewOpen || Panels.sessionOpen;
+            const alive = !!toplevel && ToplevelManager.toplevels.values.includes(toplevel);
+            const ws = Hyprland.focusedWorkspace;
+            const onWs = alive && hyprOf(toplevel)?.workspace === ws;
+            if (!alive) next = null;
+            else if (!shellUi && !onWs) next = null;      // switched to another (e.g. empty) desktop
+        }
+        const id = next?.appId ?? "";
+        const c = id ? resolve(id) : null;
+        toplevel = next;
+        if (appId !== id) appId = id;
+        if (entry !== (c?.entry ?? null)) entry = c?.entry ?? null;
+        const name = c ? c.name : fallbackName;
+        if (appName !== name) appName = name;
+    }
+    Timer { id: settle; interval: 150; onTriggered: root.sample() }
+    function poke() { settle.restart(); }
+    Connections { target: ToplevelManager; function onActiveToplevelChanged() { root.poke(); } }
+    Connections { target: ToplevelManager.activeToplevel; ignoreUnknownSignals: true
+        function onActivatedChanged() { root.poke(); } function onAppIdChanged() { root.poke(); } }
+    Connections { target: ToplevelManager.toplevels; function onValuesChanged() { root.poke(); } }
+    Connections { target: Hyprland; function onFocusedWorkspaceChanged() { root.poke(); } }
+    Connections { target: Panels
+        function onPopupChanged() { root.poke(); } function onLauncherOpenChanged() { root.poke(); }
+        function onOverviewOpenChanged() { root.poke(); } function onSessionOpenChanged() { root.poke(); } }
+    // desktop entries arrive after startup: fill in a name that was only the raw app id
+    Connections { target: Apps; function onEntriesRevChanged() { if (root.appId && !root.entry) root.sample(); } }
+    Component.onCompleted: sample()
     readonly property var hyprActive: Hyprland.activeToplevel
     readonly property int activeWs: hyprActive?.workspace?.id ?? Hyprland.focusedWorkspace?.id ?? 1
 

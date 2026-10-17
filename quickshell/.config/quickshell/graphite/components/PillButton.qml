@@ -2,17 +2,23 @@ import QtQuick
 import qs.core
 
 // Small pill button (mock .pillbtn): 24px, 11.5px medium, glass 70% + rim; accent when `on`.
+// `flat`: sits on a card (Notification Center header): label fill, no rim.
 Rectangle {
     id: root
     property string text
     property string icon
     property bool on: false
+    property bool flat: false
     signal clicked()
     implicitHeight: 24
     implicitWidth: row.implicitWidth + 20
     radius: Theme.square ? 4 : height / 2
-    color: on ? Theme.accent : Theme.rgba(Theme.t.color.glass, mouse.containsMouse ? 0.95 : 0.75)
-    border.width: Theme.glassOpaque ? 1 : Theme.rimWidth
+    scale: mouse.pressed ? 0.97 : 1
+    Behavior on scale { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+    color: on ? Theme.accent : flat ? (mouse.containsMouse ? Theme.fill3 : Theme.fill2)
+        : Theme.rgba(Theme.t.color.glass, mouse.containsMouse ? 0.95 : 0.75)
+    Behavior on color { ColorAnimation { duration: Theme.durHover } }
+    border.width: flat ? 0 : Theme.glassOpaque ? 1 : Theme.rimWidth
     border.color: Theme.glassOpaque ? Theme.hair : Theme.rim
     Row {
         id: row
