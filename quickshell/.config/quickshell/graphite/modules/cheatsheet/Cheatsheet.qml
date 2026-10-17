@@ -106,20 +106,25 @@ Scope {
                 for (const b of list) {
                     if (b.submap && b.submap !== "global" && b.submap !== "") continue;
                     if (b.catch_all) continue;
+                    if ((b.description || "").startsWith("Internal:")) continue;   // plumbing binds (Super-tap cancel etc.)
                     const m = root.mods(b.modmask ?? 0);
                     let key = (b.key || "").toUpperCase();
-                    let digit = "";
+                    let digit = "", descLabel = "";
                     if (!key && b.keycode) {
                         if (root.digitCodes[b.keycode] !== undefined) digit = root.digitCodes[b.keycode];
                         else continue;                       // keypad / raw codes: duplicates of the above
                     } else if (!key && !b.keycode && !b.catch_all) {
-                        digit = "?";                         // 0.55.4 reports "code:N" binds as key "", keycode 0 (the digit row / keypad)
+                        // 0.55.4 reports "code:N" binds as key "", keycode 0 (digit row / keypad); the
+                        // number lives only in the description: "Go to desktop 3" -> label + digit
+                        const mm = /^(.*) (\d+)$/.exec(b.description || "");
+                        if (mm) { descLabel = mm[1]; digit = mm[2] === "10" ? "0" : mm[2]; }
+                        else digit = "?";
                     }
                     if (!key && !digit) continue;
                     if (key === "SUPER_L" || key === "SUPER_R") { if (m.length > 1 || !b.description) continue; key = ""; }
                     const combo = m.concat([digit ? "#" : key]).filter(x => x).join("+");
                     const exact = m.concat([digit || key]).filter(x => x).join("+");
-                    let label = b.has_description || b.description ? b.description : "";
+                    let label = descLabel || (b.has_description || b.description ? b.description : "");
                     if (!label) label = root.labels[exact] ?? root.labels[combo] ?? "";
                     if (!label && !root.opts.showUnlabeled) continue;
                     if (!label) label = (b.dispatcher === "__lua" ? "Lua bind " : b.dispatcher + " ") + (b.arg ?? "");
