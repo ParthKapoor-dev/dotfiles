@@ -27,7 +27,7 @@
         { "label": "Log Out $USER…", "action": "session" }
       ]
     },
-    "appName": { "fallback": "Desktop", "width": 148 },
+    "appName": { "fallback": "Desktop", "maxWidth": 180 },
     "menus": { "items": ["File", "Edit", "View", "Window", "Help"] },
     "windowTitle": { "maxWidth": 360 },
     "workspaces": { "minCount": 5, "scroll": true },

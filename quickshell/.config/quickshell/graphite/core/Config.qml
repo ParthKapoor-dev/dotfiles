@@ -100,7 +100,7 @@ Singleton {
             },
             "appName": {
                 "fallback": "Desktop",
-                "width": 148
+                "maxWidth": 180
             },
             "menus": {
                 "items": [

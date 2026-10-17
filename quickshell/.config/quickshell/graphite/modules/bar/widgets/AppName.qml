@@ -4,15 +4,15 @@ import qs.components
 import qs.modules.bar
 
 // Bold name of the focused app (desktop entry Name, else the app id); its menu has the app-level
-// actions (New Window, Hide, Quit, Force Quit). Mock .mbi.app.
-// The name sits in a fixed-width slot (widgets.appName.width, default 148) so File/Edit/View/…,
-// the workspaces and the layout glyph never move when the app changes: the button is
-// left-aligned in the slot, crossfades its text and eases its width; longer names elide.
+// actions (New Window, Hide, Quit, Force Quit). Mock .mbi.app: the menus follow the name directly.
+// The slot hugs the name: when the app changes the label crossfades and the button's width eases
+// to the new text (sheet curve), so File/Edit/View/… glide instead of jumping. Names longer than
+// widgets.appName.maxWidth (default 180 px of text) elide with "…".
 Item {
     id: root
     property string widgetId: "appName"
     readonly property var options: Config.widget(widgetId)
-    implicitWidth: options.width ?? 148
+    implicitWidth: button.implicitWidth
     implicitHeight: button.implicitHeight
     AppMenuButton {
         id: button
@@ -21,6 +21,6 @@ Item {
         menu: "app"
         label: AppMenus.appName
         bold: true
-        maxTextWidth: root.implicitWidth - button.hpad * 2 - (button.monoApp ? 12 : 0)
+        maxTextWidth: root.options.maxWidth ?? 180
     }
 }
