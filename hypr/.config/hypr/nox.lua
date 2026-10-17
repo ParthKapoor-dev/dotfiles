@@ -50,6 +50,13 @@ core.deepmerge(tokens, overrides.tokens)
 
 local ctx = { core = core, tokens = tokens, settings = settings, warn = warn }
 
+-- Never fall back to defaults.lua silently: a missing tokens.lua means the state
+-- dir is wrong or missing (e.g. not moved on a rename). Everything still loads
+-- from the defaults; the warning becomes the red config-error banner below.
+if core.tokens_source ~= "live" then
+    warn("tokens: " .. core.state_dir() .. "/nox/tokens.lua not found, using built-in defaults (fix: nox theme render)")
+end
+
 for _, name in ipairs(MODULES) do
     if not core.contains(settings.disabled_modules, name) then
         local ok, err = pcall(function()
