@@ -17,7 +17,7 @@ return {
     -- Cutover / rollback steps: lnx/reports/hypr-v2.md ("Cutover"). Stop
     -- `qs -c ii` before switching: it holds the notification D-Bus name and the
     -- polkit agent slot that graphite needs.
-    shell = "ii",
+    shell = "graphite",
 
     -- Layer-rule sets applied regardless of `shell` (both shells may run while
     -- migrating; rules for an absent namespace cost nothing).
