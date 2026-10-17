@@ -56,14 +56,13 @@ return {
 
     -- ${name} placeholders usable in bind/exec strings (C.subst).
     vars = {
-        qs = "ii",                                         -- old $qsConfig
-        hyprScripts = HOME .. "/.config/hypr/hyprland/scripts",
+        scripts = HOME .. "/.config/hypr/graphite/scripts", -- helper scripts (graphite/scripts/)
     },
 
     -- Programs (launchers are kept byte-identical to the old config).
     apps = {
         terminal_env = "ghostty", -- $TERMINAL
-        launch = "~/.config/hypr/hyprland/scripts/launch_first_available.sh",
+        launch = "~/.config/hypr/graphite/scripts/launch_first_available.sh",
     },
 
     -- Fallback cursor when tokens.theme.cursor is not installed.

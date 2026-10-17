@@ -1,5 +1,5 @@
 -- Bind group "apps": launchers. Port of `##! Apps` in hyprland/keybinds.conf
--- (commands byte-identical; launch_first_available.sh tries each in order).
+-- (launch_first_available.sh in graphite/scripts/ tries each in order).
 -- Super+X (text editor) is overridden in binds/custom.lua (2026-10-17 Fixes).
 
 return function(ctx)
@@ -19,7 +19,8 @@ return function(ctx)
         -- upstream text editor (kate/gnome-text-editor/emacs not installed): unbound by the Fixes
         { "SUPER + X", X(L .. [[ "kate" "gnome-text-editor" "emacs"]]), enabled = false },
         { "CTRL + SUPER + V", X(L .. [[ "pavucontrol-qt" "pavucontrol"]]) },
-        { "SUPER + I", X("XDG_CURRENT_DESKTOP=gnome " .. L .. [[ "qs -p ~/.config/quickshell/]] .. S.vars.qs .. [[/settings.qml" "systemsettings" "gnome-control-center" "better-control"]]) },
+        -- settings app (was ii's settings.qml; the shell's own settings are shell.json, Ctrl+Super+/)
+        { "SUPER + I", X(L .. [[ "systemsettings" "gnome-control-center"]]) },
         { "CTRL + SHIFT + Escape", X(L .. [[ "gnome-system-monitor" "plasma-systemmonitor --page-name Processes" "command -v btop && kitty -1 fish -c btop"]]) },
     }
 end

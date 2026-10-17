@@ -12,7 +12,7 @@ return function(ctx)
 
     return {
         -- ##! User
-        { "CTRL + SUPER + Slash", X("xdg-open ~/.config/illogical-impulse/config.json") }, -- edit shell config
+        { "CTRL + SUPER + Slash", X("xdg-open ~/.config/graphite/shell.json") }, -- edit shell config (graphite)
         -- was custom/keybinds.conf; now opens this file
         { "CTRL + SUPER + ALT + Slash", X("xdg-open ~/.config/hypr/graphite/binds/custom.lua") },
 
@@ -25,7 +25,7 @@ return function(ctx)
         -- Text editor: same window as the `nv` shell function
         { "SUPER + X", X("ghostty --gtk-single-instance=false --class=dev.neovim --title=nvim --config-file=\"" .. C.HOME .. "/.config/nvim/ghostty.conf\" -e nvim") }, -- text editor (Neovim)
 
-        -- ##! Graphite shell (runs next to ii, see settings.companion_shells)
+        -- ##! Graphite shell
         { "SUPER + Space", X("qs -c graphite ipc call launcher toggle") }, -- Spotlight-style launcher
         { "SUPER + ALT + N", X("qs -c graphite ipc call controlCenter toggle") }, -- Control Center
 

@@ -23,8 +23,6 @@ return function(ctx)
         { "Print", X("grim - | wl-copy"), locked = true },
         { "CTRL + Print", X([[mkdir -p $(xdg-user-dir PICTURES)/Screenshots && grim $(xdg-user-dir PICTURES)/Screenshots/Screenshot_"$(date '+%Y-%m-%d_%H.%M.%S')".png]]), locked = true, non_consuming = true },
         { "CTRL + Print", X("grim - | wl-copy"), locked = true, non_consuming = true },
-        -- AI selection summary (Ollama): unbound by the 2026-10-17 Fixes
-        { "SUPER + SHIFT + ALT + mouse:273", X("~/.config/hypr/hyprland/scripts/ai/primary-buffer-query.sh"), enabled = false },
 
         -- ##! Virtual machines: Super+Alt+F1 toggles a submap with no other binds
         { "SUPER + ALT + F1", C.fn("enter submap virtual-machine", function()

@@ -54,7 +54,7 @@ P.ipc = ipc
 local function G(name) return hl.dsp.global("graphite:" .. P.GLOBAL[name]) end
 local function X(cmd) return hl.dsp.exec_cmd(cmd) end
 
-local HS = "~/.config/hypr/hyprland/scripts"
+local HS = "~/.config/hypr/graphite/scripts"
 
 ---------------------------------------------------------------------------
 -- env / autostart / gestures
