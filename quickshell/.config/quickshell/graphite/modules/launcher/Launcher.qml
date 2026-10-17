@@ -148,15 +148,38 @@ Scope {
     property ShellScreen targetScreen: null
     onShownChanged: if (shown) targetScreen = Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
 
+    // keycap (mock kbd: 19px, min 19 wide, 0 5px padding, radius 5 / 3 in square looks, white 10%
+    // fill, 0.5px light rim + dark bottom edge, label colour 11px medium; Telemetry: label font)
     component Kbd: Rectangle {
         property alias text: kt.text
-        implicitWidth: Math.max(18, kt.implicitWidth + 8)
-        implicitHeight: 18
-        radius: 4
-        color: Theme.fill2
+        implicitWidth: Math.max(19, kt.implicitWidth + 10)
+        implicitHeight: 19
+        radius: Theme.square ? 3 : 5
+        color: Theme.white(0.1)
         border.width: Theme.rimWidth
-        border.color: Theme.sep
-        GText { id: kt; anchors.centerIn: parent; small: true; secondary: true; font.family: Theme.fontUi }
+        border.color: Theme.white(0.14)
+        Rectangle { x: parent.radius; width: parent.width - parent.radius * 2; y: parent.height - 1; height: 1; color: Qt.rgba(0, 0, 0, 0.35) }
+        GText {
+            id: kt
+            anchors.centerIn: parent
+            font.family: Theme.labelsMono ? Theme.fontLabel : Theme.fontUi
+            font.pixelSize: Theme.labelsMono ? 10.5 : 11
+            font.weight: Font.Medium
+        }
+    }
+    // footer hint: "Label ⌨" or "⌨ Label"
+    component Hint: Row {
+        property string label
+        property var keys: []
+        property bool keysFirst: false
+        spacing: 6
+        GText { visible: !parent.keysFirst; text: parent.label; small: true; secondary: true; anchors.verticalCenter: parent.verticalCenter }
+        Row {
+            spacing: 2
+            anchors.verticalCenter: parent.verticalCenter
+            Repeater { model: parent.parent.keys; Kbd { required property string modelData; text: modelData } }
+        }
+        GText { visible: parent.keysFirst; text: parent.label; small: true; secondary: true; anchors.verticalCenter: parent.verticalCenter }
     }
 
     LazyLoader {
@@ -274,6 +297,20 @@ Scope {
                         clip: true
                         boundsBehavior: Flickable.StopAtBounds
                         model: root.rows
+                        // selection slides between rows (one highlight item under the rows instead
+                        // of each row switching its own fill); big rows keep their own outline
+                        readonly property var selRow: root.selectable[root.sel] ?? null
+                        currentIndex: selRow && !selRow.item?.big ? selRow.row : -1
+                        highlightFollowsCurrentItem: true
+                        highlightMoveDuration: Theme.durHover
+                        highlightMoveVelocity: -1
+                        highlightResizeDuration: Theme.durHover
+                        highlightResizeVelocity: -1
+                        highlight: Rectangle {
+                            radius: Theme.square ? 3 : Math.min(8, Theme.radiusMenu)
+                            color: Theme.selectionNeutral ? Theme.fill2 : Theme.accent
+                            Rectangle { visible: Theme.selectionNeutral; width: 2; height: parent.height; color: Theme.accent }
+                        }
                         // keep the selection in view
                         Connections {
                             target: root
@@ -296,45 +333,72 @@ Scope {
 
                     // ---- footer (mock .ln-foot) ----
                     Rectangle { width: parent.width; height: Theme.rimWidth; color: Theme.sep }
+                    // Right: action / navigate / close (always shown). Left: brand + provider prefix
+                    // hints, as many as fit before the right group (the rest are dropped, never
+                    // overlapped); the brand text elides if even it doesn't fit.
                     Item {
                         width: parent.width; height: 38
-                        Row {
-                            x: 14; anchors.verticalCenter: parent.verticalCenter
-                            spacing: 7
-                            LogoGlyph { anchors.verticalCenter: parent.verticalCenter; width: 14; height: 14 }
-                            GText { text: "Graphite Launcher"; small: true; secondary: true; anchors.verticalCenter: parent.verticalCenter }
-                            Repeater {
-                                model: root.text === "" ? root.footerHints : []
-                                Row {
-                                    required property var modelData
-                                    spacing: 4
-                                    anchors.verticalCenter: parent?.verticalCenter
-                                    Item { width: 6; height: 1 }
-                                    Kbd { text: modelData[0] }
-                                    GText { text: modelData[1]; small: true; secondary: true; anchors.verticalCenter: parent.verticalCenter }
+                        Item {
+                            id: footLeft
+                            x: 14; height: parent.height
+                            width: Math.max(0, footRight.x - 16 - x)
+                            clip: true
+                            readonly property real gap: 14
+                            // how many prefix hints fit after the brand (delegate widths don't
+                            // depend on visibility, so this can't feed back)
+                            readonly property int fit: {
+                                hintRep.count; width;
+                                let w = brand.implicitWidth, n = 0;
+                                for (let i = 0; i < hintRep.count; i++) {
+                                    const it = hintRep.itemAt(i);
+                                    if (!it) break;
+                                    w += footLeft.gap + it.implicitWidth;
+                                    if (w > footLeft.width) break;
+                                    n++;
+                                }
+                                return n;
+                            }
+                            Row {
+                                id: brand
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 7
+                                LogoGlyph { anchors.verticalCenter: parent.verticalCenter; width: 14; height: 14 }
+                                GText {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: Math.min(implicitWidth, footLeft.width - 21)
+                                    text: "Graphite Launcher"; small: true; secondary: true
+                                }
+                            }
+                            Row {
+                                x: brand.implicitWidth + footLeft.gap
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: footLeft.gap
+                                Repeater {
+                                    id: hintRep
+                                    model: root.text === "" ? root.footerHints : []
+                                    Hint {
+                                        required property var modelData
+                                        required property int index
+                                        visible: index < footLeft.fit
+                                        anchors.verticalCenter: parent?.verticalCenter
+                                        keysFirst: true
+                                        keys: [modelData[0]]
+                                        label: modelData[1]
+                                    }
                                 }
                             }
                         }
                         Row {
+                            id: footRight
                             anchors.right: parent.right; anchors.rightMargin: 14; anchors.verticalCenter: parent.verticalCenter
                             spacing: 16
-                            Row {
+                            Hint {
                                 visible: root.selectable.length > 0
-                                spacing: 6
-                                GText { text: root.confirming ? "Confirm" : (root.selectable[root.sel]?.item.actLabel ?? "Open"); small: true; secondary: true; anchors.verticalCenter: parent.verticalCenter }
-                                Kbd { text: "↵" }
+                                label: root.confirming ? "Confirm" : (root.selectable[root.sel]?.item.actLabel ?? "Open")
+                                keys: ["↵"]
                             }
-                            Row {
-                                spacing: 6
-                                GText { text: "Navigate"; small: true; secondary: true; anchors.verticalCenter: parent.verticalCenter }
-                                Kbd { text: "↑" }
-                                Kbd { text: "↓" }
-                            }
-                            Row {
-                                spacing: 6
-                                GText { text: "Close"; small: true; secondary: true; anchors.verticalCenter: parent.verticalCenter }
-                                Kbd { text: "esc" }
-                            }
+                            Hint { label: "Navigate"; keys: ["↑", "↓"] }
+                            Hint { label: "Close"; keys: ["esc"] }
                         }
                     }
                 }
@@ -364,10 +428,10 @@ Scope {
             readonly property bool accentSel: selected && (asking || !Theme.selectionNeutral)
             height: (r.it.thumb ?? "") !== "" ? 52 : 40
             radius: Theme.square ? 3 : Math.min(8, Theme.radiusMenu)
-            color: asking ? Theme.red : !selected ? "transparent" : Theme.selectionNeutral ? Theme.fill2 : Theme.accent
+            // the selection fill is the ListView highlight (it slides); only the confirm state paints here
+            color: asking ? Theme.red : "transparent"
             readonly property color fg: accentSel ? Theme.onAccent : Theme.label
             readonly property color fg2: accentSel ? Theme.rgba(Theme.t.color.onAccent, 0.75) : Theme.label2
-            Rectangle { visible: r.selected && !r.accentSel; width: 2; height: parent.height; color: Theme.accent }
 
             Item {
                 id: ico
