@@ -15,6 +15,7 @@ hypr/.config/hypr/custom/scripts/__restore_video_wallpaper.sh
 fuzzel/.config/fuzzel/fuzzel_theme.ini
 gtk/.config/gtk-3.0/gtk.css
 gtk/.config/gtk-4.0/gtk.css
+gtk/.config/gtk-3.0/bookmarks
 
 # runtime / installer state
 hypr/.config/hypr/hyprpm/

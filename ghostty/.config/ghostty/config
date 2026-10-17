@@ -1,0 +1,61 @@
+# Ghostty configuration
+# Converted from kitty.conf
+
+# --- SEARCH SETTINGS ---
+# keybind = ctrl+shift+f=start_search
+# keybind = ctrl+g=navigate_search:forward
+# keybind = ctrl+shift+g=navigate_search:backward
+# keybind = escape=end_search
+#
+
+# --- FONT SETTINGS ---
+font-family = "JetBrains Mono Nerd Font"
+font-size = 12
+
+# --- CURSOR SETTINGS ---
+cursor-style = block
+cursor-color = #9C7CD9
+cursor-opacity = 1
+cursor-style-blink = false
+
+# --- WINDOW SETTINGS ---
+window-padding-x = 6
+window-padding-y = 6
+window-decoration = auto
+
+# --- SCROLLBACK ---
+scrollback-limit = 10000
+
+# --- COPY/PASTE ---
+copy-on-select = true
+
+# --- THEME COLORS ---
+foreground = #DDDDDD
+background = #0E110E
+selection-foreground = #141414
+selection-background = #9C7CD9
+
+# --- PALETTE ---
+palette = 0=#1E1E1E
+palette = 1=#ff6b6b
+palette = 2=#F7B284
+palette = 3=#F7B284
+palette = 4=#9C7CD9
+palette = 5=#9C7CD9
+palette = 6=#F7B284
+palette = 7=#DDDDDD
+palette = 8=#636363
+palette = 9=#ff8787
+palette = 10=#B89FE3
+palette = 11=#F9C5A0
+palette = 12=#B89FE3
+palette = 13=#B89FE3
+palette = 14=#F9C5A0
+palette = 15=#DDDDDD
+
+# --- KEY BINDINGS ---
+keybind = ctrl+shift+c=copy_to_clipboard
+keybind = ctrl+shift+v=paste_from_clipboard
+keybind = ctrl+shift+plus=increase_font_size:1
+keybind = ctrl+shift+minus=decrease_font_size:1
+keybind = ctrl+shift+backspace=reset_font_size

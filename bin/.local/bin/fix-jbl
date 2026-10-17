@@ -1,0 +1,150 @@
+#!/usr/bin/env bash
+# Reconnect the JBL Tune 770NC, recovering from the stale-link-key state
+# (org.bluez.Error.Failed br-connection-key-missing) that the headset's
+# multipoint causes when it evicts this machine's key after pairing to a phone.
+set -uo pipefail
+
+MAC="88:92:CC:C9:64:9D"        # classic BR/EDR address (A2DP). The *-LE address cannot carry audio.
+SINK="bluez_output.${MAC//:/_}.1"
+SCAN_SECS=20                   # how long to poll for the device to (re)appear
+SCAN_HOLD=90                   # how long the underlying scan actually runs -- must
+                               # outlast the whole slow path (find + remove + re-find
+                               # + pair), or `remove` can drop us past the scan's end.
+
+say() { printf '\033[1m==>\033[0m %s\n' "$*"; }
+err() { printf '\033[1;31m==>\033[0m %s\n' "$*" >&2; }
+
+connected() { bluetoothctl info "$MAC" 2>/dev/null | grep -q 'Connected: yes'; }
+paired()    { bluetoothctl info "$MAC" 2>/dev/null | grep -q 'Paired: yes'; }
+
+# Hold discovery open in the background. BlueZ drops the device object for any
+# discovered-but-unpaired device as soon as discovery stops, so the scan must
+# stay active across the pair -- otherwise `pair` races it and loses, reporting
+# "not available" for a headset that is sitting right there in pairing mode.
+SCAN_PID=""
+scan_alive() { [ -n "$SCAN_PID" ] && kill -0 "$SCAN_PID" 2>/dev/null; }
+start_scan() {
+  scan_alive && return
+  bluetoothctl --timeout "$SCAN_HOLD" scan on >/dev/null 2>&1 &
+  SCAN_PID=$!
+}
+stop_scan() {
+  [ -n "$SCAN_PID" ] && kill "$SCAN_PID" 2>/dev/null
+  SCAN_PID=""
+}
+trap stop_scan EXIT
+
+# Poll up to SCAN_SECS for the device object to (re)appear, keeping discovery
+# alive underneath. Restarts the scan if it expired -- the whole slow path shares
+# one scan, and re-finding after `remove` must not fall off the scan's end.
+wait_for_device() {
+  start_scan
+  for _ in $(seq "$SCAN_SECS"); do
+    bluetoothctl devices 2>/dev/null | grep -q "$MAC" && return 0
+    scan_alive || start_scan
+    sleep 1
+  done
+  return 1
+}
+
+# The headset only advertises the classic address in true pairing mode AND when
+# no other device holds the link.
+scan_for_classic() {
+  say "Scanning up to ${SCAN_SECS}s for the classic address..."
+  wait_for_device
+}
+
+route_audio() {
+  # The sink appears asynchronously after CONNECT; give PipeWire a moment.
+  for _ in $(seq 10); do
+    if pactl list sinks short 2>/dev/null | grep -q "$SINK"; then
+      pactl set-default-sink "$SINK" >/dev/null 2>&1
+      say "Audio routed to $SINK"
+      return 0
+    fi
+    sleep 0.5
+  done
+  err "Connected, but no PipeWire sink appeared. Try: systemctl --user restart wireplumber"
+  return 1
+}
+
+systemctl is-active --quiet bluetooth || { say "Starting bluetooth service"; sudo systemctl start bluetooth; }
+rfkill unblock bluetooth 2>/dev/null
+bluetoothctl power on >/dev/null 2>&1
+
+if connected; then
+  # `Connected: yes` alone is not success: with a stale key the headset can hold a
+  # bare ACL link (Paired: no) on which no audio profile ever comes up, so no sink
+  # appears. Only trust the link when the bond is intact and the sink shows up.
+  if paired && route_audio; then
+    say "Already connected."
+    exit 0
+  fi
+  say "Connected without a working bond/sink — dropping the dead link."
+  bluetoothctl disconnect "$MAC" >/dev/null 2>&1
+  sleep 2
+fi
+
+# Fast path: the key is intact, the headset just disconnected.
+if paired; then
+  say "Bond present — attempting direct connect..."
+  if bluetoothctl connect "$MAC" 2>&1 | grep -q 'Connection successful'; then
+    say "Connected."
+    route_audio
+    exit 0
+  fi
+  say "Direct connect failed (key is stale). Falling back to re-pair."
+fi
+
+# Slow path: our stored key no longer matches the headset's. Must re-pair,
+# which requires the headset to be in real pairing mode.
+#
+# Confirm the headset is actually reachable BEFORE removing the bond. `remove`
+# destroys the device object, so removing first and then failing the scan leaves
+# BlueZ with nothing at all -- worse than the stale bond we started with.
+if ! scan_for_classic; then
+  err "Classic address $MAC is not advertising."
+  err ""
+  err "The headset is not in pairing mode, or another device (your phone) holds it."
+  err "Bond left intact -- nothing was changed. Do this, then re-run 'fix-jbl':"
+  err "  1. Turn OFF Bluetooth on your phone (multipoint steals the audio link)."
+  err "  2. Turn the headphones OFF."
+  err "  3. Hold power ~5s until the LED blinks blue/white rapidly."
+  exit 1
+fi
+
+# Reachable. Drop the stale key ONLY if a half-bond actually persists. The stale
+# state is `Paired: no` while `Trusted: yes` survives (BlueZ kept its half). A
+# fresh or factory-reset headset is unknown to BlueZ with no bond at all -- there
+# `remove` would just destroy the device object we just discovered and force a
+# needless re-find, so skip it and pair straight away.
+if bluetoothctl info "$MAC" 2>/dev/null | grep -qE 'Paired: yes|Trusted: yes|Bonded: yes'; then
+  say "Found. Clearing stale bond..."
+  bluetoothctl remove "$MAC" >/dev/null 2>&1
+  if ! wait_for_device; then
+    err "Headset vanished after clearing the bond. Re-run 'fix-jbl'."
+    exit 1
+  fi
+else
+  say "Found — no stale bond to clear."
+fi
+
+say "Pairing..."
+if ! bluetoothctl pair "$MAC" 2>&1 | grep -q 'Pairing successful'; then
+  err "Pairing failed. Ensure the LED is still blinking, then re-run."
+  exit 1
+fi
+
+bluetoothctl trust "$MAC" >/dev/null 2>&1
+# The bond now persists the device object, so discovery can end. Leaving it on
+# competes with the audio link for adapter airtime.
+stop_scan
+sleep 1
+
+if bluetoothctl connect "$MAC" 2>&1 | grep -q 'Connection successful'; then
+  say "Connected."
+  route_audio
+else
+  err "Paired but could not connect. Re-run 'fix-jbl'."
+  exit 1
+fi

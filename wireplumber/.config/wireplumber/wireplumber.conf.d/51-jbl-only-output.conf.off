@@ -1,0 +1,15 @@
+# Only the JBL Tune 770NC may play audio. Disable every ALSA output node
+# (built-in speakers, HDMI/DP) so nothing falls back to them when the JBL
+# is disconnected. The built-in microphone is untouched.
+monitor.alsa.rules = [
+  {
+    matches = [
+      { node.name = "~alsa_output.*" }
+    ]
+    actions = {
+      update-props = {
+        node.disabled = true
+      }
+    }
+  }
+]
