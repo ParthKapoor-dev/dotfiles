@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Widgets
 import qs.core
@@ -40,7 +41,12 @@ Item {
         implicitSize: root.size * 1.5
         source: root.sep ? "" : Apps.iconFor(root.item)
         mipmap: true
-        opacity: mouse.pressed ? 0.7 : 1
+        // tokens ui.dockIcons = "monochrome-until-running": grey + dimmed until the app has a window
+        readonly property bool mono: Theme.dockIcons === "monochrome-until-running" && !root.running
+        opacity: (mouse.pressed ? 0.7 : 1) * (mono && !mouse.containsMouse ? 0.55 : 1)
+        layer.enabled: mono
+        layer.effect: MultiEffect { saturation: -1 }
+        Behavior on opacity { NumberAnimation { duration: Theme.durFade } }
     }
 
     Rectangle {

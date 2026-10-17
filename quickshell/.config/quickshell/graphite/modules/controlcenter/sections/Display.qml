@@ -5,7 +5,7 @@ import qs.services
 
 Card {
     property bool shown: Brightness.available
-    GText { id: t; text: "Display"; font.pixelSize: Theme.fontSize - 1; font.weight: Font.DemiBold }
+    CardTitle { id: t; text: "Display" }
     GSlider {
         anchors.top: t.bottom; anchors.topMargin: 8
         width: parent.width

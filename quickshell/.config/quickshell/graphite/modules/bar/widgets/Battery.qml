@@ -6,6 +6,7 @@ import qs.components
 
 // Battery (UPower display device). Percentage shown on hover by default
 // (widgets.battery.showPercent: "hover" | "always" | "never"); popup has details.
+// tokens ui.meter = "dot-matrix": a row of cells + "87%" in the mono font instead of the drawn glyph.
 BarButton {
     id: root
     property string widgetId: "battery"
@@ -33,11 +34,36 @@ BarButton {
 
     GText {
         anchors.verticalCenter: parent.verticalCenter
-        visible: root.mode === "always" || (root.mode === "hover" && (root.hovered || root.active))
+        visible: !Theme.dotMatrix && (root.mode === "always" || (root.mode === "hover" && (root.hovered || root.active)))
         text: root.pct + "%"
         font.features: ({ "tnum": 1 })
     }
+    // dot-matrix: cell bar + mono percentage
+    Row {
+        visible: Theme.dotMatrix
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: 1.5
+        Repeater {
+            model: 8
+            Rectangle {
+                required property int index
+                width: 3; height: 9
+                anchors.verticalCenter: parent.verticalCenter
+                color: index < Math.ceil(root.level * 8)
+                    ? (root.low && !root.plugged ? Theme.red : root.charging ? Theme.green : Theme.accent)
+                    : Theme.fill3
+            }
+        }
+    }
+    GText {
+        visible: Theme.dotMatrix
+        anchors.verticalCenter: parent.verticalCenter
+        text: root.pct + "%"
+        font.family: Theme.fontMono
+        font.pixelSize: Theme.fontSizeSmall
+    }
     BatteryGlyph {
+        visible: !Theme.dotMatrix
         anchors.verticalCenter: parent.verticalCenter
         level: root.level; charging: root.charging; low: root.low && !root.plugged
     }

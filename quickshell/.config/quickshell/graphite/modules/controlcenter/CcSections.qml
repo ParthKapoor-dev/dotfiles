@@ -9,7 +9,8 @@ Singleton {
         "connectivity": "Connectivity.qml",
         "display": "Display.qml",
         "sound": "Sound.qml",
-        "media": "Media.qml"
+        "media": "Media.qml",
+        "notifications": "Notifications.qml"
     })
     function url(id) {
         const f = registry[id];

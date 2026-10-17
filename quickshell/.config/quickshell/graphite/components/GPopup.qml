@@ -26,6 +26,8 @@ Scope {
     property ShellScreen screen: anchorItem?.QsWindow.window?.screen ?? Quickshell.screens[0] ?? null
 
     readonly property bool open: Panels.popup === popupId
+    Component.onCompleted: Panels.registerPopup(popupId)
+    Component.onDestruction: Panels.unregisterPopup(popupId)
     property bool shown: false
     property real anchorX: 0
     readonly property real shadowPad: 28

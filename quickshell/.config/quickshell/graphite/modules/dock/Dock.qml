@@ -70,6 +70,7 @@ Variants {
             }
             Glass {
                 id: shelf
+                brackets: false
                 anchors.bottom: parent.bottom; anchors.bottomMargin: win.bottomGap
                 anchors.horizontalCenter: parent.horizontalCenter
                 height: win.shelfH

@@ -10,7 +10,7 @@ Card {
     Item {
         id: head
         width: parent.width; height: t.height
-        GText { id: t; text: "Sound"; font.pixelSize: Theme.fontSize - 1; font.weight: Font.DemiBold }
+        CardTitle { id: t; text: "Sound" }
         GText { anchors.right: parent.right; anchors.left: t.right; anchors.leftMargin: 8; horizontalAlignment: Text.AlignRight; text: Audio.sinkName; small: true; secondary: true }
     }
     GSlider {

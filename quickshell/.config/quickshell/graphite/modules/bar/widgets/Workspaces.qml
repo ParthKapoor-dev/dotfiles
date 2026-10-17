@@ -5,6 +5,7 @@ import qs.core
 import qs.components
 
 // Compact workspace dots (mock .wsd): current = wide pill, occupied = brighter dot.
+// tokens ui.workspaceStyle = "numbers": 01 02 03 in the mono font, current one inverted (boxed).
 Item {
     id: root
     property string widgetId: "workspaces"
@@ -32,9 +33,27 @@ Item {
                 required property int index
                 readonly property int wsId: index + 1
                 readonly property bool cur: wsId === root.current
-                width: cur ? 24 : 16; height: 16
+                readonly property bool numbers: Theme.workspaceStyle === "numbers"
+                width: numbers ? num.implicitWidth + 8 : cur ? 24 : 16; height: 16
                 Behavior on width { NumberAnimation { duration: Theme.durSheet; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveSheet } }
+                // numbers style
                 Rectangle {
+                    visible: dot.numbers
+                    anchors.fill: parent
+                    radius: Theme.radiusControl - 1
+                    color: dot.cur ? Theme.label : hover.containsMouse ? Theme.fill2 : "transparent"
+                    GText {
+                        id: num
+                        anchors.centerIn: parent
+                        text: (dot.wsId < 10 ? "0" : "") + dot.wsId
+                        font.family: Theme.fontMono
+                        font.pixelSize: Theme.fontSizeSmall
+                        font.weight: dot.cur ? Font.DemiBold : Font.Normal
+                        color: dot.cur ? Theme.bg : root.occupied(dot.wsId) ? Theme.label : Theme.label3
+                    }
+                }
+                Rectangle {
+                    visible: !dot.numbers
                     anchors.centerIn: parent
                     height: 6; radius: 3
                     width: dot.cur ? 16 : 6
