@@ -14,6 +14,9 @@ return function(ctx)
 
     -- shell first (bar, wallpaper), as in the old file
     add(shell.execs_early)
+    for _, name in ipairs(S.companion_shells or {}) do
+        if name ~= S.shell then add({ "qs -c " .. name }) end
+    end
     add({
         -- [base0 2026-10-17 disabled] gnome-keyring-daemon (systemd user unit provides it)
         "hypridle",

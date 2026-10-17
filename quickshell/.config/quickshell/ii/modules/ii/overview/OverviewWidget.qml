@@ -142,7 +142,7 @@ Item {
                                 onPressed: {
                                     if (root.draggingTargetWorkspace === -1) {
                                         GlobalStates.overviewOpen = false
-                                        Hyprland.dispatch(`workspace ${workspace.workspaceValue}`)
+                                        HyprCompat.dispatch(`workspace ${workspace.workspaceValue}`, `hl.dsp.focus({ workspace = ${workspace.workspaceValue} })`)
                                     }
                                 }
                             }
@@ -266,7 +266,8 @@ Item {
                             window.Drag.active = false
                             root.draggingFromWorkspace = -1
                             if (targetWorkspace !== -1 && targetWorkspace !== windowData?.workspace.id) {
-                                Hyprland.dispatch(`movetoworkspacesilent ${targetWorkspace}, address:${window.windowData?.address}`)
+                                HyprCompat.dispatch(`movetoworkspacesilent ${targetWorkspace}, address:${window.windowData?.address}`,
+                                    `hl.dsp.window.move({ workspace = ${targetWorkspace}, follow = false, window = "address:${window.windowData?.address}" })`)
                                 updateWindowPosition.restart()
                             }
                             else {
@@ -276,7 +277,11 @@ Item {
                                 }
                                 const percentageX = Math.round((window.x - xOffset) / root.workspaceImplicitWidth * 100)
                                 const percentageY = Math.round((window.y - yOffset) / root.workspaceImplicitHeight * 100)
-                                Hyprland.dispatch(`movewindowpixel exact ${percentageX}% ${percentageY}%, address:${window.windowData?.address}`)
+                                // Lua hl.dsp.window.move takes pixels: same math as hyprlang's `exact N%` (monitor logical size)
+                                const monW = ((root.monitorData?.transform % 2 === 1) ? root.monitor.height : root.monitor.width) / root.monitor.scale
+                                const monH = ((root.monitorData?.transform % 2 === 1) ? root.monitor.width : root.monitor.height) / root.monitor.scale
+                                HyprCompat.dispatch(`movewindowpixel exact ${percentageX}% ${percentageY}%, address:${window.windowData?.address}`,
+                                    `hl.dsp.window.move({ x = ${Math.round(percentageX * 0.01 * monW)}, y = ${Math.round(percentageY * 0.01 * monH)}, window = "address:${window.windowData?.address}" })`)
                             }
                         }
                         onClicked: (event) => {
@@ -284,10 +289,10 @@ Item {
 
                             if (event.button === Qt.LeftButton) {
                                 GlobalStates.overviewOpen = false
-                                Hyprland.dispatch(`focuswindow address:${windowData.address}`)
+                                HyprCompat.dispatch(`focuswindow address:${windowData.address}`, `hl.dsp.focus({ window = "address:${windowData.address}" })`)
                                 event.accepted = true
                             } else if (event.button === Qt.MiddleButton) {
-                                Hyprland.dispatch(`closewindow address:${windowData.address}`)
+                                HyprCompat.dispatch(`closewindow address:${windowData.address}`, `hl.dsp.window.close({ window = "address:${windowData.address}" })`)
                                 event.accepted = true
                             }
                         }

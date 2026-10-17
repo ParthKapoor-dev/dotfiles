@@ -82,10 +82,10 @@ Scope {
                     GlobalStates.overviewOpen = false;
                 } else if (event.key === Qt.Key_Left) {
                     if (!panelWindow.searchingText)
-                        Hyprland.dispatch("workspace r-1");
+                        HyprCompat.dispatch("workspace r-1", `hl.dsp.focus({ workspace = "r-1" })`);
                 } else if (event.key === Qt.Key_Right) {
                     if (!panelWindow.searchingText)
-                        Hyprland.dispatch("workspace r+1");
+                        HyprCompat.dispatch("workspace r+1", `hl.dsp.focus({ workspace = "r+1" })`);
                 }
             }
 

@@ -1,6 +1,6 @@
 {
   "_comment": "Graphite shell (qs -c graphite) user config. Live-reloaded. Missing keys fall back to built-in defaults (core/Config.qml). Widget ids are listed in modules/bar/BarWidgets.qml, control-center section ids in modules/controlcenter/CcSections.qml, launcher provider ids in modules/launcher/LauncherProviders.qml. modules.notifications is false while ii owns the org.freedesktop.Notifications D-Bus name; set it true once ii's notifications are gone.",
-  "modules": { "bar": true, "dock": true, "controlCenter": true, "launcher": true, "osd": true, "notifications": false },
+  "modules": { "bar": true, "dock": true, "controlCenter": true, "launcher": true, "osd": false, "notifications": false },
   "bar": {
     "screens": [],
     "left": ["logo", "appName", "workspaces"],

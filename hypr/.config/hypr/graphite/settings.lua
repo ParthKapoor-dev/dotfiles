@@ -19,6 +19,11 @@ return {
     -- migrating; rules for an absent namespace cost nothing).
     layer_rule_shells = { "ii", "graphite" },
 
+    -- Extra Quickshell configs autostarted next to `shell` (migration: graphite's
+    -- bar/dock/control center run while ii still provides notifications, lock,
+    -- overview, sidebars). Empty it when `shell = "graphite"`.
+    companion_shells = { "graphite" },
+
     -- Bind groups, applied in THIS order (order matters when two binds share a key:
     -- the shell's Super_L release binds must come first). "shell" resolves to
     -- shells/<shell>.lua; every other name is graphite/binds/<name>.lua.

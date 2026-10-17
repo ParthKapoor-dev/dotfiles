@@ -268,7 +268,7 @@ Item {
                 toggled: false
                 buttonIcon: "restart_alt"
                 onClicked: {
-                    Hyprland.dispatch("reload");
+                    Quickshell.execDetached(["hyprctl", "reload"]); // `reload` is not a dispatcher (and Lua rejects it)
                     Quickshell.reload(true);
                 }
                 StyledToolTip {

@@ -1,4 +1,5 @@
 import qs
+import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
 import QtQuick
@@ -107,9 +108,11 @@ Item {
                 Layout.alignment: Qt.AlignVCenter
                 onClicked: event => {
                     if (Appearance.m3colors.darkmode) {
-                        Hyprland.dispatch(`exec ${Directories.wallpaperSwitchScriptPath} --mode light --noswitch`);
+                        HyprCompat.dispatch(`exec ${Directories.wallpaperSwitchScriptPath} --mode light --noswitch`,
+                            `hl.dsp.exec_cmd(${HyprCompat.luaString(Directories.wallpaperSwitchScriptPath + " --mode light --noswitch")})`);
                     } else {
-                        Hyprland.dispatch(`exec ${Directories.wallpaperSwitchScriptPath} --mode dark --noswitch`);
+                        HyprCompat.dispatch(`exec ${Directories.wallpaperSwitchScriptPath} --mode dark --noswitch`,
+                            `hl.dsp.exec_cmd(${HyprCompat.luaString(Directories.wallpaperSwitchScriptPath + " --mode dark --noswitch")})`);
                     }
                 }
                 MaterialSymbol {
