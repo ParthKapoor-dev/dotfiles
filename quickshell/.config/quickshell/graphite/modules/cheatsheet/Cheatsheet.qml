@@ -118,7 +118,7 @@ Scope {
                         // number lives only in the description: "Go to desktop 3" -> label + digit
                         const mm = /^(.*) (\d+)$/.exec(b.description || "");
                         if (mm) { descLabel = mm[1]; digit = mm[2] === "10" ? "0" : mm[2]; }
-                        else digit = "?";
+                        else continue;                       // keycode-only alias without a number (keypad zoom etc.): the named-key bind is listed
                     }
                     if (!key && !digit) continue;
                     if (key === "SUPER_L" || key === "SUPER_R") { if (m.length > 1 || !b.description) continue; key = ""; }
