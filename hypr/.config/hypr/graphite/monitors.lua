@@ -1,7 +1,7 @@
--- Monitors + workspace rules. Port of monitors.conf / workspaces.conf (nwg-displays
--- managed in the .conf world: nwg-displays writes .conf files the Lua config does
--- NOT read - update this table by hand after using it) and the
--- `workspace = special:special` rule from hyprland/rules.conf.
+-- Monitors + workspace rules. Port of the old monitors.conf / workspaces.conf
+-- (removed 2026-10-17; nwg-displays writes .conf files the Lua config does NOT
+-- read - update this table by hand after using it) and the
+-- `workspace = special:special` rule from the old rules.conf.
 
 return function(ctx)
     local T = ctx.tokens

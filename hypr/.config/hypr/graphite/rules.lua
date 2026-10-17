@@ -1,5 +1,5 @@
 -- Window + layer rules. Port of hyprland/rules.conf (+ custom/rules.conf, empty,
--- + the pinned-border rule from the matugen colors.conf).
+-- + the pinned-border rule from the old generated colors.conf).
 -- Layer rules per shell live in shells/<name>.lua (`layer_rules`).
 --
 -- Rules are applied in list order; for the same effect a later rule wins.
@@ -32,7 +32,6 @@ local window_rules = {
     { match = { class = "kcm_.*" }, float = true },
     { match = { class = ".*bluedevilwizard" }, float = true },
     { match = { title = ".*Welcome" }, float = true },
-    { match = { title = "^(illogical-impulse Settings)$" }, float = true },
     { match = { title = ".*Shell conflicts.*" }, float = true },
     { match = { class = "org.freedesktop.impl.portal.desktop.kde" }, float = true, size = SIZE_60 },
     { match = { class = "^(Zotero)$" }, float = true, size = SIZE_45 },

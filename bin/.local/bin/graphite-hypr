@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# graphite-hypr - switch Hyprland between the old hyprland.conf and the Graphite Lua config.
+# graphite-hypr - check / (re)activate the Graphite Lua config of Hyprland.
 #
 #   graphite-hypr status          what is running, what the next login will load
 #   graphite-hypr check           Hyprland --verify-config on the Lua entry (no side effects)
-#   graphite-hypr binds           offline bind diff: live conf binds vs Lua binds (Markdown)
 #   graphite-hypr on [--live]     verify, then symlink hyprland.lua -> graphite.lua
-#   graphite-hypr off [--live]    remove that symlink (exact revert of `on`)
+#   graphite-hypr off             REFUSES: there is no hyprland.conf to fall back to
+#                                 any more (the ii-era .conf tree was removed on
+#                                 2026-10-17; Hyprland 0.57 drops .conf anyway)
 #
 # Precedence (Hyprland 0.55.4, src/config/supplementary/jeremy/Jeremy.cpp):
 #   --safe-mode > -c/--config > $HYPRLAND_CONFIG > hyprland.lua > hyprland.conf
@@ -13,8 +14,12 @@
 # cached for the session: creating/removing hyprland.lua changes nothing until
 # Hyprland restarts or `hyprctl reload full-reset` (what --live runs).
 #
-# `on` only creates ONE thing: the symlink <hypr>/hyprland.lua -> graphite.lua.
-# `off` only removes that symlink (refuses to touch anything else).
+# `on` only creates ONE thing: the symlink <hypr>/hyprland.lua -> graphite.lua
+# (tracked in the dotfiles repo, so normally it already exists).
+# Without hyprland.lua (and without hyprland.conf) Hyprland would write and load
+# its own default config, so `off` no longer removes the link. To go back to the
+# old ii setup: `git revert` the remove-ii merge in the dotfiles repo
+# (lnx/reports/remove-ii.md, "Rollback").
 # --live = `hyprctl reload full-reset` (swap config manager in the running
 # session). Experimental: prefer logging out and back in.
 
@@ -25,7 +30,6 @@ ENTRY_NAME="graphite.lua"
 ENTRY="$HYPR_DIR/$ENTRY_NAME"
 LINK="$HYPR_DIR/hyprland.lua"
 CONF="$HYPR_DIR/hyprland.conf"
-TOOLS="$HYPR_DIR/graphite/tools"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/graphite"
 LOG="$STATE_DIR/hypr-switch.log"
 
@@ -93,7 +97,11 @@ do_status() {
     link_state || st=$?
     case $st in
         0) say "hyprland.lua:      symlink -> $ENTRY_NAME  (Graphite ON for next start)";;
-        1) say "hyprland.lua:      absent  (next start loads hyprland.conf)";;
+        1) if [[ -e "$CONF" ]]; then
+               say "hyprland.lua:      absent  (next start loads $CONF - NOT the Graphite config)"
+           else
+               say "hyprland.lua:      ABSENT and no hyprland.conf: next start loads Hyprland's generated default config! Fix: graphite-hypr on"
+           fi;;
         2) say "hyprland.lua:      FOREIGN file/link, not managed by graphite-hypr: $(ls -l "$LINK")";;
     esac
     local ov
@@ -104,19 +112,6 @@ do_status() {
     [[ -f "$HYPR_DIR/graphite/local.lua" ]] && say "local overrides:   $HYPR_DIR/graphite/local.lua"
     [[ -f "$LOG" ]] && say "last switch:       $(tail -1 "$LOG")"
     return 0
-}
-
-do_binds() {
-    command -v lua >/dev/null || die "lua (5.5) not found"
-    [[ "$(running_provider)" == "hyprlang" ]] || die "needs the running session to be on hyprland.conf (hyprctl -j binds is the reference)"
-    local tmp
-    tmp="$(mktemp -d)"
-    hyprctl -j binds >"$tmp/live.json"
-    lua "$TOOLS/binddump.lua" "$ENTRY" >"$tmp/lua.jsonl"
-    python3 "$TOOLS/binddiff.py" "$tmp/live.json" "$tmp/lua.jsonl" "$HYPR_DIR"
-    local rc=$?
-    rm -rf "$tmp"
-    return $rc
 }
 
 live_reload() {
@@ -151,25 +146,26 @@ do_on() {
 }
 
 do_off() {
-    local live="${1:-}"
     local st=0
     link_state || st=$?
+    if [[ $st -eq 0 && ! -e "$CONF" ]]; then
+        die "refusing: there is no $CONF to fall back to (the ii-era .conf config was removed).
+Removing $LINK would make Hyprland start with its generated default config.
+To return to the old ii setup, git revert the remove-ii merge in the dotfiles
+repo first (see lnx/reports/remove-ii.md, Rollback), then log out and in."
+    fi
     case $st in
         2) die "$LINK is not our symlink - refusing to remove it (inspect it by hand)";;
         1) say "already off (no $LINK)";;
         0) rm -- "$LINK"; log "off: removed $LINK"; say "OFF: removed $LINK (next start loads $CONF)";;
     esac
-    if [[ "$live" == "--live" ]]; then
-        live_reload
-    fi
 }
 
 case "${1:-status}" in
     status) do_status ;;
     check) do_check ;;
-    binds) do_binds ;;
     on) do_on "${2:-}" ;;
-    off) do_off "${2:-}" ;;
-    -h|--help|help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//' ;;
-    *) die "usage: graphite-hypr status|check|binds|on [--live]|off [--live]" ;;
+    off) do_off ;;
+    -h|--help|help) sed -n '2,/^set -euo/{/^#/p}' "$0" | sed 's/^# \{0,1\}//' ;;
+    *) die "usage: graphite-hypr status|check|on [--live]|off" ;;
 esac

@@ -1,7 +1,8 @@
 -- Offline bind dump: runs the Graphite config under plain `lua` (5.5, same as
 -- Hyprland 0.55) with a mock `hl`, and prints every bind as one JSON object per
--- line in a hyprctl-like shape (legacy dispatcher names), so it can be diffed
--- against `hyprctl -j binds` of the running conf session (tools/binddiff.py).
+-- line in a hyprctl-like shape (legacy dispatcher names). (Its partner
+-- binddiff.py, a diff against a running .conf session, was removed with the
+-- .conf config on 2026-10-17.)
 --
 --   lua graphite/tools/binddump.lua ~/.config/hypr/graphite.lua > lua-binds.jsonl
 --

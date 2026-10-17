@@ -1,9 +1,11 @@
--- Bind group "custom": the user's own binds. Port of custom/keybinds.conf
--- (User, Monitors, Fixes 2026-10-17) and the jcode managed block at the end of
--- hyprland.conf.
+-- Bind group "custom": the user's own binds. Port of the old custom/keybinds.conf
+-- (User, Monitors, Fixes 2026-10-17) and the jcode managed block of the old
+-- hyprland.conf (both removed with ii, 2026-10-17).
 --
--- jcode: `jcode setup-hotkey` edits hyprland.conf, which the Lua config does not
--- read. Re-run it -> copy the new lines here.
+-- jcode: `jcode setup-hotkey` still writes a managed block into
+-- ~/.config/hypr/hyprland.conf (it would create the file), which the Lua config
+-- does not read. TODO: retarget jcode; until then re-run it, copy the new bind
+-- lines here and delete the hyprland.conf it created.
 
 return function(ctx)
     local C = ctx.core
@@ -12,7 +14,7 @@ return function(ctx)
 
     return {
         -- ##! User
-        { "CTRL + SUPER + Slash", X("xdg-open ~/.config/illogical-impulse/config.json") }, -- edit shell config
+        { "CTRL + SUPER + Slash", X("xdg-open ~/.config/graphite/shell.json") }, -- edit shell config (graphite)
         -- was custom/keybinds.conf; now opens this file
         { "CTRL + SUPER + ALT + Slash", X("xdg-open ~/.config/hypr/graphite/binds/custom.lua") },
 
@@ -25,7 +27,7 @@ return function(ctx)
         -- Text editor: same window as the `nv` shell function
         { "SUPER + X", X("ghostty --gtk-single-instance=false --class=dev.neovim --title=nvim --config-file=\"" .. C.HOME .. "/.config/nvim/ghostty.conf\" -e nvim") }, -- text editor (Neovim)
 
-        -- ##! Graphite shell (runs next to ii, see settings.companion_shells)
+        -- ##! Graphite shell
         { "SUPER + Space", X("qs -c graphite ipc call launcher toggle") }, -- Spotlight-style launcher
         { "SUPER + ALT + N", X("qs -c graphite ipc call controlCenter toggle") }, -- Control Center
 

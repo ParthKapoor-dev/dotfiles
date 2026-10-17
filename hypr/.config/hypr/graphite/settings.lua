@@ -11,23 +11,19 @@ local HOME = os.getenv("HOME") or ""
 
 return {
     -- Shell profile: graphite/shells/<shell>.lua provides the shell's env, autostart
-    -- commands, gestures and the "shell" bind group. "ii" = old end-4
-    -- illogical-impulse, "graphite" = the own Quickshell shell (full replacement:
-    -- launcher, overview, notifications, session menu, polkit, wallpaper).
-    -- Cutover / rollback steps: lnx/reports/hypr-v2.md ("Cutover"). Stop
-    -- `qs -c ii` before switching: it holds the notification D-Bus name and the
-    -- polkit agent slot that graphite needs.
+    -- commands, gestures and the "shell" bind group. "graphite" = the own
+    -- Quickshell shell (launcher, overview, notifications, session menu, polkit,
+    -- wallpaper). The old end-4 "ii" profile was removed on 2026-10-17
+    -- (lnx/reports/remove-ii.md; restore = git revert of that branch).
     shell = "graphite",
 
-    -- Layer-rule sets applied regardless of `shell` (both shells may run while
-    -- migrating; rules for an absent namespace cost nothing).
-    layer_rule_shells = { "ii", "graphite" },
+    -- Layer-rule sets applied regardless of `shell` (rules for an absent
+    -- namespace cost nothing).
+    layer_rule_shells = { "graphite" },
 
-    -- Extra Quickshell configs autostarted next to `shell` (migration: graphite's
-    -- bar/dock/control center run while ii still provides notifications,
-    -- overview, sidebars). An entry equal to `shell` is skipped (execs.lua), so
-    -- with shell = "graphite" nothing extra starts; ii is never a companion.
-    companion_shells = { "graphite" },
+    -- Extra Quickshell configs autostarted next to `shell` (`qs -c <name>`). An
+    -- entry equal to `shell` is skipped (execs.lua).
+    companion_shells = {},
 
     -- Bind groups, applied in THIS order (order matters when two binds share a key:
     -- the shell's Super_L release binds must come first). "shell" resolves to
@@ -38,8 +34,8 @@ return {
 
     -- All binds live in this submap and Hyprland is switched into it at start and
     -- after every reload (port of `submap = global` from the old hyprland.conf).
-    -- Needed because `catchall` binds only work inside a submap, and ii's
-    -- Super-tap-for-search depends on the catchall interrupt.
+    -- Needed because `catchall` binds only work inside a submap, and the shell's
+    -- Super-tap-for-launcher depends on the catchall interrupt.
     -- Set to false to put binds in the default submap (the catchall is then skipped).
     bind_submap = "global",
 
@@ -56,14 +52,13 @@ return {
 
     -- ${name} placeholders usable in bind/exec strings (C.subst).
     vars = {
-        qs = "ii",                                         -- old $qsConfig
-        hyprScripts = HOME .. "/.config/hypr/hyprland/scripts",
+        scripts = HOME .. "/.config/hypr/graphite/scripts", -- helper scripts (graphite/scripts/)
     },
 
     -- Programs (launchers are kept byte-identical to the old config).
     apps = {
         terminal_env = "ghostty", -- $TERMINAL
-        launch = "~/.config/hypr/hyprland/scripts/launch_first_available.sh",
+        launch = "~/.config/hypr/graphite/scripts/launch_first_available.sh",
     },
 
     -- Fallback cursor when tokens.theme.cursor is not installed.

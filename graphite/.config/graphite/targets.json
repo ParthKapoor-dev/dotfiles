@@ -281,20 +281,6 @@
       "apply": []
     },
     {
-      "name": "hyprland-legacy",
-      "enabled": false,
-      "template": "hyprland/colors.conf",
-      "output": "hyprland/colors.conf",
-      "check": "keyvalue",
-      "apply": [
-        {
-          "type": "write",
-          "path": "~/.config/hypr/hyprland/colors.conf",
-          "content": "# Graphite: managed by theme (revert: theme revert)\nsource = {{ _.output }}\n"
-        }
-      ]
-    },
-    {
       "name": "btop",
       "template": "btop/graphite.theme",
       "output": "btop/graphite.theme",
@@ -313,28 +299,12 @@
       ]
     },
     {
-      "name": "quickshell-ii",
-      "template": "quickshell/colors.json",
-      "output": "quickshell/colors.json",
-      "check": "json",
-      "apply": [
-        {
-          "type": "copy",
-          "path": "~/.local/state/quickshell/user/generated/colors.json"
-        }
-      ]
-    },
-    {
       "name": "term-sequences",
+      "_comment": "OSC palette for terminals without a theme file; read in place from ~/.local/state/graphite/out/terminal/sequences.txt (fish config.fish cats it). No hook: the old ii copy target is gone.",
       "template": "terminal/sequences.txt",
       "output": "terminal/sequences.txt",
       "check": "text",
-      "apply": [
-        {
-          "type": "copy",
-          "path": "~/.local/state/quickshell/user/generated/terminal/sequences.txt"
-        }
-      ]
+      "apply": []
     }
   ]
 }

@@ -90,12 +90,11 @@ return {
         inputMethodsIgnoreAlpha = 0.8,
         -- Layer blur only samples pixels whose alpha is ABOVE ignore_alpha. It must sit
         -- below the shell's glass alpha or blur silently turns off (the old ii bug:
-        -- ignore_alpha 0.79 vs bar alpha 0.76). Graphite glass is 0.54..0.78, ii is 0.66..0.76.
+        -- ignore_alpha 0.79 vs bar alpha 0.76). Graphite glass is 0.54..0.78.
         layerIgnoreAlpha = 0.50,     -- graphite:* layers (also clamped below min glass alpha)
         layerIgnoreAlphaPadded = 0.50, -- graphite:dock / graphite:popup: surface is larger than the
                                        -- glass (full-width dock, popup shadow margins) - keep the
                                        -- transparent/shadow area out of the blur
-        iiLayerIgnoreAlpha = 0.50,   -- quickshell:* (ii) layers; ii panel shadows stay below this
         popinWindowIn = 92,          -- % scale windows pop in from
         popinWindowOut = 95,
         popinLayer = 95,

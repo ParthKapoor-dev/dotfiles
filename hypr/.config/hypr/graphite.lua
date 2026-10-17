@@ -1,8 +1,8 @@
 -- Graphite: Hyprland 0.55 Lua config ("Sequoia Graphite" desktop).
 --
--- NOT auto-loaded under this name. Hyprland picks ~/.config/hypr/hyprland.lua over
--- hyprland.conf, so activation = symlink hyprland.lua -> graphite.lua
--- (`graphite-hypr on`; revert with `graphite-hypr off`).
+-- NOT auto-loaded under this name: Hyprland loads ~/.config/hypr/hyprland.lua, a
+-- symlink to this file (tracked in the dotfiles repo; `graphite-hypr on` recreates
+-- it). There is no hyprland.conf fallback any more (removed with ii, 2026-10-17).
 -- Check without running: Hyprland --verify-config -c ~/.config/hypr/graphite.lua
 --
 -- Layout
