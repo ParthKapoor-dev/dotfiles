@@ -62,6 +62,7 @@ alias oc="opencode"
 alias clauded="claude --allow-dangerously-skip-permissions"
 alias wl="wishlist"
 alias ca="claude agents"
+alias y="yazi"
 
 
 eval "$(fzf --zsh)"
@@ -124,3 +125,10 @@ nv() {
 path=("$HOME/.qoder/entry" ${path:#"$HOME/.qoder/entry"})
 export PATH
 # END QODER_DISPATCHER_PATH v1
+
+# opencode
+export PATH=/home/parth/.opencode/bin:$PATH
+
+# rhun
+case ":$PATH:" in *":/home/parth/.local/bin:"*) ;; *) export PATH="/home/parth/.local/bin:$PATH" ;; esac
+# rhun end
