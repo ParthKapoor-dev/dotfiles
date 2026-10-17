@@ -83,7 +83,7 @@
       "windows": { "prefix": "@", "limit": 6 },
       "clipboard": { "prefix": ":", "prefixOnly": true, "limit": 60 },
       "emoji": { "prefix": ".", "prefixOnly": true, "limit": 80, "recent": 16 },
-      "wallpapers": { "prefix": "#", "prefixOnly": true, "limit": 30, "directory": "~/Pictures", "skipScreenshots": true },
+      "wallpapers": { "prefix": "#", "prefixOnly": true, "limit": 0, "directory": "~/Pictures", "skipScreenshots": true },
       "commands": {
         "prefix": "/",
         "limit": 6,

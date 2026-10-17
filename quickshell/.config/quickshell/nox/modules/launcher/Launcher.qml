@@ -28,6 +28,11 @@ Scope {
     property bool confirming: false
     property var footerHints: []   // [[prefix, provider name]]
 
+    // large preview beside the list for results that carry one (wallpapers)
+    readonly property string previewUrl: open ? (selectable[sel]?.item?.preview ?? "") : ""
+    readonly property bool previewOn: previewUrl !== ""
+    readonly property int previewGap: 12
+
     property string initialText: ""   // set by IPC "search"
     onOpenChanged: {
         if (open) {
@@ -95,7 +100,7 @@ Scope {
             catch (e) { console.warn("nox: launcher provider failed:", run.x.p.providerId, e); continue; }
             // by score; ties keep the provider's order
             res = res.map((it, i) => [it, i]).sort((a, b) => ((b[0].score ?? 0) - (a[0].score ?? 0)) || (a[1] - b[1]))
-                     .map(x => x[0]).slice(0, run.x.limit);
+                     .map(x => x[0]).slice(0, run.x.limit > 0 ? run.x.limit : undefined);   // limit 0 = all
             if (!res.length) continue;
             r.push({ header: run.x.title ?? run.x.p.name });
             for (const item of res) {
@@ -208,9 +213,11 @@ Scope {
             readonly property real shadowPad: 48
             anchors.top: true
             margins.top: Math.max(0, Math.round((screen?.height ?? 900) * (root.opts.top ?? 0.18)) - shadowPad)
-            implicitWidth: (root.opts.width ?? 680) + shadowPad * 2
+            readonly property int bodyWidth: root.opts.width ?? 680
+            readonly property int previewWidth: root.opts.previewWidth ?? 560
+            implicitWidth: bodyWidth + root.previewGap + previewWidth + shadowPad * 2
             implicitHeight: body.height + shadowPad * 2
-            mask: Region { item: body }
+            mask: Region { item: body; Region { item: preview } }
 
             HyprlandFocusGrab {
                 active: root.open
@@ -231,8 +238,11 @@ Scope {
                 id: body
                 strong: true
                 brackets: Theme.cardBrackets
-                x: win.shadowPad; y: win.shadowPad
-                width: root.opts.width ?? 680
+                // centred alone; slides left to make room for the preview so the pair stays centred
+                x: root.previewOn ? win.shadowPad : Math.round((win.width - width) / 2)
+                Behavior on x { NumberAnimation { duration: Theme.durSheet; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveSheet } }
+                y: win.shadowPad
+                width: win.bodyWidth
                 height: col.implicitHeight
                 radius: Math.min(Theme.radiusLauncher, Theme.radiusPanel)
                 opacity: root.open ? 1 : 0
@@ -412,6 +422,90 @@ Scope {
                             Hint { label: "Navigate"; keys: ["↑", "↓"] }
                             Hint { label: "Close"; keys: ["esc"] }
                         }
+                    }
+                }
+            }
+
+            // ---- preview of the selected result (wallpapers): screen-shaped, so a wallpaper is
+            // judged as it will be cropped. The shown image only changes once the next one is
+            // decoded, so moving the selection never blinks to empty. ----
+            RectangularShadow {
+                anchors.fill: preview
+                radius: preview.radius
+                offset.y: 24; blur: 60; spread: -6
+                color: Theme.rgba("#000000", 0.5)
+                opacity: preview.opacity
+            }
+            Glass {
+                id: preview
+                strong: true
+                brackets: Theme.cardBrackets
+                x: body.x + body.width + root.previewGap
+                y: win.shadowPad
+                width: win.previewWidth
+                height: shot.height + 2 * pad + caption.height
+                radius: body.radius
+                readonly property int pad: 8
+                opacity: root.open && root.previewOn ? 1 : 0
+                visible: opacity > 0
+                Behavior on opacity { NumberAnimation { duration: Theme.durPop; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+
+                readonly property real aspect: win.screen ? win.screen.width / win.screen.height : 16 / 9
+                readonly property real dpr: win.screen?.devicePixelRatio ?? 1
+                property string cur: ""
+                Connections {
+                    target: root
+                    function onPreviewUrlChanged() { if (root.previewUrl && preview.cur === "") preview.cur = root.previewUrl; }
+                }
+
+                ClippingRectangle {
+                    id: shot
+                    x: preview.pad; y: preview.pad
+                    width: parent.width - 2 * preview.pad
+                    height: Math.round(width / preview.aspect)
+                    radius: Math.max(0, preview.radius - preview.pad / 2)
+                    color: Theme.page
+                    Image {
+                        anchors.fill: parent
+                        source: preview.cur
+                        fillMode: Image.PreserveAspectCrop
+                        sourceSize: Qt.size(Math.round(shot.width * preview.dpr), Math.round(shot.height * preview.dpr))
+                        asynchronous: true
+                        cache: true
+                        smooth: true
+                    }
+                    // decodes the next selection off-screen, then takes over
+                    Image {
+                        id: incoming
+                        visible: false
+                        source: root.previewUrl
+                        sourceSize: Qt.size(Math.round(shot.width * preview.dpr), Math.round(shot.height * preview.dpr))
+                        fillMode: Image.PreserveAspectCrop
+                        asynchronous: true
+                        cache: true
+                        onStatusChanged: if (status === Image.Ready || status === Image.Error) preview.cur = source
+                    }
+                }
+                Item {
+                    id: caption
+                    x: preview.pad + 4
+                    y: shot.y + shot.height
+                    width: parent.width - 2 * preview.pad - 8
+                    height: 34
+                    readonly property var it: root.selectable[root.sel]?.item ?? null
+                    GText {
+                        anchors.left: parent.left
+                        anchors.right: tag.left; anchors.rightMargin: 10
+                        anchors.verticalCenter: parent.verticalCenter
+                        elide: Text.ElideMiddle
+                        text: (caption.it?.title ?? "").split("/").pop()
+                    }
+                    GText {
+                        id: tag
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        small: true; secondary: true
+                        text: caption.it?.type === "Current" ? "Current" : (caption.it?.title ?? "").split("/").slice(-2, -1)[0] ?? ""
                     }
                 }
             }

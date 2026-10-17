@@ -6,7 +6,8 @@ import qs.services
 
 // Wallpapers (prefix "#"): every image under launcher.provider.wallpapers.directory (default
 // ~/Pictures), recursively; hidden folders are skipped and so is Screenshots (skipScreenshots).
-// Rows show the path relative to the directory with a thumbnail; Enter sets the wallpaper
+// Rows show the path relative to the directory with a thumbnail, and the selected one is shown large
+// beside the list (result.preview); Enter sets the wallpaper
 // (same as `nox wallpaper set`). Thumbnails are made lazily, one `magick` at a time and only
 // for listed rows, cached in ~/.cache/nox/wallpaper-thumbs/<md5(path:mtime)>.png.
 // The listing (`find`) runs when the prefix is typed, at most every 10 s.
@@ -42,6 +43,7 @@ Item {
                 highlight: m.indices,
                 thumb: have[f.key] ? "file://" + thumbPath(f) : "",
                 thumbSlot: true,
+                preview: "file://" + f.path,
                 type: current ? "Current" : "Image",
                 actLabel: "Set Wallpaper",
                 score: m.score + (current ? 0.01 : 0),
@@ -52,7 +54,8 @@ Item {
         // thumbnails only for what the launcher will actually show (same order as the launcher:
         // score, ties by position - V4's sort isn't stable, so the index is the tie-break)
         const shown = out.map((r, i) => [r, i]).sort((a, b) => (b[0].score - a[0].score) || (a[1] - b[1]));
-        queue(shown.slice(0, options.limit ?? 30).map(x => x[0].file));
+        const lim = options.limit ?? 30;
+        queue(shown.slice(0, lim > 0 ? lim : undefined).map(x => x[0].file));
         return out;
     }
 
@@ -102,11 +105,13 @@ Item {
                            "sh", f.path, thumbPath(f)];
         thumber.running = true;
     }
+    // a long list finishes many thumbnails in a row: tell the launcher at most every 150 ms
+    Timer { id: changed; interval: 150; onTriggered: root.resultsChanged() }
     Process {
         id: thumber
         property string key
         onExited: code => {
-            if (code === 0) { root.have = Object.assign({}, root.have, { [key]: true }); root.resultsChanged(); }
+            if (code === 0) { root.have = Object.assign({}, root.have, { [key]: true }); changed.restart(); }
             else root.have = Object.assign({}, root.have, { [key]: false });   // don't retry a broken file this session
             root.next();
         }
