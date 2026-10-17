@@ -552,6 +552,9 @@ def _revert_one(which=None):
         p = e["path"]
         if os.path.lexists(p):
             os.remove(p)
+        if e["symlink"] or e["backup"]:
+            # parent may be gone (e.g. ~/.local/state/quickshell after the ii removal)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
         if e["symlink"]:
             os.symlink(e["symlink"], p)
         elif e["backup"]:
