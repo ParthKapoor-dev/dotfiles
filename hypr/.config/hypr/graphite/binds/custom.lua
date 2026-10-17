@@ -22,6 +22,7 @@ return function(ctx)
         { "SUPER + X", X("ghostty --gtk-single-instance=false --class=dev.neovim --title=nvim --config-file=\"" .. C.HOME .. "/.config/nvim/ghostty.conf\" -e nvim") }, -- text editor (Neovim)
 
         -- ##! Graphite shell
+        { "SUPER + Slash", X("qs -c graphite ipc call cheatsheet toggle"), desc = "Keyboard shortcuts" },
         { "SUPER + Space", X("qs -c graphite ipc call launcher toggle") }, -- Spotlight-style launcher
         { "SUPER + ALT + N", X("qs -c graphite ipc call controlCenter toggle") }, -- Control Center
 
