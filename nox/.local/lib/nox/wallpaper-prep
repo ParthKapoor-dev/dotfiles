@@ -93,8 +93,13 @@ def crop_offset(slack, center, full):
     return int(min(max(want, 0), slack))
 
 
+def mean_light(src):
+    return float(magick(src + "[0]", "-resize", "64x64!", "-colorspace", "gray", "-format", "%[fx:mean]", "info:"))
+
+
 def prep(src, dst, W, H, page):
     w, h = size_of(src)
+    light = mean_light(src)
     cx, cy = subject_center(src)
     head = [src + "[0]", "-auto-orient", "-colorspace", "sRGB", "-alpha", "remove", "-alpha", "off"]
     if w / h >= 1.3:
@@ -110,10 +115,12 @@ def prep(src, dst, W, H, page):
         k = H / h
         fw = round(w * k)
         if fw > W * 0.9:  # nearly the screen's shape anyway: just cover
-            return prep_cover(src, dst, W, H, page, head, w, h, cx, cy)
+            return prep_cover(src, dst, W, H, page, head, w, h, cx, cy, light)
         x = int(min(max(W * 0.64 - fw / 2, W * 0.04), W - fw - W * 0.02))
-        ramp = max(1, round(fw * 0.22))
-        edge = edge_color(src)
+        edge, light_edge = edge_color(src)
+        # dark-edged art melts into the background; a light-edged poster gets a clean hard edge
+        # (feathering it leaves a glowing seam)
+        ramp = 1 if light_edge else max(1, round(fw * 0.22))
         body = [
             # background: the image's own edge color, with a faint, very blurred, dark copy over it
             "(", "+clone", "-resize", f"{W // 16}x{H // 16}^", "-gravity", "center", "-extent", f"{W // 16}x{H // 16}",
@@ -128,7 +135,7 @@ def prep(src, dst, W, H, page):
         ]
         scale = k
         mode = "compose"
-    finish(head + body, dst, W, H, page, scale)
+    finish(head + body, dst, W, H, page, scale, light)
     return mode, w, h, scale
 
 
@@ -143,20 +150,20 @@ def edge_color(src):
         v = [float(x[:-1]) * 2.55 if x.endswith("%") else float(x) for x in m[:3]]
         # never lighter than a dark grey: the desktop stays dark
         k = min(1.0, 60 / max(max(v), 1))
-        return "#%02x%02x%02x" % tuple(int(c * k) for c in v)
-    return "#000000"
+        return "#%02x%02x%02x" % tuple(int(c * k) for c in v), max(v) > 90
+    return "#000000", False
 
 
-def prep_cover(src, dst, W, H, page, head, w, h, cx, cy):
+def prep_cover(src, dst, W, H, page, head, w, h, cx, cy, light):
     k = max(W / w, H / h)
     rw, rh = round(w * k), round(h * k)
     body = ["-filter", "Lanczos", "-resize", f"{rw}x{rh}!",
             "-crop", f"{W}x{H}+{crop_offset(rw - W, cx, rw)}+{crop_offset(rh - H, cy, rh)}", "+repage"]
-    finish(head + body, dst, W, H, page, k)
+    finish(head + body, dst, W, H, page, k, light)
     return "cover", w, h, k
 
 
-def finish(cmd, dst, W, H, page, scale):
+def finish(cmd, dst, W, H, page, scale, light=0.0):
     bar = round(H * 0.10)
     grain = 0.3 + 0.4 * min(1.0, max(0.0, scale - 1.0))  # attenuate: ~2% at native, ~4% at 2x+
     cmd += [] if scale <= 1.3 else ["-unsharp", "0x1+0.45+0.02"]
@@ -164,6 +171,13 @@ def finish(cmd, dst, W, H, page, scale):
         # near-blacks -> page color
         "-level", "1.5%,100%",
     ]
+    if light > 0.30:
+        # bright image on a dark desktop: lower the midtones (gamma) more than the highlights, mute
+        # colour a little, and add a soft vignette so the edges sit with the black UI
+        g = max(0.5, min(0.9, 0.9 - (light - 0.30) * 1.6))
+        cmd += ["-gamma", f"{g:.2f}", "-modulate", "92,85",
+                "(", "-size", f"{W}x{H}", "radial-gradient:white-gray(55%)", ")",
+                "-compose", "multiply", "-composite"]
     if page.lower() != "#000000":
         cmd += ["+level-colors", f"{page},white"]
     cmd += [
