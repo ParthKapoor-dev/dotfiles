@@ -43,7 +43,7 @@ Card {
         Column {
             y: chip.y + chip.height + 6
             // the caption may use the tile's padding too ("Screenshot" at 11px in a 66px tile)
-            x: -7; width: parent.width + 14
+            x: -8; width: parent.width + 16
             GText {
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
@@ -51,10 +51,11 @@ Card {
                 wrapMode: Text.WordWrap
                 maximumLineCount: 2
                 lineHeight: 0.95
+                // mono caps (mock telemetry .ctile: 9px, light tracking) so "SCREENSHOT" fits
                 font.family: Theme.square ? Theme.fontLabel : Theme.fontUi
-                font.pixelSize: Theme.square ? 10 : 11
+                font.pixelSize: Theme.square ? 9 : 11
                 font.capitalization: Theme.square ? Font.AllUppercase : Font.MixedCase
-                font.letterSpacing: Theme.square ? 0.5 : 0
+                font.letterSpacing: Theme.square ? 0.2 : 0
             }
             GText {
                 visible: root.sub !== ""

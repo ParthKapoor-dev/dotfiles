@@ -174,13 +174,14 @@ BarButton {
                     anchors.right: parent.right
                     spacing: 2
                     Repeater {
-                        model: SysStats.cpuHistory
+                        // always 30 slots: samples not taken yet are flat placeholder ticks
+                        model: new Array(Math.max(0, 30 - SysStats.cpuHistory.length)).fill(-1).concat(SysStats.cpuHistory)
                         Rectangle {
                             required property real modelData
                             width: (col.width - 20 - 29 * 2) / 30
                             height: Math.max(2, modelData * 34)
                             radius: Theme.square ? 0 : 1
-                            color: modelData >= root.hot ? Theme.accent : Theme.rgba(Theme.t.color.label, 0.5)
+                            color: modelData < 0 ? Theme.fill2 : modelData >= root.hot ? Theme.accent : Theme.rgba(Theme.t.color.label, 0.5)
                             anchors.bottom: parent?.bottom
                         }
                     }
