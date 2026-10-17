@@ -28,7 +28,7 @@ Card {
                 required property var modelData
                 readonly property bool on: modelData === Audio.sink
                 width: parent.width; height: 30
-                Rectangle { anchors.fill: parent; radius: Theme.square ? 3 : 7; color: Theme.fill; opacity: om.containsMouse ? 1 : 0 }
+                Rectangle { anchors.fill: parent; radius: Theme.square ? 3 : 7; color: Theme.fill; opacity: om.containsMouse ? 1 : 0; Behavior on opacity { NumberAnimation { duration: Theme.durHover } } }
                 Rectangle {
                     id: oi
                     x: 6; anchors.verticalCenter: parent.verticalCenter

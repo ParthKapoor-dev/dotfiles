@@ -59,7 +59,10 @@ Card {
                 Rectangle {
                     required property var modelData
                     width: 28; height: 28; radius: Theme.square ? 3 : 14
-                    color: cm.containsMouse ? Theme.fill2 : "transparent"
+                    color: cm.containsMouse ? Theme.fill2 : Theme.white(0)
+                    Behavior on color { ColorAnimation { duration: Theme.durHover } }
+                    scale: cm.pressed ? 0.92 : 1
+                    Behavior on scale { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
                     opacity: modelData.ok ? 1 : 0.35
                     Glyph { anchors.centerIn: parent; name: parent.modelData.g; size: 15 }
                     MouseArea { id: cm; anchors.fill: parent; hoverEnabled: true; enabled: parent.modelData.ok; onClicked: parent.modelData.act() }

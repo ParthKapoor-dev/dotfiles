@@ -43,6 +43,7 @@ Item {
         radius: Theme.square ? 3 : 5
         color: Theme.selectionNeutral ? Theme.fill2 : Theme.accent
         opacity: root.hot ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: root.hot ? 60 : Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
     }
     Glyph {
         visible: root.checked && root.row

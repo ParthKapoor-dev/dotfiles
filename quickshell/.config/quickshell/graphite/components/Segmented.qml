@@ -24,15 +24,17 @@ Rectangle {
                 width: (root.width - 4 - 2 * (root.model.length - 1)) / root.model.length
                 height: 26
                 radius: Theme.square ? 3 : 7
-                color: on ? Theme.white(0.17) : "transparent"
-                Behavior on color { ColorAnimation { duration: Theme.durFade } }
+                color: on ? Theme.white(0.17) : segMouse.containsMouse ? Theme.white(0.07) : Theme.white(0)
+                Behavior on color { ColorAnimation { duration: Theme.durHover } }
+                scale: segMouse.pressed ? 0.97 : 1
+                Behavior on scale { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
                 Row {
                     anchors.centerIn: parent
                     spacing: 5
                     Glyph { visible: !!seg.modelData.glyph; name: seg.modelData.glyph ?? ""; size: 13; color: lbl.color; anchors.verticalCenter: parent.verticalCenter }
                     GText { id: lbl; text: seg.modelData.label; font.pixelSize: 12; color: seg.on ? Theme.label : Theme.label2; anchors.verticalCenter: parent.verticalCenter }
                 }
-                MouseArea { anchors.fill: parent; onClicked: root.picked(seg.modelData.id) }
+                MouseArea { id: segMouse; anchors.fill: parent; hoverEnabled: true; onClicked: root.picked(seg.modelData.id) }
             }
         }
     }

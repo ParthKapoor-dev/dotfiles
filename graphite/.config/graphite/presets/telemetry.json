@@ -103,6 +103,7 @@
       1.0
     ],
     "pop": 100,
+    "hover": 100,
     "fade": 160,
     "window": 260,
     "sheetMs": 240,

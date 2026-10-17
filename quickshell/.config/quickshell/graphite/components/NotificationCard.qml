@@ -44,6 +44,15 @@ Item {
         color: Theme.cardGlass
         radius: Theme.square ? 6 : 16
     }
+    // hover: the card (banner) or row (inside an NC group card) lifts with a faint light fill
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: root.card ? 0 : -6
+        radius: root.card ? (Theme.square ? 6 : 16) : (Theme.square ? 4 : 9)
+        color: Theme.white(0.04)
+        opacity: hover.containsMouse || closeMouse.containsMouse ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+    }
     MouseArea {
         id: hover
         anchors.fill: parent
@@ -139,7 +148,9 @@ Item {
         border.width: Theme.rimWidth
         border.color: Theme.rim
         opacity: hover.containsMouse || closeMouse.containsMouse ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: Theme.durPop } }
+        Behavior on opacity { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+        scale: closeMouse.pressed ? 0.9 : closeMouse.containsMouse ? 1.08 : 1
+        Behavior on scale { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
         Glyph { anchors.centerIn: parent; name: "x"; size: 10; color: Theme.label }
         MouseArea { id: closeMouse; anchors.fill: parent; hoverEnabled: true; onClicked: root.closeRequested() }
     }

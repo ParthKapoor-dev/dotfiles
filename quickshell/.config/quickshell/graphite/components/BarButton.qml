@@ -16,13 +16,15 @@ Item {
 
     implicitHeight: Math.max(20, Theme.barHeight - 6)
     implicitWidth: row.implicitWidth + hpad * 2
+    scale: mouse.pressed ? 0.97 : 1
+    Behavior on scale { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
 
     Rectangle {
         anchors.fill: parent
         radius: Theme.square ? 3 : 5
         color: Theme.white(0.14)
         opacity: root.active || mouse.containsMouse ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: Theme.durPop; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+        Behavior on opacity { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
     }
     Row {
         id: row

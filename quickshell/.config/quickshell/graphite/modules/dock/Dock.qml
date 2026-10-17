@@ -160,18 +160,28 @@ Variants {
             Rectangle {
                 id: tip
                 property var target: null
-                visible: target !== null && !win.menuOpen
+                // the tile the tooltip belongs to, kept while it fades out (target is already null)
+                property var last: null
+                onTargetChanged: if (target) last = target
+                readonly property bool on: target !== null && !win.menuOpen
+                opacity: on ? 1 : 0
+                visible: opacity > 0.01 && last !== null
+                Behavior on opacity { NumberAnimation { duration: tip.on ? Theme.durHover : Theme.durFade; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+                transform: Translate {
+                    y: tip.on ? 0 : 3
+                    Behavior on y { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+                }
                 color: Theme.square ? Theme.rgba("#0A0A0A", 0.96) : Theme.rgba("#28282A", 0.82)
                 radius: Theme.square ? 3 : 8
                 border.width: Theme.rimWidth; border.color: Theme.white(0.14)
                 width: Math.min(tipText.implicitWidth, 320) + 22; height: 25
-                x: target ? Math.max(4, Math.min(stage.width - width - 4, (target.s, tiles.x, target.mapToItem(stage, target.width / 2, 0).x - width / 2))) : 0
-                y: target ? (target.s, target.mapToItem(stage, 0, 0).y - height - 11) : 0
+                x: last ? Math.max(4, Math.min(stage.width - width - 4, (last.s, tiles.x, last.mapToItem(stage, last.width / 2, 0).x - width / 2))) : 0
+                y: last ? (last.s, last.mapToItem(stage, 0, 0).y - height - 11) : 0
                 GText {
                     id: tipText
                     anchors.centerIn: parent
                     width: Math.min(implicitWidth, 320)
-                    text: tip.target?.label ?? ""
+                    text: tip.last?.label ?? ""
                     font.family: Theme.square ? Theme.fontLabel : Theme.fontUi
                     font.pixelSize: Theme.square ? 11 : 13
                     font.capitalization: Theme.square ? Font.AllUppercase : Font.MixedCase

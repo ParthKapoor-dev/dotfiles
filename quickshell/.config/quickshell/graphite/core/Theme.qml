@@ -137,6 +137,7 @@ Singleton {
                 1.0
             ],
             "pop": 130,
+            "hover": 140,
             "fade": 220,
             "window": 380,
             "sheetMs": 320,
@@ -319,6 +320,7 @@ Singleton {
     readonly property var curveSheet: t.motion.sheet.concat([1, 1])
     readonly property var curveSnap: t.motion.snap.concat([1, 1])
     readonly property int durPop: t.motion.pop
+    readonly property int durHover: t.motion.hover ?? 140          // hover fills / lifts / thumbs
     readonly property int durFade: t.motion.fade
     readonly property int durSheet: t.motion.sheetMs
     readonly property int durWindow: t.motion.window

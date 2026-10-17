@@ -13,14 +13,24 @@ Card {
     signal clicked()
     implicitHeight: 66
     opacity: locked ? 0.8 : 1
+    scale: tileMouse.pressed ? 0.97 : 1
+    Behavior on scale { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+    // hover: a faint lift of the module fill
+    Rectangle {
+        parent: root; z: -1
+        anchors.fill: parent; radius: root.radius
+        color: Theme.white(0.04)
+        opacity: tileMouse.containsMouse && !root.locked ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+    }
     Column {
         anchors.centerIn: parent
         spacing: 6
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             width: 30; height: 30; radius: Theme.square ? 4 : 15
-            color: root.on ? Theme.accent : Theme.white(0.14)
-            Behavior on color { ColorAnimation { duration: Theme.durFade } }
+            color: root.on ? Theme.accent : Theme.white(tileMouse.containsMouse && !root.locked ? 0.2 : 0.14)
+            Behavior on color { ColorAnimation { duration: Theme.durHover } }
             Glyph { anchors.centerIn: parent; name: root.icon; size: 16; color: root.on ? Theme.onAccent : Theme.label }
         }
         Column {
@@ -42,5 +52,5 @@ Card {
             }
         }
     }
-    MouseArea { anchors.fill: parent; enabled: !root.locked; onClicked: root.clicked() }
+    MouseArea { id: tileMouse; parent: root; anchors.fill: parent; enabled: !root.locked; hoverEnabled: true; onClicked: root.clicked() }
 }

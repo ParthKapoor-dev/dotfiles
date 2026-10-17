@@ -18,12 +18,22 @@ Item {
         visible: !Theme.dotMatrix
         anchors.fill: parent
         radius: height / 2
-        color: Theme.white(0.13)
+        // hover: track and fill brighten; the knob end (fill's round cap) grows a touch while
+        // hovered/dragged; wheel/keyboard steps ease, drags follow the pointer directly
+        color: Theme.white(sm.containsMouse || sm.pressed ? 0.17 : 0.13)
+        Behavior on color { ColorAnimation { duration: Theme.durHover } }
         Rectangle {
-            height: parent.height
+            id: fillBar
+            anchors.verticalCenter: parent.verticalCenter
+            property real grow: sm.containsMouse || sm.pressed ? 2 : 0
+            height: parent.height + grow
+            x: -grow / 2
             radius: height / 2
-            width: parent.height + (parent.width - parent.height) * root.v
-            color: Theme.white(0.92)
+            width: parent.height + (parent.width - parent.height) * root.v + grow
+            color: Theme.white(sm.containsMouse || sm.pressed ? 1 : 0.92)
+            Behavior on color { ColorAnimation { duration: Theme.durHover } }
+            Behavior on grow { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+            Behavior on width { enabled: !sm.pressed; NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
         }
         Glyph {
             x: 7; anchors.verticalCenter: parent.verticalCenter
@@ -38,7 +48,9 @@ Item {
         value: root.v
     }
     MouseArea {
+        id: sm
         anchors.fill: parent
+        hoverEnabled: true
         function at(x) { return Math.max(0, Math.min(1, (x - 14) / Math.max(1, width - 28))); }
         onPressed: m => root.moved(Theme.dotMatrix ? Math.max(0, Math.min(1, m.x / width)) : at(m.x))
         onPositionChanged: m => { if (pressed) root.moved(Theme.dotMatrix ? Math.max(0, Math.min(1, m.x / width)) : at(m.x)); }

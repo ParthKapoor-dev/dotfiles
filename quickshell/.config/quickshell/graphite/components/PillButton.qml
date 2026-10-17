@@ -13,9 +13,11 @@ Rectangle {
     implicitHeight: 24
     implicitWidth: row.implicitWidth + 20
     radius: Theme.square ? 4 : height / 2
+    scale: mouse.pressed ? 0.97 : 1
+    Behavior on scale { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
     color: on ? Theme.accent : flat ? (mouse.containsMouse ? Theme.fill3 : Theme.fill2)
         : Theme.rgba(Theme.t.color.glass, mouse.containsMouse ? 0.95 : 0.75)
-    Behavior on color { ColorAnimation { duration: Theme.durPop } }
+    Behavior on color { ColorAnimation { duration: Theme.durHover } }
     border.width: flat ? 0 : Theme.glassOpaque ? 1 : Theme.rimWidth
     border.color: Theme.glassOpaque ? Theme.hair : Theme.rim
     Row {

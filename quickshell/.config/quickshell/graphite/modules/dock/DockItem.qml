@@ -53,6 +53,7 @@ Item {
         // tokens ui.dockIcons = "monochrome-until-running"
         readonly property bool mono: Theme.dockIcons === "monochrome-until-running" && !root.running
         opacity: mouse.pressed ? 0.7 : 1
+        Behavior on opacity { NumberAnimation { duration: Theme.durHover } }
         layer.enabled: mono && !mouse.containsMouse
         layer.effect: MultiEffect { saturation: -1; brightness: -0.08 }
     }
