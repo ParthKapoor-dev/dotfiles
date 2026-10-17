@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# nox - single entry point for the nox desktop (Hyprland Lua config + qs shell + tokens).
+# Modules live in ../lib/nox/ next to the real path of this file (so a worktree's
+# nox runs that worktree's modules); NOX_LIB overrides.
+set -euo pipefail
+LIB="${NOX_LIB:-$(cd "$(dirname "$(readlink -f "$0")")/../lib/nox" && pwd)}"
+QS=(qs -c nox)
+MODULES="theme shell layout shot record wallpaper dpms hypr"
+
+usage() {
+    cat <<'EOF'
+usage: nox <command> [args]
+  theme  [render|check|diff|apply|switch <look>|revert [ts]|targets|get <path>|<look>]
+  shell  start|stop|restart|status|log [-f]     (qs -c nox)
+  ipc    <target> <function> [args]             (qs -c nox ipc call ...)
+  toggle launcher|cc|nc|dnd|overview|session|dock|cheatsheet|clipboard
+  layout next|prev|set <name>|get
+  shot   region|copy|screen|window|ocr
+  record [--fullscreen] [--sound]
+  wallpaper pick|random|list [--all]|set <path>
+  dpms   on|off|toggle [monitor]
+  hypr   status|check|on [--live]|off
+  status                                        (hypr + shell + theme + idle at a glance)
+  help [command]
+EOF
+}
+
+# module help: python core has argparse; bash modules carry usage in their header
+module_help() {
+    local f="$LIB/$1"
+    if head -1 "$f" | grep -q python; then exec "$f" --help; fi
+    sed -n '2,/^[^#]/{/^[^#]/d;s/^# \{0,1\}//;p}' "$f"
+}
+
+cmd="${1:-help}"
+[ $# -gt 0 ] && shift
+case "$cmd" in
+    theme | shell | layout | shot | record | wallpaper | dpms | hypr) exec "$LIB/$cmd" "$@" ;;
+    ipc)
+        [ $# -ge 2 ] || { echo "usage: nox ipc <target> <function> [args]   (targets: qs -c nox ipc show)" >&2; exit 2; }
+        exec "${QS[@]}" ipc call "$@" ;;
+    toggle)
+        case "${1:-}" in
+            launcher) exec "${QS[@]}" ipc call launcher toggle ;;
+            cc) exec "${QS[@]}" ipc call controlCenter toggle ;;
+            nc) exec "${QS[@]}" ipc call notifications toggle ;;
+            dnd) exec "${QS[@]}" ipc call notifications toggleDnd ;;
+            clipboard) exec "${QS[@]}" ipc call launcher clipboard ;;
+            overview | session | dock | cheatsheet) exec "${QS[@]}" ipc call "$1" toggle ;;
+            *) echo "nox toggle: unknown panel '${1:-}' (launcher|cc|nc|dnd|overview|session|dock|cheatsheet|clipboard)" >&2; exit 2 ;;
+        esac ;;
+    status)
+        rc=0
+        "$LIB/hypr" status || rc=1
+        "$LIB/shell" status || rc=1
+        if look=$("$LIB/theme" switch 2>&1 | sed -n 's/^\* //p') && [ -n "$look" ]; then echo "theme:    look $look"; else echo "theme:    ERROR (nox theme check)"; rc=1; fi
+        if pgrep -u "$UID" -x hypridle >/dev/null; then echo "hypridle: running"; else echo "hypridle: NOT running"; rc=1; fi
+        exit $rc ;;
+    help | -h | --help)
+        if [ -n "${1:-}" ]; then
+            case " $MODULES " in *" $1 "*) module_help "$1" ;; *) usage ;; esac
+        else usage; fi ;;
+    *) echo "nox: unknown command '$cmd' (try: nox help)" >&2; exit 2 ;;
+esac

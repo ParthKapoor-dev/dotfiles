@@ -1,0 +1,172 @@
+#!/usr/bin/env bash
+# nox shell start|stop|restart|status|log [-f] - run the nox Quickshell shell (qs -c nox).
+#   nox shell start     start exactly one instance (refuses if one is running), then wait
+#                       until it answers IPC and owns org.freedesktop.Notifications
+#   nox shell stop      stop every instance of the config, including crash relaunches
+#   nox shell restart   stop, then start
+#   nox shell status    instances (pid, id), IPC answer, notification-server owner
+#   nox shell log [-f]  qs log of the running instance (-f follows)
+#
+# Why stop is not just `qs kill`: Quickshell 0.3.2 segfaults on exit (GlobalShortcut
+# destructor) and its crash handler RELAUNCHES the shell as a new instance
+# (comm `quickshell`, re-parented to PID 1). So stop kills, waits, then hunts down
+# every qs/quickshell process that belongs to the config - by `qs list --all`
+# config path, by its command line, or by owning the notification D-Bus name
+# while not belonging to another config - and kills those by PID. It never uses
+# pkill -f. Stop is finished only when none is left for a settle period.
+#
+# Env: NOX_SHELL_CONFIG  config name under ~/.config/quickshell (default nox;
+#                        the cutover uses it to stop the pre-rename shell)
+set -uo pipefail
+
+NAME="${NOX_SHELL_CONFIG:-nox}"
+QS=(qs -c "$NAME")
+NOTIF=org.freedesktop.Notifications
+say() { printf '%s\n' "$*"; }
+die() { printf 'nox shell: %s\n' "$*" >&2; exit 1; }
+
+# config dir resolves? (qs -c NAME fails for kill/ipc/list once it is gone)
+config_ok() { [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/$NAME/shell.qml" ]; }
+
+# PIDs that `qs list --all` reports for this config (by config path)
+listed_pids() {
+    qs list --all --json 2>/dev/null | python3 -c '
+import json, sys
+name = sys.argv[1]
+try: data = json.load(sys.stdin)
+except Exception: sys.exit(0)
+for i in data if isinstance(data, list) else []:
+    p = (i.get("config_path") or "").rstrip("/")
+    if p.endswith("/quickshell/" + name + "/shell.qml") or p.endswith("/quickshell/" + name):
+        print(i.get("pid"))
+' "$NAME"
+}
+
+# PIDs that `qs list --all` reports for any OTHER config
+other_pids() {
+    qs list --all --json 2>/dev/null | python3 -c '
+import json, sys
+name = sys.argv[1]
+try: data = json.load(sys.stdin)
+except Exception: sys.exit(0)
+for i in data if isinstance(data, list) else []:
+    p = (i.get("config_path") or "").rstrip("/")
+    if not (p.endswith("/quickshell/" + name + "/shell.qml") or p.endswith("/quickshell/" + name)):
+        print(i.get("pid"))
+' "$NAME"
+}
+
+# my qs/quickshell processes whose argv names this config (-c NAME, --config NAME,
+# --config=NAME, -p/--path …/quickshell/NAME[/shell.qml])
+cmdline_pids() {
+    local pid comm args
+    for pid in $(pgrep -u "$UID" -x qs; pgrep -u "$UID" -x quickshell); do
+        [ -r "/proc/$pid/cmdline" ] || continue
+        comm=$(cat "/proc/$pid/comm" 2>/dev/null) || continue
+        case "$comm" in qs | quickshell) ;; *) continue ;; esac
+        args=$(tr '\0' '\n' <"/proc/$pid/cmdline" 2>/dev/null) || continue
+        if printf '%s\n' "$args" | awk -v n="$NAME" '
+            prev == "-c" || prev == "--config" { if ($0 == n) hit = 1 }
+            prev == "-p" || prev == "--path"   { if ($0 ~ ("/quickshell/" n "(/shell\\.qml)?/?$")) hit = 1 }
+            $0 == ("--config=" n) || $0 == ("-c" n) { hit = 1 }
+            { prev = $0 } END { exit hit ? 0 : 1 }'; then
+            echo "$pid"
+        fi
+    done
+}
+
+notif_owner() { busctl --user status "$NOTIF" 2>/dev/null | sed -n 's/^PID=//p' | head -1; }
+
+# the notification server owner, if it is a qs/quickshell process that no other
+# config claims (a crash relaunch of this shell may not show its config anywhere)
+notif_orphan_pid() {
+    local pid comm
+    pid=$(notif_owner); [ -n "$pid" ] || return 0
+    comm=$(cat "/proc/$pid/comm" 2>/dev/null) || return 0
+    case "$comm" in qs | quickshell) ;; *) return 0 ;; esac
+    other_pids | grep -qx "$pid" && return 0
+    echo "$pid"
+}
+
+all_pids() { { listed_pids; cmdline_pids; notif_orphan_pid; } | grep -E '^[0-9]+$' | sort -un; }
+
+ipc_ok() { config_ok && timeout 3 "${QS[@]}" ipc show >/dev/null 2>&1; }
+
+cmd_stop() {
+    local round pids pid empty=0
+    if config_ok; then
+        say "qs kill -c $NAME"
+        timeout 10 "${QS[@]}" kill >/dev/null 2>&1 || true
+    fi
+    # rounds: polite (qs kill --pid), TERM, then KILL; a crash relaunch can appear
+    # ~1 s after the original exits, so "none left" must hold for 3 checks in a row
+    for round in $(seq 1 15); do
+        pids=$(all_pids)
+        if [ -z "$pids" ]; then
+            empty=$((empty + 1)); [ "$empty" -ge 3 ] && { say "stopped: no $NAME shell left"; return 0; }
+            sleep 1; continue
+        fi
+        empty=0
+        for pid in $pids; do
+            if [ "$round" -le 2 ]; then
+                say "stopping pid $pid ($(cat /proc/"$pid"/comm 2>/dev/null)) via qs kill --pid"
+                timeout 5 qs kill --pid "$pid" >/dev/null 2>&1 || kill -TERM "$pid" 2>/dev/null || true
+            elif [ "$round" -le 5 ]; then
+                say "pid $pid still alive: SIGTERM"; kill -TERM "$pid" 2>/dev/null || true
+            else
+                say "pid $pid still alive: SIGKILL"; kill -KILL "$pid" 2>/dev/null || true
+            fi
+        done
+        sleep 1
+    done
+    die "could not stop: still running: $(all_pids | tr '\n' ' ')"
+}
+
+cmd_start() {
+    config_ok || die "no config: ${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/$NAME/shell.qml"
+    local pids; pids=$(all_pids)
+    [ -z "$pids" ] || die "already running (pid $(echo $pids)); use: nox shell restart"
+    local owner; owner=$(notif_owner)
+    [ -z "$owner" ] || say "warning: $NOTIF is owned by pid $owner ($(cat /proc/"$owner"/comm 2>/dev/null)); the shell's notification server will not register"
+    say "starting: ${QS[*]} -n -d"
+    setsid -f "${QS[@]}" -n -d >/dev/null 2>&1 </dev/null
+    local i
+    for i in $(seq 1 40); do
+        if ipc_ok; then
+            owner=$(notif_owner)
+            if [ -n "$owner" ] && all_pids | grep -qx "$owner"; then
+                [ "$(all_pids | wc -l)" -eq 1 ] || die "more than one $NAME instance: $(all_pids | tr '\n' ' ')"
+                say "running: pid $owner, owns $NOTIF"
+                return 0
+            fi
+        fi
+        sleep 0.25
+    done
+    ipc_ok || die "started but no IPC answer after 10 s (see: nox shell log)"
+    die "running, but $NOTIF is owned by pid ${owner:-none} ($( [ -n "${owner:-}" ] && cat /proc/"$owner"/cmdline 2>/dev/null | tr '\0' ' '))"
+}
+
+cmd_status() {
+    local pids pid owner rc=0
+    pids=$(all_pids)
+    if [ -z "$pids" ]; then say "shell:    NOT running ($NAME)"; rc=1; else
+        for pid in $pids; do say "shell:    pid $pid  $(tr '\0' ' ' <"/proc/$pid/cmdline" 2>/dev/null)"; done
+        [ "$(echo "$pids" | wc -l)" -gt 1 ] && { say "shell:    WARNING: $(echo "$pids" | wc -l) instances (fix: nox shell restart)"; rc=1; }
+    fi
+    if ipc_ok; then say "ipc:      ok"; else say "ipc:      no answer"; rc=1; fi
+    owner=$(notif_owner)
+    if [ -z "$owner" ]; then say "notifs:   no owner of $NOTIF"; rc=1
+    elif echo "$pids" | grep -qx "$owner"; then say "notifs:   owned by the shell (pid $owner)"
+    else say "notifs:   owned by pid $owner ($(cat /proc/"$owner"/comm 2>/dev/null)), NOT the shell"; rc=1; fi
+    return $rc
+}
+
+case "${1:-status}" in
+    start) cmd_start ;;
+    stop) cmd_stop ;;
+    restart) cmd_stop && cmd_start ;;
+    status) cmd_status ;;
+    log) shift; config_ok || die "no config $NAME"; exec "${QS[@]}" log "$@" ;;
+    -h | --help) sed -n '2,/^set /{/^set /d;s/^# \{0,1\}//;p}' "$0" ;;
+    *) echo "usage: nox shell start|stop|restart|status|log [-f]" >&2; exit 2 ;;
+esac

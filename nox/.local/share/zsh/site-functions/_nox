@@ -1,0 +1,57 @@
+#compdef nox
+# zsh completion for nox (needs fpath+=~/.local/share/zsh/site-functions and compinit)
+
+_nox() {
+    local -a cmds
+    cmds=(
+        'theme:render/apply design tokens, switch look'
+        'shell:start/stop/restart the qs shell'
+        'ipc:call a shell IPC function'
+        'toggle:toggle a shell panel'
+        'layout:change the tiling layout'
+        'shot:screenshot / OCR'
+        'record:toggle screen recording'
+        'wallpaper:choose the wallpaper'
+        'dpms:screen power'
+        'hypr:check / activate the Hyprland Lua config'
+        'status:hypr + shell + theme + idle at a glance'
+        'help:show help'
+    )
+    if (( CURRENT == 2 )); then
+        _describe -t commands 'nox command' cmds
+        return
+    fi
+    local cmd=${words[2]}
+    local conf=${XDG_CONFIG_HOME:-$HOME/.config}/nox
+    local -a looks
+    looks=(default ${${(f)"$(print -l $conf/presets/*.json(N:t:r))"}})
+    case $cmd in
+        theme)
+            if (( CURRENT == 3 )); then
+                _alternative \
+                    'subs:subcommand:(render check diff apply switch revert targets get)' \
+                    "looks:look:(${looks[*]})"
+            elif [[ ${words[3]} == switch ]]; then
+                _values look $looks
+            elif [[ ${words[3]} == revert ]]; then
+                local -a bk; bk=(${${(f)"$(print -l ${XDG_STATE_HOME:-$HOME/.local/state}/nox/backup/*(N/:t))"}})
+                (( ${#bk} )) && _values backup $bk
+            fi ;;
+        shell) (( CURRENT == 3 )) && _values subcommand start stop restart status log ;;
+        toggle) (( CURRENT == 3 )) && _values panel launcher cc nc dnd overview session dock cheatsheet clipboard ;;
+        layout)
+            if (( CURRENT == 3 )); then _values subcommand next prev set get
+            elif [[ ${words[3]} == set ]]; then _values layout dwindle master scrolling monocle; fi ;;
+        shot) (( CURRENT == 3 )) && _values mode region copy screen window ocr ;;
+        record) _values -w option --fullscreen --sound ;;
+        wallpaper)
+            if (( CURRENT == 3 )); then _values subcommand pick random list set
+            elif [[ ${words[3]} == set ]]; then _files; else _values option --all; fi ;;
+        dpms) (( CURRENT == 3 )) && _values action on off toggle ;;
+        hypr) (( CURRENT == 3 )) && _values subcommand status check on off ;;
+        ipc) (( CURRENT == 3 )) && _values target launcher controlCenter notifications overview cheatsheet session dock popup wallpaper action hud layout polkit ;;
+        help) (( CURRENT == 3 )) && _values command theme shell layout shot record wallpaper dpms hypr ;;
+    esac
+}
+
+_nox "$@"

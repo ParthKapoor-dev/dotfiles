@@ -4,9 +4,10 @@ typeset -U path PATH
 # Force proper terminal + key handling
 export TERM=xterm-256color
 
-# # minimal safe setup
-# autoload -Uz compinit
-# compinit
+# Completion: nox ships _nox in ~/.local/share/zsh/site-functions (stow pkg nox)
+fpath=(~/.local/share/zsh/site-functions $fpath)
+autoload -Uz compinit
+compinit
 # bindkey -e
 
 # Add this to ~/.zshrc

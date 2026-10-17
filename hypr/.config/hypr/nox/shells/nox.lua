@@ -110,7 +110,7 @@ P.gestures = {
 -- Brightness keys (ii ipc)           brightnessctl (nox's OSD follows the backlight)
 -- Ctrl+Super+T wallpaper selector    nox wallpaper pick
 -- Ctrl+Super+Alt+T random wallpaper  nox wallpaper random
--- Ctrl+Super+R restart shell         qs -c nox kill; qs -c nox -d
+-- Ctrl+Super+R restart shell         nox shell restart (kills crash relaunches too)
 -- Ctrl+Super+P panel family cycle    DROPPED (ii only)
 -- Super+Shift+S region screenshot    nox shot region (clipboard + swappy)
 -- Super+Shift+A region search        snip_to_search.sh (Google Lens, unchanged)
@@ -156,7 +156,7 @@ function P.binds(ctx)
         -- wallpaper / shell
         { "CTRL + SUPER + T", X("nox wallpaper pick"), desc = "Choose wallpaper" },
         { "CTRL + SUPER + ALT + T", X("nox wallpaper random"), desc = "Random wallpaper" },
-        { "CTRL + SUPER + R", X(P.QS .. " kill; " .. P.QS .. " -d"), desc = "Restart shell" },
+        { "CTRL + SUPER + R", X("nox shell restart"), desc = "Restart shell" },
 
         -- ##! Utilities: screenshot / OCR / record (nox shot, nox record)
         { "SUPER + SHIFT + S", X("nox shot region"), desc = "Screenshot region to clipboard and edit" },

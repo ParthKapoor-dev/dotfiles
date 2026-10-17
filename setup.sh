@@ -48,6 +48,10 @@ if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
     exit 1
 fi
 
+# Real dirs first, so stow links into them instead of folding them into the repo
+# (nox puts _nox in ~/.local/share/zsh/site-functions).
+mkdir -p "$TARGET/.local/share/zsh/site-functions" "$TARGET/.local/bin" "$TARGET/.local/lib"
+
 # Run stow on each package
 for pkg in "${PACKAGES[@]}"; do
     echo -e "${GREEN}🔗 Stowing '$pkg'...${RESET}"
