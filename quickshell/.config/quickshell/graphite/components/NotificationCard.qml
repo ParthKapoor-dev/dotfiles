@@ -5,26 +5,24 @@ import Quickshell.Widgets
 import qs.core
 import qs.services
 
-// One notification (mock .card .nt): app icon, app name + time, bold summary, body, optional
-// image, action buttons. Click = default action; hover shows a close button (dismisses it).
-// Used by the popups (compact) and the Notification Center.
-Rectangle {
+// One notification (mock .nt): 32px app icon, bold summary + time on one line, body (2 lines in
+// banners, 5 in the center), optional image thumbnail and action pills. Click = default action;
+// middle click or the hover × (top-left, mock .nt .x) dismisses.
+// `card: true` draws its own glass card (banners); false = row inside a group card (center).
+Item {
     id: root
     required property var notification
-    property bool compact: true           // popups: 2 body lines, center: 5
-    property bool glass: true             // popups sit on the desktop: glass; in the center: card fill
+    property bool compact: true
+    property bool card: true
     readonly property var n: notification
     signal closeRequested()
 
-    implicitHeight: body.implicitHeight + 24
-    radius: Theme.radiusPanel
-    readonly property bool hairline: Theme.glassOpaque || (!glass && Theme.cardStyle === "hairline")
-    color: glass ? Theme.glass : hairline ? "transparent" : Theme.fill
-    border.width: hairline ? 1 : Theme.rimWidth
-    border.color: hairline ? Theme.hair : glass ? Theme.rim : Theme.sep
+    implicitHeight: body.implicitHeight + (card ? 24 : 0)
+    readonly property real padX: card ? 14 : 0
+    readonly property real padY: card ? 12 : 0
 
     readonly property string iconSource: {
-        const ic = n?.appIcon || DesktopEntries.byId(n?.desktopEntry ?? "")?.icon || "";
+        const ic = n?.appIcon || DesktopEntries.byId(n?.desktopEntry ?? "")?.icon || DesktopEntries.heuristicLookup(n?.appName ?? "")?.icon || "";
         if (!ic) return "";
         if (ic.startsWith("/") || ic.includes("://")) return ic.startsWith("/") ? "file://" + ic : ic;
         return Quickshell.iconPath(ic, true);
@@ -32,14 +30,19 @@ Rectangle {
     readonly property var buttons: (n?.actions ?? []).filter(a => a.identifier !== "default" && a.text)
 
     SystemClock { id: clock; precision: SystemClock.Minutes; enabled: !root.compact }
-    function ago() {
-        const mins = Math.floor(((root.compact ? Date.now() : clock.date.getTime()) - Notifs.timeOf(n)) / 60000);
-        if (mins < 1) return "now";
-        if (mins < 60) return mins + "m ago";
-        if (mins < 1440) return Math.floor(mins / 60) + "h ago";
-        return Qt.formatDateTime(new Date(Notifs.timeOf(n)), "d MMM");
+    function when() {
+        const t = Notifs.timeOf(n);
+        const mins = Math.floor(((root.compact ? Date.now() : clock.date.getTime()) - t) / 60000);
+        if (root.compact && mins < 1) return "now";
+        return Qt.formatDateTime(new Date(t), mins < 1440 ? "HH:mm" : "d MMM");
     }
 
+    Glass {
+        visible: root.card
+        anchors.fill: parent
+        menu: true
+        radius: Theme.square ? 6 : 16
+    }
     MouseArea {
         id: hover
         anchors.fill: parent
@@ -50,12 +53,13 @@ Rectangle {
 
     Row {
         id: body
-        x: 14; y: 12
-        width: parent.width - 28
+        x: root.padX; y: root.padY
+        width: parent.width - root.padX * 2
         spacing: 10
 
         Item {
             width: 32; height: 32
+            y: 1
             IconImage {
                 id: appIcon
                 anchors.fill: parent
@@ -66,9 +70,9 @@ Rectangle {
             Rectangle {
                 anchors.fill: parent
                 visible: !appIcon.visible
-                radius: 8
+                radius: Theme.square ? 4 : 8
                 color: Theme.fill2
-                GIcon { anchors.centerIn: parent; name: "notifications"; size: 18; color: Theme.label2 }
+                Glyph { anchors.centerIn: parent; name: "bell"; size: 17; color: Theme.label2 }
             }
         }
 
@@ -79,11 +83,11 @@ Rectangle {
                 width: parent.width; height: summary.implicitHeight
                 GText {
                     id: summary
-                    width: parent.width - when.implicitWidth - 8
+                    width: parent.width - whenText.implicitWidth - 8
                     text: root.n?.summary || root.n?.appName || ""
                     font.weight: Font.DemiBold
                 }
-                GText { id: when; anchors.right: parent.right; anchors.baseline: summary.baseline; text: root.ago(); small: true; secondary: true }
+                GText { id: whenText; anchors.right: parent.right; anchors.baseline: summary.baseline; text: root.when(); small: true; secondary: true }
             }
             GText {
                 width: parent.width
@@ -94,12 +98,7 @@ Rectangle {
                 maximumLineCount: root.compact ? 2 : 5
                 elide: Text.ElideRight
                 verticalAlignment: Text.AlignTop
-            }
-            GText {
-                width: parent.width
-                visible: (root.n?.summary ?? "") !== "" && (root.n?.appName ?? "") !== ""
-                text: root.n?.appName ?? ""
-                small: true; secondary: true
+                lineHeight: 1.05
             }
             Flow {
                 visible: root.buttons.length > 0
@@ -128,17 +127,17 @@ Rectangle {
         }
     }
 
-    // close button (mock .nt .x): top-left, on hover
+    // close button (mock .nt .x: 20px round glass at the top-left corner, on hover)
     Rectangle {
-        x: -6; y: -6
+        x: root.card ? -6 : -20; y: root.card ? -6 : -16
         width: 20; height: 20
-        color: Theme.surface
-        radius: Theme.radiusPanel >= 12 ? 10 : Theme.radiusControl
+        color: Theme.rgba(Theme.t.color.glass, 0.95)
+        radius: Theme.square ? 4 : 10
         border.width: Theme.rimWidth
         border.color: Theme.rim
         opacity: hover.containsMouse || closeMouse.containsMouse ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: Theme.durPop } }
-        GIcon { anchors.centerIn: parent; name: "close"; size: 12; color: Theme.label2 }
+        Glyph { anchors.centerIn: parent; name: "x"; size: 10; color: Theme.label }
         MouseArea { id: closeMouse; anchors.fill: parent; hoverEnabled: true; onClicked: root.closeRequested() }
     }
 }

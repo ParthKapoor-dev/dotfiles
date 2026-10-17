@@ -1,54 +1,73 @@
 import QtQuick
 import Quickshell
-import Quickshell.Bluetooth
 import qs.core
 import qs.components
 import qs.services
 
-// Wi-Fi + Bluetooth toggles (left), Caffeine + Lock tiles (right)
+// Top block of the Control Center (mock grid rows 1-2): Wi-Fi / Bluetooth / Airplane (2x2 module),
+// Focus (Do Not Disturb), Night Light and Caffeine tiles.
 Item {
     id: root
-    readonly property var adapter: Bluetooth.defaultAdapter
-    readonly property var btConnected: Bluetooth.devices.values.filter(d => d.connected)
-    implicitHeight: 104
-    readonly property real half: (width - 10) / 2
+    readonly property real col: (width - 30) / 4
+    implicitHeight: 66 * 2 + 10
 
     Card {
-        width: root.half; height: root.implicitHeight
+        width: root.col * 2 + 10; height: root.implicitHeight
         Column {
             width: parent.width
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 2
+            spacing: 4
             ControlToggle {
                 width: parent.width
-                icon: Network.wired ? "lan" : Network.wifiEnabled ? "wifi" : "wifi_off"
+                icon: Network.wired ? "lan" : Network.wifiEnabled ? "wifi" : "wifiOff"
                 name: Network.wired ? "Network" : "Wi-Fi"
-                on: Network.wired || (Network.wifiEnabled && Network.ssid !== "")
+                on: Network.wired || Network.wifiEnabled
                 status: Network.wired ? "Ethernet" : !Network.wifiEnabled ? "Off" : (Network.ssid || "Not connected")
                 onClicked: Network.setWifi(!Network.wifiEnabled)
             }
             ControlToggle {
                 width: parent.width
-                icon: root.adapter?.enabled ? "bluetooth" : "bluetooth_disabled"
+                icon: Bt.enabled ? "bt" : "btOff"
                 name: "Bluetooth"
-                on: root.adapter?.enabled ?? false
-                status: !(root.adapter?.enabled ?? false) ? "Off" : root.btConnected.length ? (root.btConnected[0].name || root.btConnected[0].deviceName) : "On"
-                onClicked: if (root.adapter) root.adapter.enabled = !root.adapter.enabled
+                on: Bt.enabled
+                status: !Bt.enabled ? "Off" : Bt.connected.length ? Bt.nameOf(Bt.connected[0]) : "On"
+                onClicked: Bt.setEnabled(!Bt.enabled)
+            }
+            ControlToggle {
+                width: parent.width
+                readonly property bool airplane: !Network.wifiEnabled && !Bt.enabled
+                icon: "plane"
+                name: "Airplane"
+                on: airplane
+                status: airplane ? "On" : "Off"
+                onClicked: { const on = !airplane; Network.setWifi(!on); Bt.setEnabled(!on); }
             }
         }
     }
-    Row {
-        x: root.half + 10
-        spacing: 10
-        ControlTile {
-            width: (root.half - 10) / 2; height: root.implicitHeight
-            icon: "coffee"; name: "Caffeine"; on: Panels.caffeine
-            onClicked: Panels.caffeine = !Panels.caffeine
+    Card {
+        x: root.col * 2 + 20
+        width: root.col * 2 + 10; height: 66
+        ControlToggle {
+            width: parent.width
+            anchors.verticalCenter: parent.verticalCenter
+            icon: "moonF"; name: "Focus"
+            on: Notifs.dnd
+            status: Notifs.dnd ? "Do Not Disturb" : "Off"
+            onClicked: Notifs.toggleDnd()
         }
-        ControlTile {
-            width: (root.half - 10) / 2; height: root.implicitHeight
-            icon: "lock"; name: "Lock"
-            onClicked: { Panels.close(); Quickshell.execDetached(Config.opt.controlCenter?.lockCommand ?? ["loginctl", "lock-session"]); }
-        }
+    }
+    ControlTile {
+        x: root.col * 2 + 20; y: 76
+        width: root.col; height: 66
+        icon: "sunset"; name: "Night"; sub: "Light"
+        on: NightLight.on
+        onClicked: NightLight.toggle()
+    }
+    ControlTile {
+        x: root.col * 3 + 30; y: 76
+        width: root.col; height: 66
+        icon: "coffee"; name: "Caffeine"
+        on: Panels.caffeine
+        onClicked: Panels.caffeine = !Panels.caffeine
     }
 }

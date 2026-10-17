@@ -4,7 +4,8 @@ import qs.components
 
 BarButton {
     property string widgetId: "controlCenter"
+    hpad: 7
     active: Panels.popup === "controlCenter"
     onClicked: Panels.toggle("controlCenter")
-    ControlCenterGlyph { size: Theme.iconSize; anchors.verticalCenter: parent.verticalCenter }
+    Glyph { name: "cc"; anchors.verticalCenter: parent.verticalCenter }
 }

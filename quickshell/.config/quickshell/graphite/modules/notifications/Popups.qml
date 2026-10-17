@@ -15,7 +15,7 @@ Scope {
     readonly property var opts: Config.opt.notifications ?? ({})
     readonly property string position: opts.position ?? "top-right"   // top-right | top-left | top
     readonly property real cardWidth: opts.width ?? 344
-    readonly property real pad: 10    // room for the close button + shadow
+    readonly property real pad: 28    // room for the close button + shadow
 
     LazyLoader {
         // hidden while a right-side panel covers them (notifications.hideUnder: popup ids)
@@ -33,9 +33,10 @@ Scope {
             anchors.top: true
             anchors.right: root.position === "top-right"
             anchors.left: root.position === "top-left"
-            margins.top: 4
-            margins.right: 4
-            margins.left: 4
+            // mock #banners: bar + 8px, 10px from the screen edge
+            margins.top: Math.max(0, 8 - root.pad)
+            margins.right: Math.max(0, 10 - root.pad)
+            margins.left: Math.max(0, 10 - root.pad)
             implicitWidth: root.cardWidth + root.pad * 2
             implicitHeight: stack.implicitHeight + root.pad * 2
             mask: Region { item: maskArea }
@@ -58,9 +59,10 @@ Scope {
                         height: card.implicitHeight
                         RectangularShadow {
                             anchors.fill: card
-                            radius: card.radius
-                            offset.y: 6; blur: 20; spread: -2
-                            color: Theme.rgba("#000000", 0.3)
+                            radius: Theme.square ? 6 : 16
+                            offset.y: 10; blur: 30; spread: -4
+                            color: Theme.rgba("#000000", 0.32)
+                            opacity: card.opacity
                         }
                         NotificationCard {
                             id: card

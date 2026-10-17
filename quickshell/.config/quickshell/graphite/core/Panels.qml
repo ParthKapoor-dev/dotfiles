@@ -11,9 +11,17 @@ Singleton {
     property bool caffeine: false      // idle inhibitor (owned by the bar window)
     property var barWindows: []        // registered by each bar; popups include them in their focus grab
     property bool launcherOpen: false
+    property string launcherQuery: ""  // text to start the next launcher session with
+    property bool overviewOpen: false
+    property bool sessionOpen: false
+    property bool dockRevealed: false  // autohide: pointer at the bottom edge / dock hovered / IPC
     property var popupIds: []          // ids of GPopups that currently exist (registered by GPopup)
 
     function open(id) { popup = id; }
+    // mock #hud: short text toast at the top centre (shown by the osd module)
+    signal hudRequested(string text, string glyph)
+    function hud(text, glyph) { hudRequested(text, glyph ?? "check"); }
+    function openLauncher(q) { launcherQuery = q ?? ""; if (launcherOpen) launcherOpen = false; launcherOpen = true; }
     function close(id) { if (id === undefined || popup === id) popup = ""; }
     function toggle(id) { popup = (popup === id) ? "" : id; }
     function exists(id) { return popupIds.indexOf(id) !== -1; }

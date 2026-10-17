@@ -4,37 +4,39 @@ import qs.core
 import qs.components
 import qs.services
 
+// mock Sound module: title + current output, slider, output rows (.orow: 22px chip, accent = current)
 Card {
     id: root
-
-    Item {
-        id: head
-        width: parent.width; height: t.height
-        CardTitle { id: t; text: "Sound" }
-        GText { anchors.right: parent.right; anchors.left: t.right; anchors.leftMargin: 8; horizontalAlignment: Text.AlignRight; text: Audio.sinkName; small: true; secondary: true }
-    }
+    CardTitle { id: t; width: parent.width; text: "Sound"; detail: Audio.sinkName }
     GSlider {
         id: sld
-        anchors.top: head.bottom; anchors.topMargin: 8
+        anchors.top: t.bottom; anchors.topMargin: 8
         width: parent.width
-        icon: Audio.icon
+        icon: Audio.glyph
         value: Audio.volume
         onMoved: v => Audio.setVolume(v)
     }
     Column {
-        id: outs
         anchors.top: sld.bottom; anchors.topMargin: Audio.sinks.length > 1 ? 8 : 0
         width: parent.width
+        spacing: 2
         Repeater {
             model: Audio.sinks.length > 1 ? Audio.sinks : []
-            ListRow {
+            Item {
+                id: orow
                 required property var modelData
-                width: parent.width
-                implicitHeight: 28
-                chip: false
-                icon: modelData === Audio.sink ? "check" : ""
-                title: Audio.nodeName(modelData)
-                onClicked: Audio.setSink(modelData)
+                readonly property bool on: modelData === Audio.sink
+                width: parent.width; height: 30
+                Rectangle { anchors.fill: parent; radius: Theme.square ? 3 : 7; color: Theme.fill; opacity: om.containsMouse ? 1 : 0 }
+                Rectangle {
+                    id: oi
+                    x: 6; anchors.verticalCenter: parent.verticalCenter
+                    width: 22; height: 22; radius: Theme.square ? 4 : 11
+                    color: orow.on ? Theme.accent : Theme.fill2
+                    Glyph { anchors.centerIn: parent; name: Audio.glyphFor(orow.modelData); size: 13; color: orow.on ? Theme.onAccent : Theme.label }
+                }
+                GText { anchors.left: oi.right; anchors.leftMargin: 9; anchors.right: parent.right; anchors.rightMargin: 6; anchors.verticalCenter: parent.verticalCenter; text: Audio.nodeName(orow.modelData); font.pixelSize: 13 }
+                MouseArea { id: om; anchors.fill: parent; hoverEnabled: true; onClicked: Audio.setSink(orow.modelData) }
             }
         }
     }

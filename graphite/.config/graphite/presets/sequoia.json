@@ -41,7 +41,8 @@
     "launcherAlpha": 0.78,
     "blurSize": 8,
     "blurPasses": 3,
-    "saturation": 1.8
+    "saturation": 1.8,
+    "menuAlpha": 0.86
   },
   "size": {
     "dock": 56,
@@ -69,7 +70,8 @@
     }
   },
   "ui": {
-    "sectionLabels": "plain"
+    "sectionLabels": "plain",
+    "workspaceCurrent": "label"
   },
   "desktop": {
     "wallpaper": "sequoia",

@@ -47,6 +47,17 @@ ShellRoot {
         function current(): string { return Panels.popup; }
     }
 
+    // qs -c graphite ipc call layout changed <name>   (sent by graphite-layout after every change)
+    // qs -c graphite ipc call layout get | next | prev | set <name>
+    IpcHandler {
+        target: "layout"
+        function changed(name: string): void { Layout.changed(name); }
+        function get(): string { return Layout.name; }
+        function next(): void { Layout.next(); }
+        function prev(): void { Layout.prev(); }
+        function set(name: string): void { Layout.set(name); }
+    }
+
     // launcher IPC (toggle|open|close|search|results) lives in modules/launcher/Launcher.qml
     // qs -c graphite ipc call notifications toggle       (Notification Center)
     // qs -c graphite ipc call notifications toggleDnd    | setDnd true|false | clear | dnd | status
@@ -63,35 +74,42 @@ ShellRoot {
         function status(): string { return "server=" + Notifs.running + " dnd=" + Notifs.dnd + " count=" + Notifs.count + " popups=" + Notifs.popups.length; }
     }
 
-    // Hyprland global shortcuts (appid "graphite"): bind with hl.dsp.global("graphite:<name>").
-    // launcherToggleRelease + launcherToggleReleaseInterrupt = "tap Super to open" (same pattern as ii).
-    GlobalShortcut {
-        appid: "graphite"; name: "launcherToggle"; description: "Toggle the launcher"
-        onPressed: Panels.launcherOpen = !Panels.launcherOpen
-    }
-    GlobalShortcut {
-        id: superTap
-        appid: "graphite"; name: "launcherToggleRelease"; description: "Toggle the launcher when Super is released alone"
-        property bool mightTrigger: false
-        property bool pressGuard: false
-        onPressed: { mightTrigger = true; pressGuard = true; }
-        onReleased: {
-            pressGuard = false;
-            if (mightTrigger) Panels.launcherOpen = !Panels.launcherOpen;
-            mightTrigger = false;
+    // Hyprland global shortcuts (appid "graphite"). Not registered in lint runs (GRAPHITE_LINT=1),
+    // so a syntax check never competes with the live instance for the same shortcut names.
+    LazyLoader {
+        active: !Quickshell.env("GRAPHITE_LINT")
+        component: Scope {
+        // shortcuts (appid "graphite"): bind with hl.dsp.global("graphite:<name>").
+        // launcherToggleRelease + launcherToggleReleaseInterrupt = "tap Super to open" (same pattern as ii).
+        GlobalShortcut {
+            appid: "graphite"; name: "launcherToggle"; description: "Toggle the launcher"
+            onPressed: Panels.launcherOpen = !Panels.launcherOpen
         }
-    }
-    GlobalShortcut {
-        appid: "graphite"; name: "launcherToggleReleaseInterrupt"; description: "Cancel the Super-tap launcher toggle (bind to a catchall)"
-        // the catchall also fires on the Super press itself (Hyprland 0.55.3+): absorb that one
-        onPressed: { if (superTap.pressGuard) { superTap.pressGuard = false; return; } superTap.mightTrigger = false; }
-    }
-    GlobalShortcut {
-        appid: "graphite"; name: "notificationCenterToggle"; description: "Toggle the Notification Center"
-        onPressed: Panels.toggle("notifications")
-    }
-    GlobalShortcut {
-        appid: "graphite"; name: "dndToggle"; description: "Toggle Do Not Disturb"
-        onPressed: Notifs.toggleDnd()
+        GlobalShortcut {
+            id: superTap
+            appid: "graphite"; name: "launcherToggleRelease"; description: "Toggle the launcher when Super is released alone"
+            property bool mightTrigger: false
+            property bool pressGuard: false
+            onPressed: { mightTrigger = true; pressGuard = true; }
+            onReleased: {
+                pressGuard = false;
+                if (mightTrigger) Panels.launcherOpen = !Panels.launcherOpen;
+                mightTrigger = false;
+            }
+        }
+        GlobalShortcut {
+            appid: "graphite"; name: "launcherToggleReleaseInterrupt"; description: "Cancel the Super-tap launcher toggle (bind to a catchall)"
+            // the catchall also fires on the Super press itself (Hyprland 0.55.3+): absorb that one
+            onPressed: { if (superTap.pressGuard) { superTap.pressGuard = false; return; } superTap.mightTrigger = false; }
+        }
+        GlobalShortcut {
+            appid: "graphite"; name: "notificationCenterToggle"; description: "Toggle the Notification Center"
+            onPressed: Panels.toggle("notifications")
+        }
+        GlobalShortcut {
+            appid: "graphite"; name: "dndToggle"; description: "Toggle Do Not Disturb"
+            onPressed: Notifs.toggleDnd()
+        }
+        }
     }
 }

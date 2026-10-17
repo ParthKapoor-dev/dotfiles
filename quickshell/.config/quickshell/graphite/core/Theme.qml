@@ -73,6 +73,7 @@ Singleton {
             "alpha": 0.78,
             "menubarAlpha": 0.72,
             "launcherAlpha": 0.92,
+            "menuAlpha": 0.9,
             "blurSize": 6,
             "blurPasses": 2,
             "saturation": 1.2
@@ -86,12 +87,13 @@ Singleton {
         },
         "size": {
             "menubar": 30,
-            "dock": 52,
+            "dock": 44,
             "dockMagnify": 1.5,
             "gapsIn": 5,
             "gapsOut": 10,
             "border": 1,
-            "rim": 0.5
+            "rim": 0.5,
+            "screenCorner": 12
         },
         "font": {
             "ui": "Geist",
@@ -168,7 +170,8 @@ Singleton {
             "meter": "bar",
             "focusDecor": "none",
             "dockIcons": "color",
-            "workspaceStyle": "dots"
+            "workspaceStyle": "dots",
+            "workspaceCurrent": "accent"
         },
         "desktop": {
             "wallpaper": "ember-glow",
@@ -253,12 +256,16 @@ Singleton {
     readonly property color glass: rgba(t.color.glass, t.glass.alpha)
     readonly property color menubarGlass: rgba(t.color.glass, t.glass.menubarAlpha)
     readonly property color launcherGlass: rgba(t.color.glass, t.glass.launcherAlpha)
+    // menus + popovers (wifi, bluetooth, sound, logo/app menus, CC, notification center): denser than
+    // bar/dock glass so the wallpaper hue never dominates text (tokens glass.menuAlpha)
+    readonly property color menuGlass: rgba(t.color.glass, t.glass.menuAlpha ?? Math.max(t.glass.alpha, 0.9))
     readonly property color shadow: rgba(t.shadow.focused.color, t.shadow.focused.alpha)
     // glass.alpha >= 1 = opaque surfaces (Telemetry): no translucent rim, hairline edge instead
     readonly property bool glassOpaque: t.glass.alpha >= 1
 
     // ---- metrics ----
     readonly property int barHeight: t.size.menubar
+    readonly property int screenCorner: t.size.screenCorner ?? 0
     readonly property int dockSize: t.size.dock
     readonly property real dockMagnify: t.size.dockMagnify
     readonly property real rimWidth: t.size.rim
@@ -279,6 +286,9 @@ Singleton {
     readonly property real iconSize: t.font.iconSize
     readonly property real fontSizeLarge: t.font.sizeLarge
     readonly property real fontSizeHero: t.font.sizeHero
+    readonly property real fontSizeLabel: 10.5            // mock .mt / .psec in the insp looks
+    // mono-upper label helpers (CardTitle, SectionLabel, NC group names)
+    function labelFont(px) { return labelsMono ? fontLabel : fontUi; }
 
     // ---- section labels (ui.sectionLabels: "plain" | "mono-upper") ----
     readonly property bool labelsMono: (t.ui?.sectionLabels ?? "plain") === "mono-upper"
@@ -291,6 +301,7 @@ Singleton {
 
     // ---- style switches (tokens "ui" / "card") ----
     readonly property string workspaceStyle: t.ui?.workspaceStyle ?? "dots"      // dots | numbers
+    readonly property color workspaceCurrent: (t.ui?.workspaceCurrent ?? "label") === "accent" ? accent : label
     readonly property string meter: t.ui?.meter ?? "bar"                          // bar | dot-matrix
     readonly property bool dotMatrix: meter === "dot-matrix"
     readonly property string dockIcons: t.ui?.dockIcons ?? "color"                // color | monochrome-until-running
@@ -307,4 +318,6 @@ Singleton {
     readonly property int durFade: t.motion.fade
     readonly property int durSheet: t.motion.sheetMs
     readonly property int durWindow: t.motion.window
+    readonly property int durWorkspace: t.motion.workspace ?? 460
+    readonly property bool square: radiusPanel < 10       // Telemetry-style square-ish controls
 }

@@ -56,7 +56,8 @@
     "launcherAlpha": 1.0,
     "blurSize": 0,
     "blurPasses": 0,
-    "saturation": 1.0
+    "saturation": 1.0,
+    "menuAlpha": 1.0
   },
   "radius": {
     "window": 4,
@@ -66,11 +67,12 @@
   },
   "size": {
     "menubar": 28,
-    "dock": 46,
+    "dock": 40,
     "dockMagnify": 1.0,
     "gapsIn": 4,
     "gapsOut": 8,
-    "rim": 1.0
+    "rim": 1.0,
+    "screenCorner": 0
   },
   "font": {
     "icon": "Material Symbols Sharp",
@@ -122,7 +124,8 @@
     "meter": "dot-matrix",
     "focusDecor": "corner-brackets",
     "dockIcons": "monochrome-until-running",
-    "workspaceStyle": "numbers"
+    "workspaceStyle": "numbers",
+    "workspaceCurrent": "label"
   },
   "desktop": {
     "wallpaper": "signal-grid",

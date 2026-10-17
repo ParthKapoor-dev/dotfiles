@@ -10,6 +10,7 @@ import Quickshell.Io
 Singleton {
     id: root
 
+    // generated from graphite/.config/graphite/shell.json (keep in sync)
     readonly property var defaults: ({
         "modules": {
             "bar": true,
@@ -17,22 +18,35 @@ Singleton {
             "controlCenter": true,
             "launcher": true,
             "osd": true,
-            "notifications": false
+            "notifications": true,
+            "wallpaper": true,
+            "corners": true,
+            "overview": true,
+            "session": true,
+            "polkit": true,
+            "clipboard": true
         },
+        "terminal": [
+            "ghostty"
+        ],
         "bar": {
             "screens": [],
             "left": [
                 "logo",
                 "appName",
-                "workspaces"
+                "menus",
+                "workspaces",
+                "layout"
             ],
             "center": [],
             "right": [
+                "recording",
+                "dnd",
                 "tray",
                 "network",
                 "bluetooth",
-                "volume",
                 "battery",
+                "search",
                 "controlCenter",
                 "clock"
             ]
@@ -41,53 +55,81 @@ Singleton {
             "logo": {
                 "menu": [
                     {
-                        "label": "Lock Screen",
-                        "command": [
-                            "loginctl",
-                            "lock-session"
-                        ]
+                        "label": "About This Desktop",
+                        "action": "about"
+                    },
+                    {
+                        "separator": true
+                    },
+                    {
+                        "label": "Mission Control",
+                        "action": "overview"
+                    },
+                    {
+                        "label": "Force Quit Front App",
+                        "action": "forceQuit"
                     },
                     {
                         "separator": true
                     },
                     {
                         "label": "Sleep",
-                        "command": [
-                            "systemctl",
-                            "suspend"
-                        ]
+                        "action": "sleep"
                     },
                     {
                         "label": "Restart…",
-                        "command": [
-                            "systemctl",
-                            "reboot"
-                        ]
+                        "action": "session"
                     },
                     {
                         "label": "Shut Down…",
-                        "command": [
-                            "systemctl",
-                            "poweroff"
-                        ]
+                        "action": "session"
+                    },
+                    {
+                        "separator": true
+                    },
+                    {
+                        "label": "Lock Screen",
+                        "action": "lock"
+                    },
+                    {
+                        "label": "Log Out $USER…",
+                        "action": "session"
                     }
                 ]
             },
             "appName": {
                 "fallback": "Desktop"
             },
+            "menus": {
+                "items": [
+                    "File",
+                    "Edit",
+                    "View",
+                    "Window",
+                    "Help"
+                ]
+            },
             "windowTitle": {
                 "maxWidth": 360
             },
             "workspaces": {
-                "minCount": 4,
+                "minCount": 5,
                 "scroll": true
             },
+            "layout": {
+                "showLabel": "hover"
+            },
             "tray": {
+                "mode": "popup",
                 "monochrome": true
             },
             "network": {
-                "settingsCommand": []
+                "settingsCommand": [
+                    "ghostty",
+                    "-e",
+                    "nmtui"
+                ],
+                "maxOther": 8
             },
             "bluetooth": {
                 "settingsCommand": [
@@ -108,71 +150,301 @@ Singleton {
         },
         "dock": {
             "screens": [],
+            "autohide": true,
             "reserveSpace": true,
             "magnify": true,
             "showRunning": true,
+            "stacks": [
+                "downloads",
+                "trash"
+            ],
+            "iconScale": {},
             "ignoredAppIds": [],
             "pinned": [
                 "zen",
                 "slack",
-                "claude-desktop",
                 "dev.zed.Zed",
-                "code-oss",
-                "com.mitchellh.ghostty",
-                "obsidian",
-                "org.kde.dolphin"
+                "stably-orca",
+                "netsoft-com.netsoft.hubstaff",
+                "chromium",
+                "helium",
+                "com.mitchellh.ghostty"
             ]
         },
         "controlCenter": {
             "sections": [
                 "connectivity",
+                "performance",
                 "display",
                 "sound",
                 "media",
-                "notifications"
+                "tiles"
             ],
-            "lockCommand": [
-                "loginctl",
-                "lock-session"
+            "tiles": [
+                "screenshot",
+                "record",
+                "darkMode",
+                "lock"
             ]
+        },
+        "session": {
+            "items": [
+                "lock",
+                "logout",
+                "sleep",
+                "restart",
+                "poweroff"
+            ],
+            "confirm": [
+                "logout",
+                "restart",
+                "poweroff"
+            ],
+            "commands": {}
+        },
+        "screenshot": {},
+        "recorder": {
+            "directory": "~/Videos",
+            "args": []
+        },
+        "nightLight": {
+            "temperature": 4500
         },
         "brightness": {
             "device": "auto",
             "step": 5
         },
+        "wallpaper": {
+            "path": "",
+            "fill": "cover",
+            "color": "#000000"
+        },
+        "overview": {
+            "columns": 0,
+            "scale": 0.16
+        },
+        "clipboard": {
+            "limit": 60,
+            "prefix": ":"
+        },
         "launcher": {
             "width": 680,
             "top": 0.18,
             "maxHeight": 404,
-            "placeholder": "Search apps, windows, commands…",
-            "providers": ["calculator", "apps", "windows", "commands", "run"],
+            "placeholder": "Search apps, files, commands…",
+            "providers": [
+                "calculator",
+                "apps",
+                "windows",
+                "clipboard",
+                "commands",
+                "run"
+            ],
             "provider": {
-                "apps": { "limit": 8, "showRecent": true, "recentLimit": 6, "frecencyWeight": 0.35, "terminal": ["ghostty", "-e"] },
-                "calculator": { "prefix": "=" },
-                "windows": { "prefix": "@", "limit": 6 },
+                "apps": {
+                    "limit": 8,
+                    "showRecent": true,
+                    "recentLimit": 6,
+                    "frecencyWeight": 0.35,
+                    "terminal": [
+                        "ghostty",
+                        "-e"
+                    ]
+                },
+                "calculator": {
+                    "prefix": "="
+                },
+                "windows": {
+                    "prefix": "@",
+                    "limit": 6
+                },
+                "clipboard": {
+                    "prefix": ":",
+                    "prefixOnly": true,
+                    "limit": 60
+                },
                 "commands": {
                     "prefix": "/",
                     "limit": 6,
                     "items": [
-                        { "label": "Lock Screen", "icon": "lock", "command": ["loginctl", "lock-session"], "keywords": ["lock"] },
-                        { "label": "Log Out", "icon": "logout", "command": ["hyprctl", "dispatch", "exit"], "confirm": "Log out now?", "keywords": ["logout", "sign out", "exit"] },
-                        { "label": "Sleep", "icon": "bedtime", "command": ["systemctl", "suspend"], "confirm": "Sleep now?", "keywords": ["suspend"] },
-                        { "label": "Restart", "icon": "restart_alt", "command": ["systemctl", "reboot"], "confirm": "Restart now?", "keywords": ["reboot"] },
-                        { "label": "Shut Down", "icon": "power_settings_new", "command": ["systemctl", "poweroff"], "confirm": "Shut down now?", "keywords": ["power off", "poweroff", "halt"] },
-                        { "label": "Do Not Disturb", "icon": "do_not_disturb_on", "action": "dnd", "keywords": ["dnd", "focus", "notifications"] },
-                        { "label": "Control Center", "icon": "toggle_on", "action": "controlCenter", "keywords": ["settings"] },
-                        { "label": "Notification Center", "icon": "notifications", "action": "notifications" },
-                        { "label": "Toggle Dock", "icon": "dock_to_bottom", "action": "dock" }
+                        {
+                            "label": "Lock Screen",
+                            "icon": "lock",
+                            "action": "lock",
+                            "keywords": [
+                                "lock"
+                            ]
+                        },
+                        {
+                            "label": "Log Out",
+                            "icon": "logout",
+                            "action": "logout",
+                            "confirm": "Log out now?",
+                            "keywords": [
+                                "logout",
+                                "sign out",
+                                "exit"
+                            ]
+                        },
+                        {
+                            "label": "Sleep",
+                            "icon": "moon",
+                            "action": "sleep",
+                            "confirm": "Sleep now?",
+                            "keywords": [
+                                "suspend"
+                            ]
+                        },
+                        {
+                            "label": "Restart",
+                            "icon": "restart",
+                            "action": "restart",
+                            "confirm": "Restart now?",
+                            "keywords": [
+                                "reboot"
+                            ]
+                        },
+                        {
+                            "label": "Shut Down",
+                            "icon": "power",
+                            "action": "poweroff",
+                            "confirm": "Shut down now?",
+                            "keywords": [
+                                "power off",
+                                "poweroff",
+                                "halt"
+                            ]
+                        },
+                        {
+                            "label": "Toggle Do Not Disturb",
+                            "icon": "moonF",
+                            "action": "dnd",
+                            "keywords": [
+                                "dnd",
+                                "focus",
+                                "notifications"
+                            ]
+                        },
+                        {
+                            "label": "Toggle Night Light",
+                            "icon": "sunset",
+                            "action": "nightLight",
+                            "keywords": [
+                                "night",
+                                "warm",
+                                "hyprsunset"
+                            ]
+                        },
+                        {
+                            "label": "Toggle Caffeine",
+                            "icon": "coffee",
+                            "action": "caffeine",
+                            "keywords": [
+                                "awake",
+                                "idle",
+                                "inhibit"
+                            ]
+                        },
+                        {
+                            "label": "Take Screenshot",
+                            "icon": "shot",
+                            "action": "screenshot",
+                            "keywords": [
+                                "screenshot",
+                                "capture",
+                                "grim"
+                            ]
+                        },
+                        {
+                            "label": "Record Screen",
+                            "icon": "record",
+                            "action": "record",
+                            "keywords": [
+                                "record",
+                                "video",
+                                "wf-recorder"
+                            ]
+                        },
+                        {
+                            "label": "Mission Control",
+                            "icon": "grid",
+                            "action": "overview",
+                            "keywords": [
+                                "overview",
+                                "expose",
+                                "workspaces"
+                            ]
+                        },
+                        {
+                            "label": "Clipboard History",
+                            "icon": "clip",
+                            "action": "clipboard",
+                            "keywords": [
+                                "clipboard",
+                                "paste",
+                                "cliphist"
+                            ]
+                        },
+                        {
+                            "label": "Next Layout",
+                            "icon": "layout",
+                            "action": "layoutNext",
+                            "keywords": [
+                                "layout",
+                                "tiling",
+                                "scrolling",
+                                "master"
+                            ]
+                        },
+                        {
+                            "label": "Control Center",
+                            "icon": "cc",
+                            "action": "controlCenter",
+                            "keywords": [
+                                "settings"
+                            ]
+                        },
+                        {
+                            "label": "Notification Center",
+                            "icon": "bell",
+                            "action": "notifications"
+                        },
+                        {
+                            "label": "Power Menu",
+                            "icon": "power",
+                            "action": "session",
+                            "keywords": [
+                                "session",
+                                "logout",
+                                "shutdown"
+                            ]
+                        },
+                        {
+                            "label": "Toggle Dock",
+                            "icon": "grid",
+                            "action": "dock"
+                        }
                     ]
                 },
-                "run": { "prefix": ">", "prefixOnly": true, "shell": ["sh", "-c"], "terminal": ["ghostty", "-e"] }
+                "run": {
+                    "prefix": ">",
+                    "prefixOnly": true,
+                    "shell": [
+                        "sh",
+                        "-c"
+                    ],
+                    "terminal": [
+                        "ghostty",
+                        "-e"
+                    ]
+                }
             }
         },
         "osd": {
             "position": "bottom",
-            "offset": 100,
+            "offset": 96,
             "width": 236,
-            "timeout": 1500,
+            "timeout": 1300,
             "volume": true,
             "brightness": true,
             "mic": true,
@@ -181,13 +453,24 @@ Singleton {
         "notifications": {
             "position": "top-right",
             "width": 344,
-            "maxPopups": 4,
-            "timeout": { "low": 4000, "normal": 6000, "critical": 0 },
+            "maxPopups": 3,
+            "timeout": {
+                "low": 4000,
+                "normal": 5200,
+                "critical": 0
+            },
             "respectAppTimeout": true,
             "dndAllowCritical": true,
             "maxHistory": 100,
-            "centerMaxHeight": 560,
-            "hideUnder": ["notifications", "controlCenter"],
+            "hideUnder": [
+                "notifications",
+                "controlCenter"
+            ],
+            "center": {
+                "width": 356,
+                "calendar": true,
+                "batteries": true
+            },
             "rules": []
         }
     })
