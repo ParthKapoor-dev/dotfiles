@@ -19,6 +19,8 @@ BarButton {
     GText {
         anchors.verticalCenter: parent.verticalCenter
         text: root.label
+        // long app names / raw app ids elide instead of pushing the menus and workspaces right
+        width: root.bold ? Math.min(implicitWidth, 220) : implicitWidth
         font.weight: root.bold ? Font.Bold : Font.Normal
         // Telemetry: app name in mono caps with an accent square (mock .mbi.app::before)
         font.family: root.bold && Theme.labelsMono && Theme.square ? Theme.fontLabel : Theme.fontUi
