@@ -9,7 +9,8 @@ Singleton {
     id: root
     readonly property string home: Quickshell.env("HOME")
     function expand(p) { return String(p ?? "").replace(/^~(?=\/|$)/, home); }
-    readonly property string configured: expand(Config.opt.wallpaper?.path ?? "")
+    // shell.json wallpaper.path wins; empty = the look's own wallpaper (tokens desktop.wallpaperPath, follows `theme`)
+    readonly property string configured: expand(Config.opt.wallpaper?.path ?? "") || expand(Theme.t.desktop?.wallpaperPath ?? "")
     readonly property string path: expand(state.data.path ?? "") || configured
     readonly property string url: path ? "file://" + path : ""
     readonly property string fill: state.data.fill ?? Config.opt.wallpaper?.fill ?? "cover"

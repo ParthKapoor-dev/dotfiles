@@ -133,7 +133,8 @@
     "dotGrid": {
       "enabled": true
     },
-    "widgets": true
+    "widgets": true,
+    "wallpaperPath": "~/Pictures/Wallpapers/graphite/generated/telemetry-topo.png"
   },
   "card": {
     "style": "hairline",
