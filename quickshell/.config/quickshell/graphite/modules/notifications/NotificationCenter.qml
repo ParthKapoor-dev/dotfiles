@@ -33,9 +33,10 @@ GPopup {
     component GroupLabel: Item {
         property string leftText
         property string rightText
+        id: gl
         width: parent?.width ?? 0; height: 14
-        GText { x: 4; text: parent.leftText; font.family: Theme.labelsMono ? Theme.fontLabel : Theme.fontUi; font.pixelSize: Theme.labelsMono ? 10 : 11; font.capitalization: Theme.labelsMono ? Font.AllUppercase : Font.MixedCase; font.letterSpacing: Theme.labelsMono ? 0.8 : 0; font.weight: Theme.labelsMono ? Font.Medium : Font.DemiBold; color: Theme.label2 }
-        GText { anchors.right: parent.right; anchors.rightMargin: 4; text: parent.rightText; font.family: Theme.labelsMono ? Theme.fontLabel : Theme.fontUi; font.pixelSize: Theme.labelsMono ? 10 : 11; font.capitalization: Theme.labelsMono ? Font.AllUppercase : Font.MixedCase; font.letterSpacing: Theme.labelsMono ? 0.8 : 0; color: Theme.label2 }
+        GText { width: gl.width - countText.implicitWidth - 8; text: gl.leftText; font.family: Theme.labelsMono ? Theme.fontLabel : Theme.fontUi; font.pixelSize: Theme.labelsMono ? 10 : 11; font.capitalization: Theme.labelsMono ? Font.AllUppercase : Font.MixedCase; font.letterSpacing: Theme.labelsMono ? 0.8 : 0; font.weight: Theme.labelsMono ? Font.Medium : Font.DemiBold; color: Theme.label2 }
+        GText { id: countText; anchors.right: parent.right; text: gl.rightText; font.family: Theme.labelsMono ? Theme.fontLabel : Theme.fontUi; font.pixelSize: Theme.labelsMono ? 10 : 11; font.capitalization: Theme.labelsMono ? Font.AllUppercase : Font.MixedCase; font.letterSpacing: Theme.labelsMono ? 0.8 : 0; color: Theme.label2 }
     }
 
     content: Flickable {
@@ -60,15 +61,31 @@ GPopup {
             width: flick.width
             spacing: 10
 
-            // header (mock .nc-h)
+            // header (mock .nc-h). The NC is floating cards on a transparent full-height layer, so
+            // whatever is behind the header is an app window, not wallpaper: the mock's bare title
+            // with a 4px text-shadow is unreadable on a light window. The title gets the same glass
+            // capsule as the mock's .pillbtn pills next to it, so the whole row reads as three
+            // pills and stays legible on any background.
             Item {
                 width: parent.width; height: 28
-                GText {
-                    x: 4; anchors.verticalCenter: parent.verticalCenter
-                    text: "Notifications"; font.pixelSize: 15; font.weight: Font.DemiBold
-                    style: Text.Raised; styleColor: Qt.rgba(0, 0, 0, 0.4)
+                Rectangle {
+                    id: titlePill
+                    anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
+                    height: 28
+                    width: Math.min(titleText.implicitWidth + 24, parent.width - pills.width - 8)
+                    radius: Theme.square ? 4 : height / 2
+                    color: Theme.menuGlass
+                    border.width: Theme.glassOpaque ? 1 : Theme.rimWidth
+                    border.color: Theme.glassOpaque ? Theme.hair : Theme.rim
+                    GText {
+                        id: titleText
+                        anchors.centerIn: parent
+                        width: Math.min(implicitWidth, parent.width - 24)
+                        text: "Notifications"; font.pixelSize: 15; font.weight: Font.DemiBold
+                    }
                 }
                 Row {
+                    id: pills
                     anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
                     spacing: 6
                     PillButton { icon: "moonF"; text: Notifs.dnd ? "Focus on" : "Do Not Disturb"; on: Notifs.dnd; onClicked: Notifs.toggleDnd() }
@@ -95,7 +112,8 @@ GPopup {
                     required property var modelData
                     width: col.width
                     spacing: 6
-                    GroupLabel { leftText: grp.modelData.app; rightText: grp.modelData.list.length > 1 ? grp.modelData.list.length + " notifications" : "" }
+                    // group label (mock .grp) sits inside the card as its first row: outside it
+                    // floated over app windows with no backing, like the header did
                     Item {
                         width: parent.width; height: gcol.implicitHeight + 24
                         CardShadow { anchors.fill: parent }
@@ -104,6 +122,12 @@ GPopup {
                             id: gcol
                             x: 14; y: 12; width: parent.width - 28
                             spacing: 12
+                            GroupLabel {
+                                width: gcol.width
+                                leftText: grp.modelData.app
+                                rightText: grp.modelData.list.length > 6 ? "6 of " + grp.modelData.list.length
+                                    : grp.modelData.list.length > 1 ? grp.modelData.list.length + " notifications" : ""
+                            }
                             Repeater {
                                 model: grp.modelData.list.slice(0, 6)
                                 Column {
