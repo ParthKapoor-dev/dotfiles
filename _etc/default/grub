@@ -1,7 +1,7 @@
 # GRUB boot loader configuration
 
 GRUB_DEFAULT=0
-GRUB_TIMEOUT=5
+GRUB_TIMEOUT=1
 GRUB_DISTRIBUTOR="Arch"
 GRUB_CMDLINE_LINUX_DEFAULT="loglevel=3 quiet"
 GRUB_CMDLINE_LINUX="zswap.enabled=0 rootfstype=ext4"
@@ -14,7 +14,7 @@ GRUB_PRELOAD_MODULES="part_gpt part_msdos"
 
 # Set to 'countdown' or 'hidden' to change timeout behavior,
 # press ESC key to display menu.
-GRUB_TIMEOUT_STYLE=menu
+GRUB_TIMEOUT_STYLE=hidden
 
 # Uncomment to use basic console
 GRUB_TERMINAL_INPUT=console
@@ -61,3 +61,6 @@ GRUB_DISABLE_RECOVERY=true
 # functionality install os-prober and uncomment to detect and include other
 # operating systems.
 GRUB_DISABLE_OS_PROBER=false
+
+# nox: keep linux-lts the default entry
+GRUB_TOP_LEVEL="/boot/vmlinuz-linux-lts"
