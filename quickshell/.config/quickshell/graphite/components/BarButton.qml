@@ -22,6 +22,7 @@ Item {
         radius: Theme.square ? 3 : 5
         color: Theme.white(0.14)
         opacity: root.active || mouse.containsMouse ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: Theme.durPop; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
     }
     Row {
         id: row
