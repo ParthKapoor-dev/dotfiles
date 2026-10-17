@@ -38,6 +38,14 @@ return {
     -- Set to false to put binds in the default submap (the catchall is then skipped).
     bind_submap = "global",
 
+    -- Tiling layouts cycled by Super+\ (next) / Super+Shift+\ (previous) and by
+    -- `graphite-layout`. The first one is the default. Built-in names (0.55.4):
+    -- dwindle, master, scrolling, monocle.
+    layouts = { "dwindle", "scrolling", "master" },
+    -- Keep the runtime choice across config reloads for the rest of the session
+    -- ($XDG_RUNTIME_DIR file). Never survives a logout.
+    layout_persist = true,
+
     -- Modules to skip (names from the MODULES list in graphite.lua).
     disabled_modules = {},
 
