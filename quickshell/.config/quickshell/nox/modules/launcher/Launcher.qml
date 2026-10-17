@@ -43,6 +43,7 @@ Scope {
         }
     }
     Timer { id: hideTimer; interval: Theme.durFade; onTriggered: root.shown = false }
+    ListModel { id: rowModel }
 
     // ---- providers (one Loader per configured id; they live as long as the module) ----
     readonly property var providerIds: opts.providers ?? []
@@ -103,6 +104,11 @@ Scope {
             }
         }
         rows = r;
+        // the ListView model only follows the row count: rows read root.rows[index] and update in
+        // place. Assigning a new array as the model reset the view on every keystroke (and on every
+        // thumbnail a provider finished), which flashed the selection onto row 0 (the header).
+        while (rowModel.count > r.length) rowModel.remove(rowModel.count - 1);
+        while (rowModel.count < r.length) rowModel.append({});
         selectable = s;
         sel = keepSel ? Math.min(prevSel, Math.max(0, s.length - 1)) : 0;
         confirming = false;
@@ -302,7 +308,7 @@ Scope {
                         bottomMargin: 8
                         clip: true
                         boundsBehavior: Flickable.StopAtBounds
-                        model: root.rows
+                        model: rowModel
                         // selection slides between rows (one highlight item under the rows instead
                         // of each row switching its own fill); big rows keep their own outline
                         readonly property var selRow: root.selectable[root.sel] ?? null
@@ -328,12 +334,12 @@ Scope {
                         }
                         delegate: Loader {
                             id: rowLoader
-                            required property var modelData
                             required property int index
+                            readonly property var row: root.rows[index] ?? null
                             width: list.width
-                            sourceComponent: modelData.header !== undefined ? headerRow : modelData.item.big ? bigRow : itemRow
-                            onLoaded: item.modelData = modelData
-                            onModelDataChanged: if (item) item.modelData = modelData
+                            sourceComponent: !row ? null : row.header !== undefined ? headerRow : row.item.big ? bigRow : itemRow
+                            onLoaded: item.modelData = row
+                            onRowChanged: if (item && row) item.modelData = row
                         }
                     }
 
