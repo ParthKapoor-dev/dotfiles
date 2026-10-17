@@ -8,23 +8,23 @@ return function(ctx)
 
     return {
         -- ##! User
-        { "CTRL + SUPER + Slash", X("xdg-open ~/.config/graphite/shell.json") }, -- edit shell config (graphite)
+        { "CTRL + SUPER + Slash", X("xdg-open ~/.config/graphite/shell.json"), desc = "Edit shell config" },
         -- was custom/keybinds.conf; now opens this file
-        { "CTRL + SUPER + ALT + Slash", X("xdg-open ~/.config/hypr/graphite/binds/custom.lua") },
+        { "CTRL + SUPER + ALT + Slash", X("xdg-open ~/.config/hypr/graphite/binds/custom.lua"), desc = "Edit custom keybinds" },
 
         -- ##! Monitors (dual-monitor)
-        { "SUPER + ALT + Right", D.workspace.move({ monitor = "+1" }) }, -- move workspace to next monitor
-        { "SUPER + ALT + Left", D.workspace.move({ monitor = "-1" }) },
-        { "SUPER + ALT + Up", D.workspace.swap_monitors({ monitor1 = "current", monitor2 = "+1" }) },
+        { "SUPER + ALT + Right", D.workspace.move({ monitor = "+1" }), desc = "Move desktop to next monitor" },
+        { "SUPER + ALT + Left", D.workspace.move({ monitor = "-1" }), desc = "Move desktop to previous monitor" },
+        { "SUPER + ALT + Up", D.workspace.swap_monitors({ monitor1 = "current", monitor2 = "+1" }), desc = "Swap desktops with next monitor" },
 
         -- ##! Fixes (2026-10-17)
         -- Text editor: same window as the `nv` shell function
-        { "SUPER + X", X("ghostty --gtk-single-instance=false --class=dev.neovim --title=nvim --config-file=\"" .. C.HOME .. "/.config/nvim/ghostty.conf\" -e nvim") }, -- text editor (Neovim)
+        { "SUPER + X", X("ghostty --gtk-single-instance=false --class=dev.neovim --title=nvim --config-file=\"" .. C.HOME .. "/.config/nvim/ghostty.conf\" -e nvim"), desc = "Open Neovim" },
 
         -- ##! Graphite shell
-        { "SUPER + Slash", X("qs -c graphite ipc call cheatsheet toggle"), desc = "Keyboard shortcuts" },
-        { "SUPER + Space", X("qs -c graphite ipc call launcher toggle") }, -- Spotlight-style launcher
-        { "SUPER + ALT + N", X("qs -c graphite ipc call controlCenter toggle") }, -- Control Center
+        { "SUPER + Slash", X("qs -c graphite ipc call cheatsheet toggle"), desc = "Show keyboard shortcuts" },
+        { "SUPER + Space", X("qs -c graphite ipc call launcher toggle"), desc = "Open launcher" }, -- Spotlight-style
+        { "SUPER + ALT + N", X("qs -c graphite ipc call controlCenter toggle"), desc = "Open Control Center" },
 
     }
 end

@@ -126,32 +126,32 @@ function P.binds(ctx)
 
     local list = {
         -- ##! Shell -- these MUST stay first (Super tap = launcher on release)
-        { "SUPER + Super_L", G("launcher_release"), ignore_mods = true, desc = "Launcher" },
-        { "SUPER + Super_R", G("launcher_release"), ignore_mods = true, desc = "Launcher" },
-        { "SUPER + Super_L", X(P.ALIVE .. " || pkill fuzzel || fuzzel") },
-        { "SUPER + Super_R", X(P.ALIVE .. " || pkill fuzzel || fuzzel") },
-        { "catchall", G("launcher_interrupt"), ignore_mods = true, transparent = true, non_consuming = true },
-        { "CTRL + Super_L", G("launcher_interrupt") },
-        { "CTRL + Super_R", G("launcher_interrupt") },
+        { "SUPER + Super_L", G("launcher_release"), ignore_mods = true, desc = "Open launcher" },
+        { "SUPER + Super_R", G("launcher_release"), ignore_mods = true, desc = "Open launcher" },
+        { "SUPER + Super_L", X(P.ALIVE .. " || pkill fuzzel || fuzzel"), desc = "Open launcher" }, -- fuzzel if the shell is down,
+        { "SUPER + Super_R", X(P.ALIVE .. " || pkill fuzzel || fuzzel"), desc = "Open launcher" },
+        { "catchall", G("launcher_interrupt"), ignore_mods = true, transparent = true, non_consuming = true, desc = "Internal: cancel Super-tap launcher" },
+        { "CTRL + Super_L", G("launcher_interrupt"), desc = "Internal: cancel Super-tap launcher" },
+        { "CTRL + Super_R", G("launcher_interrupt"), desc = "Internal: cancel Super-tap launcher" },
     }
     -- Super + mouse must not end in a launcher toggle either
     for _, m in ipairs({ "mouse:272", "mouse:273", "mouse:274", "mouse:275", "mouse:276", "mouse:277", "mouse_up", "mouse_down" }) do
-        list[#list + 1] = { "SUPER + " .. m, G("launcher_interrupt") }
+        list[#list + 1] = { "SUPER + " .. m, G("launcher_interrupt"), desc = "Internal: cancel Super-tap launcher" }
     end
 
     local rest = {
-        { "SUPER + Tab", X(ipc("overview")), desc = "Overview" },
-        { "SUPER + V", X(ipc("clipboard") .. " || pkill fuzzel || cliphist list | fuzzel --match-mode fzf --dmenu | cliphist decode | wl-copy"), desc = "Clipboard history" },
-        { "SUPER + Period", X("pkill fuzzel || " .. HS .. "/fuzzel-emoji.sh copy"), desc = "Emoji >> clipboard" },
-        { "SUPER + N", G("notification_center"), desc = "Notification Center" },
+        { "SUPER + Tab", X(ipc("overview")), desc = "Open overview" },
+        { "SUPER + V", X(ipc("clipboard") .. " || pkill fuzzel || cliphist list | fuzzel --match-mode fzf --dmenu | cliphist decode | wl-copy"), desc = "Open clipboard history" },
+        { "SUPER + Period", X("pkill fuzzel || " .. HS .. "/fuzzel-emoji.sh copy"), desc = "Pick emoji to clipboard" },
+        { "SUPER + N", G("notification_center"), desc = "Open notification center" },
         { "SUPER + ALT + D", G("dnd"), desc = "Toggle Do Not Disturb" },
-        { "SUPER + M", X(ipc("control_center")), desc = "Control Center (Now Playing)" },
+        { "SUPER + M", X(ipc("control_center")), desc = "Open Control Center (Now Playing)" },
         { "SUPER + J", X(ipc("dock")), desc = "Toggle dock" },
-        { "CTRL + ALT + Delete", X(ipc("session") .. " || pkill wlogout || wlogout -p layer-shell"), desc = "Session menu" },
+        { "CTRL + ALT + Delete", X(ipc("session") .. " || pkill wlogout || wlogout -p layer-shell"), desc = "Open session menu" },
 
         -- brightness: the shell's OSD watches the backlight itself
-        { "XF86MonBrightnessUp", X("brightnessctl s 5%+"), locked = true, repeating = true },
-        { "XF86MonBrightnessDown", X("brightnessctl s 5%-"), locked = true, repeating = true },
+        { "XF86MonBrightnessUp", X("brightnessctl s 5%+"), locked = true, repeating = true, desc = "Brightness up" },
+        { "XF86MonBrightnessDown", X("brightnessctl s 5%-"), locked = true, repeating = true, desc = "Brightness down" },
 
         -- wallpaper / shell
         { "CTRL + SUPER + T", X("graphite-wallpaper pick"), desc = "Choose wallpaper" },
@@ -159,20 +159,20 @@ function P.binds(ctx)
         { "CTRL + SUPER + R", X(P.QS .. " kill; " .. P.QS .. " -d"), desc = "Restart shell" },
 
         -- ##! Utilities: screenshot / OCR / record (bin/graphite-shot, bin/graphite-record)
-        { "SUPER + SHIFT + S", X("graphite-shot region"), desc = "Screenshot region (copy + edit)" },
-        { "ALT + Print", X("graphite-shot window"), locked = true, desc = "Screenshot window" },
-        { "SHIFT + Print", X("graphite-shot screen"), locked = true, desc = "Screenshot monitor" },
-        { "SUPER + SHIFT + A", X("pidof slurp || " .. HS .. "/snip_to_search.sh"), desc = "Search region (Lens)" },
-        { "SUPER + SHIFT + X", X("graphite-shot ocr"), desc = "OCR region >> clipboard" },
-        { "SUPER + SHIFT + T", X("graphite-shot ocr"), desc = "OCR region >> clipboard" },
+        { "SUPER + SHIFT + S", X("graphite-shot region"), desc = "Screenshot region to clipboard and edit" },
+        { "ALT + Print", X("graphite-shot window"), locked = true, desc = "Screenshot window to file and clipboard" },
+        { "SHIFT + Print", X("graphite-shot screen"), locked = true, desc = "Screenshot monitor to file and clipboard" },
+        { "SUPER + SHIFT + A", X("pidof slurp || " .. HS .. "/snip_to_search.sh"), desc = "Search region with Google Lens" },
+        { "SUPER + SHIFT + X", X("graphite-shot ocr"), desc = "OCR region to clipboard" },
+        { "SUPER + SHIFT + T", X("graphite-shot ocr"), desc = "OCR region to clipboard" },
         { "SUPER + SHIFT + R", X("graphite-record"), locked = true, desc = "Record region (toggle)" },
         { "SUPER + ALT + R", X("graphite-record"), locked = true, desc = "Record region (toggle)" },
         { "CTRL + ALT + R", X("graphite-record --fullscreen"), locked = true, desc = "Record screen (toggle)" },
-        { "SUPER + SHIFT + ALT + R", X("graphite-record --fullscreen --sound"), locked = true, desc = "Record screen + audio (toggle)" },
+        { "SUPER + SHIFT + ALT + R", X("graphite-record --fullscreen --sound"), locked = true, desc = "Record screen with audio (toggle)" },
 
         -- ##! Screen: keypad zoom (in-process, same clamp as Super+-/=)
-        { "SUPER + code:82", C.zoom_fn(-0.1), repeating = true },
-        { "SUPER + code:86", C.zoom_fn(0.1), repeating = true },
+        { "SUPER + code:82", C.zoom_fn(-0.1), repeating = true, desc = "Zoom out" },
+        { "SUPER + code:86", C.zoom_fn(0.1), repeating = true, desc = "Zoom in" },
     }
     for _, b in ipairs(rest) do list[#list + 1] = b end
     return list
