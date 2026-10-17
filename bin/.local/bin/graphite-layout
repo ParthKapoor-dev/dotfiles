@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# graphite-layout - change the Hyprland tiling layout at runtime.
+#
+#   graphite-layout next | prev        step through settings.layouts (wraps)
+#   graphite-layout set <name>         dwindle | master | scrolling | monocle
+#   graphite-layout get                print the active layout
+#
+# Under the Graphite Lua config (Hyprland 0.55.4) `hyprctl keyword` is refused,
+# so this calls the config's own Lua function through `hyprctl eval`:
+#   hyprctl eval 'graphite_layout("next")'
+# That is the same code Super+\ / Super+Shift+\ run in-process
+# (hypr/.config/hypr/graphite/layouts.lua). It sets general.layout, remembers the
+# choice for this session and notifies the shell:
+#   qs -c graphite ipc call layout changed <name>
+# Fallback (config without graphite_layout(), or the legacy hyprland.conf):
+# the change is made here directly and the shell is notified from here.
+
+set -uo pipefail
+
+KNOWN="dwindle master scrolling monocle"
+DEFAULT_LIST="dwindle scrolling master"
+
+die() { printf 'graphite-layout: %s\n' "$*" >&2; exit 1; }
+
+current() {
+    hyprctl -j getoption general:layout 2>/dev/null | jq -r '.str // empty'
+}
+
+provider() {
+    hyprctl -j status 2>/dev/null | jq -r '.configProvider // "legacy"'
+}
+
+is_known() {
+    local n
+    for n in $KNOWN; do [ "$n" = "$1" ] && return 0; done
+    return 1
+}
+
+notify_shell() {
+    qs -c graphite ipc call layout changed "$1" >/dev/null 2>&1 || true
+}
+
+# direct change without the config's helper
+fallback_set() {
+    local name="$1" out
+    if [ "$(provider)" = "lua" ]; then
+        out=$(hyprctl eval "hl.config({ general = { layout = \"$name\" } })" 2>&1)
+    else
+        out=$(hyprctl keyword general:layout "$name" 2>&1)
+    fi
+    case "$out" in
+        ok|"") ;;
+        *) die "could not set layout: $out" ;;
+    esac
+    notify_shell "$name"
+}
+
+fallback_step() {
+    local delta="$1" cur list=() i n idx=-1
+    cur=$(current)
+    read -ra list <<<"$DEFAULT_LIST"
+    n=${#list[@]}
+    for i in "${!list[@]}"; do [ "${list[$i]}" = "$cur" ] && idx=$i; done
+    if [ "$idx" -lt 0 ]; then
+        if [ "$delta" -gt 0 ]; then idx=-1; else idx=0; fi
+    fi
+    fallback_set "${list[$(( (idx + delta + n) % n ))]}"
+}
+
+# run graphite_layout(...) inside the compositor; 0 = done, 1 = not available
+via_eval() {
+    [ "$(provider)" = "lua" ] || return 1
+    local out
+    out=$(hyprctl eval "if not graphite_layout then error('no graphite_layout', 0) end graphite_layout($1)" 2>&1)
+    case "$out" in
+        ok|"") return 0 ;;
+        *"no graphite_layout"*) return 1 ;;
+        *) die "$out" ;;
+    esac
+}
+
+cmd="${1:-get}"
+case "$cmd" in
+    next) via_eval '"next"' || fallback_step 1; current ;;
+    prev) via_eval '"prev"' || fallback_step -1; current ;;
+    set)
+        name="${2:-}"
+        is_known "$name" || die "unknown layout '${name}' (known: $KNOWN)"
+        via_eval "\"set\", \"$name\"" || fallback_set "$name"
+        current
+        ;;
+    get) current ;;
+    -h|--help|help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//' ;;
+    *) die "usage: graphite-layout next|prev|set <name>|get" ;;
+esac

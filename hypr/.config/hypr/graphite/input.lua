@@ -2,6 +2,8 @@
 -- Port of hyprland/general.conf (input, gestures, misc, binds, cursor, dwindle,
 -- xwayland, non-look `general` keys) + custom/general.conf (misc.vrr).
 
+local layouts = require("graphite.layouts")
+
 return function(ctx)
     local S = ctx.settings
 
@@ -34,7 +36,8 @@ return function(ctx)
             resize_on_border = true,
             no_focus_fallback = true,
             allow_tearing = true, -- lets the `immediate` window rule work
-            layout = "dwindle",
+            -- first of settings.layouts, or the session's last choice (graphite/layouts.lua)
+            layout = layouts.initial(S),
         },
 
         dwindle = {
@@ -76,6 +79,9 @@ return function(ctx)
             force_zero_scaling = true,
         },
     })
+
+    -- `hyprctl eval 'graphite_layout("next")'` entry point for bin/graphite-layout
+    layouts.install_global(S)
 
     -- Trackpad gestures. Shell-specific gestures (overview) come from the shell profile.
     local gestures = {

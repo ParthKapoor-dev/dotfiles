@@ -6,8 +6,10 @@
 -- disabled for the record:
 --   SUPER + Semicolon / Apostrophe -> splitratio -/+0.1 (jcode launchers own these keys)
 
+local L = require("graphite.layouts")
+
 return function(ctx)
-    local C = ctx.core
+    local C, S = ctx.core, ctx.settings
     local D = hl.dsp
     local W = D.window
 
@@ -39,7 +41,11 @@ return function(ctx)
         { "SUPER + Semicolon", D.layout("splitratio -0.1"), repeating = true, enabled = false },
         { "SUPER + Apostrophe", D.layout("splitratio +0.1"), repeating = true, enabled = false },
 
-        { "SUPER + Backslash", D.layout("togglesplit") },
+        -- layout cycling through settings.layouts (graphite/layouts.lua); dwindle's
+        -- togglesplit moved from Super+\ to Super+Alt+\
+        { "SUPER + Backslash", L.bind_fn(C, S, 1), desc = "Next layout" },
+        { "SUPER + SHIFT + Backslash", L.bind_fn(C, S, -1), desc = "Previous layout" },
+        { "SUPER + ALT + Backslash", D.layout("togglesplit"), desc = "Toggle split (dwindle)" },
         { "SUPER + ALT + Space", W.float({ action = "toggle" }) },
         { "SUPER + D", W.fullscreen({ mode = "maximized" }) },
         { "SUPER + F", W.fullscreen({ mode = "fullscreen" }) },

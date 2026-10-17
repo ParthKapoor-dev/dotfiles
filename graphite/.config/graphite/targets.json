@@ -258,8 +258,27 @@
           "type": "write",
           "path": "~/.config/hypr/hyprlock/colors.conf",
           "content": "# Graphite: managed by theme (revert: theme revert)\nsource = {{ _.output }}\n"
+        },
+        {
+          "type": "write",
+          "path": "~/.config/hypr/hyprlock/layout.conf",
+          "content": "# Graphite: managed by theme (revert: theme revert)\n# lock layout = token lock.style, else card.style (flat = Ember/Sequoia/Minimal, hairline = Telemetry)\nsource = {{ _.out }}/hyprlock/layout-{{ lock.style | default(card.style) }}.conf\n"
         }
       ]
+    },
+    {
+      "name": "hyprlock-layout-flat",
+      "template": "hyprlock/ember.conf",
+      "output": "hyprlock/layout-flat.conf",
+      "check": "text",
+      "apply": []
+    },
+    {
+      "name": "hyprlock-layout-hairline",
+      "template": "hyprlock/telemetry.conf",
+      "output": "hyprlock/layout-hairline.conf",
+      "check": "text",
+      "apply": []
     },
     {
       "name": "hyprland-legacy",

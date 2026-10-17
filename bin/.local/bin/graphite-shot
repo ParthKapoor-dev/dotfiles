@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# graphite-shot - screenshots for the Graphite shell profile (replaces ii's
+# region screenshot / OCR). Tools: grim, slurp, hyprshot (freeze), swappy,
+# tesseract, wl-clipboard, libnotify.
+#
+#   graphite-shot region    select a region (screen frozen) -> clipboard, then swappy to annotate
+#   graphite-shot copy      select a region -> clipboard only
+#   graphite-shot screen    focused monitor -> ~/Pictures/Screenshots + clipboard
+#   graphite-shot window    active window   -> ~/Pictures/Screenshots + clipboard
+#   graphite-shot ocr       select a region -> text (tesseract, all installed langs) -> clipboard
+#
+# Only one selection at a time: a second press while slurp is open does nothing.
+
+set -uo pipefail
+
+mode="${1:-region}"
+dir="$(xdg-user-dir PICTURES 2>/dev/null || echo "$HOME/Pictures")/Screenshots"
+tmp="${XDG_RUNTIME_DIR:-/tmp}/graphite-shot"
+stamp="$(date '+%Y-%m-%d_%H.%M.%S')"
+mkdir -p "$tmp"
+
+note() { notify-send -a Screenshot -i "${3:-camera-photo}" "$1" "${2:-}" >/dev/null 2>&1 & }
+selecting() { pidof slurp >/dev/null 2>&1; }
+
+# region capture with a frozen screen; prints nothing, writes $1; 1 = cancelled
+grab_region() {
+    hyprshot --mode region --freeze --silent --raw >"$1" 2>/dev/null
+    [ -s "$1" ]
+}
+
+case "$mode" in
+    region | copy)
+        selecting && exit 0
+        f="$tmp/region_$stamp.png"
+        grab_region "$f" || { rm -f "$f"; exit 0; }
+        wl-copy --type image/png <"$f"
+        if [ "$mode" = region ]; then
+            # swappy: Ctrl+C copies the annotated image, Ctrl+S saves (save_dir in ~/.config/swappy/config)
+            swappy -f "$f"
+        else
+            note "Region copied" "" "$f"
+        fi
+        rm -f "$f"
+        ;;
+    screen)
+        mkdir -p "$dir"
+        f="$dir/Screenshot_$stamp.png"
+        mon=$(hyprctl -j monitors | jq -r '.[] | select(.focused) | .name')
+        grim ${mon:+-o "$mon"} "$f" || exit 1
+        wl-copy --type image/png <"$f"
+        note "Screenshot saved" "$f" "$f"
+        ;;
+    window)
+        mkdir -p "$dir"
+        f="$dir/Screenshot_$stamp.png"
+        hyprshot --mode window --mode active --silent --raw >"$f" 2>/dev/null
+        [ -s "$f" ] || { rm -f "$f"; exit 1; }
+        wl-copy --type image/png <"$f"
+        note "Window saved" "$f" "$f"
+        ;;
+    ocr)
+        selecting && exit 0
+        f="$tmp/ocr_$stamp.png"
+        grab_region "$f" || { rm -f "$f"; exit 0; }
+        langs=$(tesseract --list-langs 2>/dev/null | awk 'NR>1 && $1 != "osd" {print $1}' | paste -sd+)
+        text=$(tesseract "$f" stdout ${langs:+-l "$langs"} 2>/dev/null)
+        rm -f "$f"
+        if [ -n "${text//[[:space:]]/}" ]; then
+            printf '%s' "$text" | wl-copy
+            note "Text copied" "$(printf '%s' "$text" | head -c 120)" edit-copy
+        else
+            note "No text found" "" dialog-information
+        fi
+        ;;
+    *) echo "usage: graphite-shot region|copy|screen|window|ocr" >&2; exit 2 ;;
+esac
