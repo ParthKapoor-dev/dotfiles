@@ -24,7 +24,19 @@ Singleton {
     function hud(text, glyph) { hudRequested(text, glyph ?? "check"); }
     function openLauncher(q) { launcherQuery = q ?? ""; if (launcherOpen) launcherOpen = false; launcherOpen = true; }
     function close(id) { if (id === undefined || popup === id) popup = ""; }
-    function toggle(id) { popup = (popup === id) ? "" : id; }
+    function toggle(id) {
+        // a press outside the popup's focus grab (e.g. a surface that isn't whitelisted) closes
+        // it before that same click's release toggles it: don't reopen what that press just closed
+        if (popup === "" && grabClosed.id === id && Date.now() - grabClosed.at < 300) return;
+        popup = (popup === id) ? "" : id;
+    }
+    property var grabClosed: ({ id: "", at: 0 })
+    function closeByGrab(id) { if (popup === id) { grabClosed = { id, at: Date.now() }; popup = ""; } }
+    // pointer presses on shell buttons (bar, dock) stamp this, so a GPopup knows it was opened by
+    // a click (see GPopup: keyboard focus waits for hover)
+    property real pointerAt: 0
+    function notePointer() { pointerAt = Date.now(); }
+    function pointerOpened() { return Date.now() - pointerAt < 600; }
     function exists(id) { return popupIds.indexOf(id) !== -1; }
     function registerPopup(id) { if (!exists(id)) popupIds = popupIds.concat([id]); }
     function unregisterPopup(id) { popupIds = popupIds.filter(x => x !== id); if (popup === id) popup = ""; }

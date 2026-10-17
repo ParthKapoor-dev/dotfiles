@@ -115,6 +115,7 @@ Item {
         enabled: !root.sep
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
+        onPressed: Panels.notePointer()
         onClicked: m => {
             if (m.button === Qt.RightButton) root.menuRequested();
             else if (m.button === Qt.MiddleButton) { if (!root.item.stack) Apps.launch(root.item); }

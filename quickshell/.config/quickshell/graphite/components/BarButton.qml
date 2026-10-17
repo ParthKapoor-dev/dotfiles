@@ -36,6 +36,7 @@ Item {
         anchors.fill: parent
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+        onPressed: Panels.notePointer()
         onClicked: m => root.clicked(m.button)
         onWheel: w => root.wheel(w.angleDelta.y)
         onEntered: root.entered()
