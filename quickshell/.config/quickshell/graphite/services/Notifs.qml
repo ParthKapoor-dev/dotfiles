@@ -23,7 +23,7 @@ Singleton {
     readonly property bool running: server.item !== null
 
     // history, newest first
-    readonly property var list: (server.item?.trackedNotifications.values ?? []).slice().reverse()
+    readonly property var list: (server.item?.trackedNotifications?.values ?? []).slice().reverse()
     readonly property int count: list.length
 
     // popups currently on screen: [{ n: Notification, deadline: ms epoch | 0 (sticky) }], newest first
@@ -95,7 +95,7 @@ Singleton {
         n.closed.connect(() => root.forget(n));
 
         const max = opts.maxHistory ?? 100;
-        const hist = server.item.trackedNotifications.values;
+        const hist = server.item?.trackedNotifications?.values ?? [];  // item is null while a hot reload tears the server down
         if (hist.length > max) for (const old of hist.slice(0, hist.length - max)) old.dismiss();
 
         const critical = (rule.urgency ?? urgencyName(n)) === "critical";
