@@ -63,9 +63,9 @@
   "recorder": { "directory": "~/Videos", "args": [] },
   "nightLight": { "temperature": 4500 },
   "brightness": { "device": "auto", "step": 5 },
-  "wallpaper": { "path": "", "fill": "cover", "color": "#000000" },
-  "overview": { "columns": 0, "scale": 0.16 },
-  "clipboard": { "limit": 60, "prefix": ":" },
+  "wallpaper": { "path": "~/Pictures/Wallpapers/gradient-1-clean.png", "fill": "cover", "color": "#000000", "transition": 500 },
+  "overview": { "minWorkspaces": 5, "live": true },
+  "corners": { "hideOnFullscreen": true },
   "launcher": {
     "width": 680,
     "top": 0.18,

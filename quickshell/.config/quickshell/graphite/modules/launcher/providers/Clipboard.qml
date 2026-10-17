@@ -26,7 +26,7 @@ Item {
     function refresh() { if (!lister.running) lister.running = true; }
 
     function query(text, prefixed) {
-        if (!prefixed) return [];
+        if (!prefixed || !Config.moduleEnabled("clipboard")) return [];
         if (Date.now() - loadedAt > 1500) refresh();
         const q = text.toLowerCase();
         const out = [];

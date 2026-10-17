@@ -215,17 +215,17 @@ Singleton {
             "step": 5
         },
         "wallpaper": {
-            "path": "",
+            "path": "~/Pictures/Wallpapers/gradient-1-clean.png",
             "fill": "cover",
-            "color": "#000000"
+            "color": "#000000",
+            "transition": 500
         },
         "overview": {
-            "columns": 0,
-            "scale": 0.16
+            "minWorkspaces": 5,
+            "live": true
         },
-        "clipboard": {
-            "limit": 60,
-            "prefix": ":"
+        "corners": {
+            "hideOnFullscreen": true
         },
         "launcher": {
             "width": 680,

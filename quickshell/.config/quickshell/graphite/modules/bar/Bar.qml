@@ -18,7 +18,6 @@ Variants {
         anchors { top: true; left: true; right: true }
         implicitHeight: Theme.barHeight
         color: "transparent"
-        visible: !Panels.overviewOpen
 
         Component.onCompleted: Panels.registerBar(bar)
         Component.onDestruction: Panels.unregisterBar(bar)

@@ -13,6 +13,11 @@ import qs.modules.controlcenter
 import qs.modules.launcher
 import qs.modules.osd
 import qs.modules.notifications
+import qs.modules.wallpaper
+import qs.modules.corners
+import qs.modules.overview
+import qs.modules.session
+import qs.modules.polkit
 
 ShellRoot {
     LazyLoader { active: Config.loaded && Config.moduleEnabled("bar"); component: Bar {} }
@@ -22,6 +27,12 @@ ShellRoot {
     LazyLoader { active: Config.loaded && Config.moduleEnabled("osd"); component: Osd {} }
     // The notification D-Bus server itself is in services/Notifs (same switch).
     LazyLoader { active: Config.loaded && Config.moduleEnabled("notifications"); component: Notifications {} }
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("wallpaper"); component: Background {} }
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("corners"); component: Corners {} }
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("overview"); component: Overview {} }
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("session"); component: Session {} }
+    // the polkit agent registers on load (only one agent per session; see modules/polkit)
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("polkit"); component: Polkit {} }
 
     // qs -c graphite ipc call controlCenter toggle
     IpcHandler {
@@ -46,6 +57,40 @@ ShellRoot {
         function open(id: string): void { Panels.open(id); }
         function close(): void { Panels.close(); }
         function current(): string { return Panels.popup; }
+    }
+
+    // qs -c graphite ipc call overview toggle | open | close
+    IpcHandler {
+        target: "overview"
+        function toggle(): void { Panels.overviewOpen = !Panels.overviewOpen; }
+        function open(): void { Panels.overviewOpen = true; }
+        function close(): void { Panels.overviewOpen = false; }
+    }
+    // qs -c graphite ipc call session toggle | open | close
+    IpcHandler {
+        target: "session"
+        function toggle(): void { Panels.sessionOpen = !Panels.sessionOpen; }
+        function open(): void { Panels.sessionOpen = true; }
+        function close(): void { Panels.sessionOpen = false; }
+    }
+    // qs -c graphite ipc call wallpaper set <path> | get | fill <cover|fit|stretch|center|tile> | reset
+    IpcHandler {
+        target: "wallpaper"
+        function set(path: string): void { Wallpaper.set(path); }
+        function get(): string { return Wallpaper.path; }
+        function fill(mode: string): void { Wallpaper.setFill(mode); }
+        function reset(): void { Wallpaper.reset(); }
+    }
+    // qs -c graphite ipc call action run <name>   (names: services/Actions.qml) | list
+    IpcHandler {
+        target: "action"
+        function run(name: string): bool { return Actions.run(name); }
+        function list(): string { return Object.keys(Actions.table).join(" "); }
+    }
+    // qs -c graphite ipc call hud show "<text>"
+    IpcHandler {
+        target: "hud"
+        function show(text: string): void { Panels.hud(text, "check"); }
     }
 
     // qs -c graphite ipc call layout changed <name>   (sent by graphite-layout after every change)
@@ -110,6 +155,34 @@ ShellRoot {
         GlobalShortcut {
             appid: "graphite"; name: "dndToggle"; description: "Toggle Do Not Disturb"
             onPressed: Notifs.toggleDnd()
+        }
+        GlobalShortcut {
+            appid: "graphite"; name: "controlCenterToggle"; description: "Toggle the Control Center"
+            onPressed: Panels.toggle("controlCenter")
+        }
+        GlobalShortcut {
+            appid: "graphite"; name: "overviewToggle"; description: "Toggle Mission Control"
+            onPressed: Panels.overviewOpen = !Panels.overviewOpen
+        }
+        GlobalShortcut {
+            appid: "graphite"; name: "sessionToggle"; description: "Toggle the power menu"
+            onPressed: Panels.sessionOpen = !Panels.sessionOpen
+        }
+        GlobalShortcut {
+            appid: "graphite"; name: "clipboardToggle"; description: "Clipboard history in the launcher"
+            onPressed: { if (Panels.launcherOpen) Panels.launcherOpen = false; else Panels.openLauncher(":"); }
+        }
+        GlobalShortcut {
+            appid: "graphite"; name: "dockToggle"; description: "Reveal / hide the dock"
+            onPressed: { if (Config.opt.dock?.autohide) Panels.dockRevealed = !Panels.dockRevealed; else Panels.dockVisible = !Panels.dockVisible; }
+        }
+        GlobalShortcut {
+            appid: "graphite"; name: "screenshot"; description: "Region screenshot"
+            onPressed: Actions.run("screenshot")
+        }
+        GlobalShortcut {
+            appid: "graphite"; name: "recordToggle"; description: "Start / stop screen recording"
+            onPressed: Recorder.toggle()
         }
         }
     }
