@@ -35,8 +35,9 @@ Item {
                 actLabel: "Switch",
                 score: m.score + (t.activated ? -5 : 0),
                 run: () => {
+                    // Hypr.focusWindow: the legacy "focuswindow address:" string is a Lua error under hyprland.lua
                     const a = String(t.address);
-                    if (a) Hyprland.dispatch("focuswindow address:" + (a.startsWith("0x") ? a : "0x" + a));
+                    if (a) Hypr.focusWindow(a);
                     else t.wayland?.activate();
                 }
             });
