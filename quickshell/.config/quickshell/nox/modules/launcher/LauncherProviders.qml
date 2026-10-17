@@ -12,7 +12,7 @@ import Quickshell
 //   property string defaultPrefix               e.g. "=" (shell.json launcher.provider.<id>.prefix overrides)
 //   property bool defaultPrefixOnly             true = only queried when the prefix is typed
 //   function query(text, prefixed) -> [result]  text has the prefix stripped; prefixed = prefix was typed
-// result = { title, sub?, type?, icon? (icon-font symbol) | image? (icon path/url), highlight? ([indices in title]),
+// result = { title, sub?, type?, icon? (icon-font symbol) | image? (icon path/url) | glyph? (literal character, e.g. an emoji), highlight? ([indices in title]),
 //            score? (sort within the group), actLabel? ("Open"), confirm? ("Restart now?" = ask before running),
 //            big? ([left, leftLabel, right, rightLabel] = large calculator style row), thumb? (image url = tall row with a preview), thumbSlot? (true = tall row even while thumb is still ""),
 //            remove? (function, Shift+Delete), run: function() }
@@ -26,7 +26,8 @@ Singleton {
         "windows": "Windows.qml",
         "run": "Run.qml",
         "clipboard": "Clipboard.qml",
-        "wallpapers": "Wallpapers.qml"
+        "wallpapers": "Wallpapers.qml",
+        "emoji": "Emoji.qml"
     })
     function url(id) {
         const f = registry[id];

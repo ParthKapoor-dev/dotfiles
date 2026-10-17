@@ -130,6 +130,12 @@ Scope {
         // open with a query already typed
         // clipboard history (cliphist) inside the launcher
         function clipboard(): void { if (Panels.launcherOpen) { root.text = ":"; root.search(); } else { root.initialText = ":"; Panels.launcherOpen = true; } }
+        // emoji picker (Super+.); a second press while it is showing closes the launcher
+        function emoji(): void {
+            if (Panels.launcherOpen && root.text.startsWith(".")) Panels.launcherOpen = false;
+            else if (Panels.launcherOpen) { root.text = "."; root.search(); }
+            else { root.initialText = "."; Panels.launcherOpen = true; }
+        }
         function search(query: string): void {
             if (Panels.launcherOpen) { root.text = query; root.search(); }
             else { root.initialText = query; Panels.launcherOpen = true; }
@@ -463,7 +469,9 @@ Scope {
                     visible: !r.it.image && !ico.hasThumb
                     radius: Theme.square ? 3 : 6
                     color: r.accentSel ? Theme.rgba(Theme.t.color.onAccent, 0.22) : Theme.fill2
-                    Glyph { anchors.centerIn: parent; name: r.it.icon ?? "dots"; size: 15; color: r.fg }
+                    Glyph { anchors.centerIn: parent; visible: !r.it.glyph; name: r.it.icon ?? "dots"; size: 15; color: r.fg }
+                    // literal character (emoji): the UI font's fallback is monochrome, so name the emoji font
+                    Text { anchors.centerIn: parent; visible: !!r.it.glyph; text: r.it.glyph ?? ""; font.family: "Twemoji"; font.pixelSize: 16 }
                 }
             }
             Row {

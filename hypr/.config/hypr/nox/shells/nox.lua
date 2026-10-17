@@ -21,7 +21,8 @@ P.QS = "qs -c nox"
 -- `qs -c nox ipc call <target> <function> [args]`
 P.IPC = {
     launcher       = "launcher toggle",         -- live
-    clipboard      = "launcher clipboard",      -- planned
+    clipboard      = "launcher clipboard",      -- live
+    emoji          = "launcher emoji",          -- live
     overview       = "overview toggle",         -- planned
     overview_close = "overview close",          -- planned (assumed: every target has open/close/toggle)
     session        = "session toggle",          -- planned
@@ -97,7 +98,7 @@ P.gestures = {
 -- Super_L/R hold: workspaceNumber    DROPPED (no hold-to-show-numbers overlay in nox)
 -- Super+Tab overview                 ipc overview toggle
 -- Super+V clipboard                  ipc launcher clipboard; cliphist | fuzzel if shell dead
--- Super+. emoji                      fuzzel-emoji.sh (nox has no emoji picker)
+-- Super+. emoji                      ipc launcher emoji; fuzzel-emoji.sh if shell dead
 -- Super+A, Super+Alt+A, Super+B/O    DROPPED (ii left sidebar: AI chat, translator, booru)
 -- Super+N right sidebar              global notificationCenterToggle
 -- Super+/ cheatsheet                 DROPPED (no nox cheatsheet)
@@ -142,7 +143,7 @@ function P.binds(ctx)
     local rest = {
         { "SUPER + Tab", X(ipc("overview")), desc = "Open overview" },
         { "SUPER + V", X(ipc("clipboard") .. " || pkill fuzzel || cliphist list | fuzzel --match-mode fzf --dmenu | cliphist decode | wl-copy"), desc = "Open clipboard history" },
-        { "SUPER + Period", X("pkill fuzzel || " .. HS .. "/fuzzel-emoji.sh copy"), desc = "Pick emoji to clipboard" },
+        { "SUPER + Period", X(ipc("emoji") .. " || pkill fuzzel || " .. HS .. "/fuzzel-emoji.sh copy"), desc = "Emoji picker (launcher, .)" },
         { "SUPER + N", G("notification_center"), desc = "Open notification center" },
         { "SUPER + ALT + D", G("dnd"), desc = "Toggle Do Not Disturb" },
         { "SUPER + M", X(ipc("control_center")), desc = "Open Control Center (Now Playing)" },

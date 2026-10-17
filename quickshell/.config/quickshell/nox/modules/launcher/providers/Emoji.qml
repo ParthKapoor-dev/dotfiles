@@ -1,0 +1,97 @@
+import QtQuick
+import Quickshell
+import Quickshell.Io
+import qs.core
+import qs.services
+
+// Emoji picker. Prefix "." (Super+. = `qs -c nox ipc call launcher emoji`). Data: assets/emoji.tsv
+// (emoji, name, group, keywords; Unicode 17, no skin-tone variants), read on the first query.
+// Empty query = recently used first, then the full list in Unicode order. Enter = copy to the
+// clipboard, and type it into the focused app when wtype is installed.
+Item {
+    id: root
+    property string providerId: "emoji"
+    readonly property var options: Config.launcherProvider(providerId)
+    property string name: "Emoji"
+    property string defaultPrefix: "."
+    property bool defaultPrefixOnly: true
+    signal resultsChanged()                 // the launcher re-runs the search when this fires
+
+    property var entries: []                // [{ e, name, title, group, hay }]
+    property var byEmoji: ({})
+    readonly property string dataPath: decodeURIComponent(Qt.resolvedUrl("../../../assets/emoji.tsv").toString().replace(/^file:\/\//, ""))
+
+    function parse(text) {
+        const list = [], map = {};
+        for (const line of text.split("\n")) {
+            if (!line || line.startsWith("#")) continue;
+            const [e, name, group, kw] = line.split("\t");
+            if (!e || !name) continue;
+            const x = { e, name, title: name.charAt(0).toUpperCase() + name.slice(1), group: group ?? "", hay: (kw ?? "").toLowerCase() };
+            list.push(x);
+            map[e] = x;
+        }
+        entries = list;
+        byEmoji = map;
+        resultsChanged();
+    }
+
+    // name prefix > word prefix > name substring > keyword > group; every term must match
+    function rank(x, terms) {
+        const n = x.name.toLowerCase();
+        let s = 0;
+        for (const t of terms) {
+            if (n.startsWith(t)) s += 4;
+            else if (n.includes(" " + t)) s += 3;
+            else if (n.includes(t)) s += 2;
+            else if (x.hay.includes(t)) s += 1;
+            else if (x.group.toLowerCase().includes(t)) s += 0.5;
+            else return 0;
+        }
+        return s;
+    }
+
+    function result(x, score, q) {
+        const at = q ? x.title.toLowerCase().indexOf(q) : -1;
+        return {
+            title: x.title,
+            glyph: x.e,
+            type: x.group.replace(/ &.*$/, ""),
+            actLabel: "Copy",
+            highlight: at < 0 ? [] : Array.from({ length: q.length }, (_, i) => at + i),
+            score,
+            run: () => {
+                Frecency.record("emoji", x.e);
+                Quickshell.execDetached(["sh", "-c", "printf %s \"$1\" | wl-copy; if command -v wtype >/dev/null; then sleep 0.15; wtype -- \"$1\"; fi", "sh", x.e]);
+            }
+        };
+    }
+
+    function query(text, prefixed) {
+        if (!prefixed) return [];
+        if (!entries.length) { if (file.path === "") file.path = dataPath; return []; }
+        const limit = options.limit ?? 80;
+        const q = text.trim().toLowerCase();
+        const out = [];
+        if (!q) {
+            const recent = Frecency.top("emoji", options.recent ?? 16).filter(e => byEmoji[e]);
+            recent.forEach((e, i) => out.push(result(byEmoji[e], 1000 - i, "")));
+            for (let i = 0; i < entries.length && out.length < limit; i++)
+                if (!recent.includes(entries[i].e)) out.push(result(entries[i], -i, ""));
+            return out;
+        }
+        const terms = q.split(/\s+/);
+        for (let i = 0; i < entries.length; i++) {
+            const s = rank(entries[i], terms);
+            if (s > 0) out.push(result(entries[i], s + (entries[i].name === q ? 5 : 0) + Frecency.score("emoji", entries[i].e) - i / 100000, q));
+        }
+        return out.sort((a, b) => b.score - a.score).slice(0, limit);
+    }
+
+    FileView {
+        id: file
+        path: ""
+        printErrors: true
+        onLoaded: root.parse(text())
+    }
+}
