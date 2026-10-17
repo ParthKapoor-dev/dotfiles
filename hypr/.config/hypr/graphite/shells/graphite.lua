@@ -200,6 +200,11 @@ function P.layer_rules(ctx)
         { match = { namespace = "^graphite:popup$" }, animation = "fade", ignore_alpha = padded },
         { match = { namespace = "^graphite:launcher$" }, animation = "fade" },
         { match = { namespace = "^graphite:osd$" }, animation = "fade" },
+        { match = { namespace = "^graphite:notifications$" }, animation = "fade" },
+        -- 0.5: lower values blur the soft card shadows (orange halo on Ember wallpaper)
+        -- full-screen / static surfaces: no blur, no compositor animation (they animate themselves)
+        { match = { namespace = "^graphite:(wallpaper|corners|overview)$" }, blur = false },
+        { match = { namespace = "^graphite:(corners|overview|session|polkit)$" }, no_anim = true },
     }
 end
 
