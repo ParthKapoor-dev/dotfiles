@@ -4,6 +4,10 @@ return {
     -- Enable `lukas-reineke/indent-blankline.nvim`
     -- See `:help ibl`
     main = 'ibl',
-    opts = {},
+    opts = {
+      indent = { char = '▏' },
+      -- Highlight only the guide of the scope the cursor is in
+      scope = { char = '▏', show_start = false, show_end = false },
+    },
   },
 }

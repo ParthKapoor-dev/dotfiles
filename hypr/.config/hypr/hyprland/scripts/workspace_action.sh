@@ -11,7 +11,14 @@ if [[ "$1" == *"+"* || "$1" == *"-"* ]]; then ## Is this something like r+1 or -
   hyprctl dispatch "${dispatcher}" "$1" ## $1 = workspace id since we shifted earlier.
 elif [[ "$1" =~ ^[0-9]+$ ]]; then ## Is this just a number?
   target_workspace=$((((curr_workspace - 1) / 10 ) * 10 + $1))
-  hyprctl dispatch "${dispatcher}" "${target_workspace}"
+  if [[ "${dispatcher}" == "workspace" ]]; then
+    ## Dual-monitor dynamic switching: bring the target workspace onto whichever
+    ## monitor the cursor is currently on. Behaves exactly like `workspace` when
+    ## only one monitor is connected, so no change when undocked.
+    hyprctl dispatch focusworkspaceoncurrentmonitor "${target_workspace}"
+  else
+    hyprctl dispatch "${dispatcher}" "${target_workspace}"
+  fi
 else
   hyprctl dispatch "${dispatcher}" "$1" ## In case the target in a string, required for special workspaces.
   exit 1

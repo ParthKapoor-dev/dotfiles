@@ -1,4 +1,16 @@
 {
+  "show_edit_predictions": false,
+  "when_closing_with_no_tabs": "keep_window_open",
+  "cli_default_open_behavior": "existing_window",
+  "outline_panel": {
+    "dock": "right"
+  },
+  "collaboration_panel": {
+    "dock": "right"
+  },
+  "git_panel": {
+    "dock": "right"
+  },
   "toolbar": {
     "quick_actions": false,
     "code_actions": false,
@@ -12,9 +24,15 @@
     "show": false
   },
   "title_bar": {
-    "show_branch_icon": true
+    // "show_branch_icon": true
   },
   "agent_servers": {
+    "codex-acp": {
+      "type": "registry"
+    },
+    "claude-acp": {
+      "type": "registry"
+    },
     "opencode": {
       "type": "registry"
     },
@@ -31,17 +49,18 @@
       "proxy_no_verify": null,
       "enterprise_uri": null
     },
-    "enabled_in_text_threads": false
+    // "enabled_in_text_threads": false
   },
   "project_panel": {
     "button": true,
     "dock": "left"
   },
   "agent": {
+    "dock": "left",
     "tool_permissions": {
       "tools": {
         "terminal": {
-          "default_mode": "allow",
+          // "default_mode": "allow",
           "always_allow": [
             {
               "pattern": "^sed\\s"
@@ -55,18 +74,23 @@
       "model": "claude-sonnet-4-5-thinking"
     }
   },
-  "icon_theme": "Base Charmed Icons",
+  "icon_theme": {
+    "mode": "dark",
+    "light": "Base Charmed Icons",
+    "dark": "Base Charmed Icons"
+  },
   "vim_mode": true,
   "ui_font_size": 16.0,
   "buffer_font_size": 15.0,
   "theme": {
-    "mode": "system",
+    "mode": "dark",
     "light": "Catppuccin Espresso (Blur) [Heavy]",
     "dark": "Zed Legacy: Ayu Dark"
   },
-  "buffer_font_family": "JetBrains Mono NL",
+  "buffer_font_family": "JetBrainsMono Nerd Font Mono",
   "buffer_font_weight": 300,
   "terminal": {
+    "font_weight": 400.0,
     "font_family": "Geist Mono"
   },
   "ui_font_family": "SF Pro Display",

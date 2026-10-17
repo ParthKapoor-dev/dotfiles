@@ -1,3 +1,11 @@
+# Force proper terminal + key handling
+export TERM=xterm-256color
+
+# # minimal safe setup
+# autoload -Uz compinit
+# compinit
+# bindkey -e
+
 # Add this to ~/.zshrc
 eval "$(starship init zsh)"
 
@@ -5,7 +13,7 @@ eval "$(starship init zsh)"
 source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
 
 # Enable zsh-syntax-highlighting
-# source ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+source ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 # Fix Ctrl + Left/Right and Ctrl + W behavior in Kitty and Zsh
 autoload -U select-word-style
@@ -34,7 +42,7 @@ alias s="source ~/.zshrc"
 alias n="nvim"
 alias shut="shutdown -h now"
 alias pac="sudo pacman"
-alias ls="eza --color=always --git --no-filesize --icons=always "
+alias ls="eza --color=always --git --no-filesize --icons=always"
 alias zo="zoxide"
 alias hypr="nvim ~/.config/hypr/hyprland.conf"
 alias dev="npm run dev"
@@ -51,6 +59,9 @@ alias zedx='WAYLAND_DISPLAY="" zed'
 alias bt="bluetui"
 alias b="btop"
 alias oc="opencode"
+alias clauded="claude --allow-dangerously-skip-permissions"
+alias wl="wishlist"
+alias ca="claude agents"
 
 
 eval "$(fzf --zsh)"
@@ -66,8 +77,6 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
-# opencode
-export PATH=/home/parth/.opencode/bin:$PATH
 
 # bun completions
 [ -s "/home/parth/.bun/_bun" ] && source "/home/parth/.bun/_bun"
@@ -76,6 +85,8 @@ export PATH=/home/parth/.opencode/bin:$PATH
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 export PATH="$HOME/.local/bin:$PATH"
+export ENCORE_INSTALL="/home/parth/.encore"
+export PATH="$ENCORE_INSTALL/bin:$PATH"
 
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
@@ -86,3 +97,30 @@ case ":$PATH:" in
   *) export PATH="$PNPM_HOME:$PATH" ;;
 esac
 # pnpm end
+
+#
+# # ssh
+# if ! pgrep -u "$USER" ssh-agent > /dev/null; then
+#   eval "$(ssh-agent -s)"
+# fi
+
+export PATH="/home/parth/.local/bin:$PATH"
+
+export EDITOR=nvim
+
+# expai: scoped Expertly Claude sandbox (~/code/sandbox/expai). Runs in a subshell so the
+# current directory is untouched. e.g. `expai claude`, `expai claude agents`, `expai doctor`.
+expai() { ( cd ~/code/sandbox/expai && ./expai "$@" ) }
+
+# Open Neovim in its own Ghostty window with the Monaspace coding font
+# (overrides live in ~/.config/nvim/ghostty.conf). Plain `nvim` still runs in-terminal.
+nv() {
+  setsid -f ghostty --gtk-single-instance=false --class=dev.neovim --title=nvim \
+    --config-file="$HOME/.config/nvim/ghostty.conf" \
+    --working-directory="$PWD" -e nvim "$@" >/dev/null 2>&1
+}
+
+# QODER_DISPATCHER_PATH v1
+path=("$HOME/.qoder/entry" ${path:#"$HOME/.qoder/entry"})
+export PATH
+# END QODER_DISPATCHER_PATH v1
