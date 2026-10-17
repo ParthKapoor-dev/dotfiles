@@ -80,14 +80,20 @@ function L.current()
     return "dwindle"
 end
 
-local NOTIFY = "qs -c graphite ipc call layout changed %s >/dev/null 2>&1"
+-- shell notification; the IPC name lives in the API table of shells/graphite.lua
+local function notify_cmd(name)
+    local ok, gp = pcall(require, "graphite.shells.graphite")
+    local qs = ok and type(gp) == "table" and gp.QS or "qs -c graphite"
+    local call = ok and type(gp) == "table" and gp.IPC and gp.IPC.layout_changed or "layout changed"
+    return string.format("%s ipc call %s %s >/dev/null 2>&1", qs, call, name)
+end
 
 -- set layout `name` (must be a known algorithm); returns the active name
 function L.set(S, name)
     if not L.KNOWN[name] then return L.current() end
     hl.config({ general = { layout = name } })
     if S.layout_persist ~= false then write_state(name) end
-    hl.exec_cmd(string.format(NOTIFY, name))
+    hl.exec_cmd(notify_cmd(name))
     return name
 end
 

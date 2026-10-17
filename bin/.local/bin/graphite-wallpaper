@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# graphite-wallpaper - choose the wallpaper for the Graphite shell
+# (replaces ii's wallpaper selector binds).
+#
+#   graphite-wallpaper pick       fuzzel list of $GRAPHITE_WALLPAPER_DIR (default ~/Pictures/Wallpapers)
+#   graphite-wallpaper random     random image from that directory
+#   graphite-wallpaper set <path>
+# The shell draws it: qs -c graphite ipc call wallpaper set <path>
+
+set -uo pipefail
+
+dir="${GRAPHITE_WALLPAPER_DIR:-$(xdg-user-dir PICTURES 2>/dev/null || echo "$HOME/Pictures")/Wallpapers}"
+
+list() {
+    find -L "$dir" -maxdepth 2 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' -o -iname '*.avif' \) 2>/dev/null | sort
+}
+
+set_wp() {
+    local p
+    p=$(realpath -e -- "$1" 2>/dev/null) || { echo "graphite-wallpaper: no such file: $1" >&2; exit 1; }
+    if ! qs -c graphite ipc call wallpaper set "$p" >/dev/null 2>&1; then
+        notify-send -a Wallpaper "Graphite shell is not running" "Could not set $(basename "$p")" >/dev/null 2>&1
+        exit 1
+    fi
+}
+
+case "${1:-pick}" in
+    pick)
+        pkill -x fuzzel && exit 0
+        choice=$(list | sed "s|^$dir/||" | fuzzel --dmenu --prompt "Wallpaper  ") || exit 0
+        [ -n "$choice" ] && set_wp "$dir/$choice"
+        ;;
+    random)
+        f=$(list | shuf -n 1)
+        [ -n "$f" ] || { echo "graphite-wallpaper: no images in $dir" >&2; exit 1; }
+        set_wp "$f"
+        ;;
+    set) set_wp "${2:?usage: graphite-wallpaper set <path>}" ;;
+    *) echo "usage: graphite-wallpaper pick|random|set <path>" >&2; exit 2 ;;
+esac

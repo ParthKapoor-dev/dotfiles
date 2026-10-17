@@ -11,8 +11,12 @@ local HOME = os.getenv("HOME") or ""
 
 return {
     -- Shell profile: graphite/shells/<shell>.lua provides the shell's env, autostart
-    -- commands and the "shell" bind group. "ii" = old end-4 illogical-impulse,
-    -- "graphite" = the new Quickshell shell (stub until it is built).
+    -- commands, gestures and the "shell" bind group. "ii" = old end-4
+    -- illogical-impulse, "graphite" = the own Quickshell shell (full replacement:
+    -- launcher, overview, notifications, session menu, polkit, wallpaper).
+    -- Cutover / rollback steps: lnx/reports/hypr-v2.md ("Cutover"). Stop
+    -- `qs -c ii` before switching: it holds the notification D-Bus name and the
+    -- polkit agent slot that graphite needs.
     shell = "ii",
 
     -- Layer-rule sets applied regardless of `shell` (both shells may run while
@@ -20,8 +24,9 @@ return {
     layer_rule_shells = { "ii", "graphite" },
 
     -- Extra Quickshell configs autostarted next to `shell` (migration: graphite's
-    -- bar/dock/control center run while ii still provides notifications, lock,
-    -- overview, sidebars). Empty it when `shell = "graphite"`.
+    -- bar/dock/control center run while ii still provides notifications,
+    -- overview, sidebars). An entry equal to `shell` is skipped (execs.lua), so
+    -- with shell = "graphite" nothing extra starts; ii is never a companion.
     companion_shells = { "graphite" },
 
     -- Bind groups, applied in THIS order (order matters when two binds share a key:

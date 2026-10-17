@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# graphite-record - toggle a screen recording (wf-recorder). Replaces ii's
+# scripts/videos/record.sh without its config.json dependency.
+#
+#   graphite-record [--fullscreen] [--sound]
+#     default       select a region (slurp)
+#     --fullscreen  the focused monitor
+#     --sound       also record the default sink's monitor (desktop audio)
+# Running it while a recording is active stops the recording.
+# Output: $GRAPHITE_RECORD_DIR or ~/Videos/recording_<date>.mp4
+
+set -uo pipefail
+
+if pgrep -x wf-recorder >/dev/null; then
+    pkill -INT -x wf-recorder
+    notify-send -a Recorder "Recording stopped" >/dev/null 2>&1 &
+    exit 0
+fi
+
+full=0 sound=0
+for a in "$@"; do
+    case "$a" in
+        --fullscreen) full=1 ;;
+        --sound) sound=1 ;;
+        *) echo "usage: graphite-record [--fullscreen] [--sound]" >&2; exit 2 ;;
+    esac
+done
+
+dir="${GRAPHITE_RECORD_DIR:-$(xdg-user-dir VIDEOS 2>/dev/null || echo "$HOME/Videos")}"
+mkdir -p "$dir"
+f="$dir/recording_$(date '+%Y-%m-%d_%H.%M.%S').mp4"
+
+args=(--pixel-format yuv420p -f "$f")
+if [ "$full" = 1 ]; then
+    args+=(-o "$(hyprctl -j monitors | jq -r '.[] | select(.focused) | .name')")
+else
+    pidof slurp >/dev/null && exit 0
+    region=$(slurp 2>/dev/null) || exit 0
+    args+=(-g "$region")
+fi
+if [ "$sound" = 1 ]; then
+    sink=$(pactl get-default-sink 2>/dev/null)
+    [ -n "$sink" ] && args+=(--audio="$sink.monitor")
+fi
+
+notify-send -a Recorder "Recording started" "$(basename "$f")" >/dev/null 2>&1 &
+exec wf-recorder "${args[@]}"
