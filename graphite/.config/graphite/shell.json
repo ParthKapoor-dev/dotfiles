@@ -9,7 +9,7 @@
     "screens": [],
     "left": ["logo", "appName", "menus", "workspaces", "layout"],
     "center": [],
-    "right": ["recording", "dnd", "tray", "network", "bluetooth", "battery", "search", "controlCenter", "clock"]
+    "right": ["recording", "dnd", "tray", "stats", "network", "bluetooth", "battery", "search", "controlCenter", "clock"]
   },
   "widgets": {
     "logo": {
@@ -37,6 +37,7 @@
     "bluetooth": { "settingsCommand": ["blueman-manager"] },
     "volume": { "step": 0.05 },
     "battery": { "showPercent": "hover", "lowPercent": 20 },
+    "stats": { "show": ["cpu", "mem"], "hot": 0.85, "topCount": 5, "monitorCommand": ["ghostty", "-e", "btop"] },
     "clock": { "format": "ddd d MMM HH:mm", "clickPopup": "notifications" }
   },
   "dock": {
@@ -62,6 +63,7 @@
   "screenshot": {},
   "recorder": { "directory": "~/Videos", "args": [] },
   "nightLight": { "temperature": 4500 },
+  "stats": { "_comment": "bar widget 'stats' (widgets.stats.show: cpu | mem | temp | net). Sampled from /proc + /sys every interval ms; thermalZone: auto or a /sys/class/thermal zone number.", "interval": 2000, "thermalZone": "auto" },
   "brightness": { "device": "auto", "step": 5 },
   "wallpaper": { "path": "", "fill": "cover", "color": "#000000", "transition": 500 },
   "overview": { "minWorkspaces": 5, "live": true },

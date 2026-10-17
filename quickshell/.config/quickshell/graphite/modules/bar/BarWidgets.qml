@@ -20,6 +20,7 @@ Singleton {
         "bluetooth": "BluetoothStatus.qml",
         "volume": "Volume.qml",
         "battery": "Battery.qml",
+        "stats": "Stats.qml",
         "search": "Search.qml",
         "controlCenter": "ControlCenterButton.qml",
         "clock": "Clock.qml"

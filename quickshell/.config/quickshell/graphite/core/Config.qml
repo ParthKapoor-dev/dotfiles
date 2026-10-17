@@ -44,6 +44,7 @@ Singleton {
                 "recording",
                 "dnd",
                 "tray",
+                "stats",
                 "network",
                 "bluetooth",
                 "battery",
@@ -145,6 +146,19 @@ Singleton {
                 "showPercent": "hover",
                 "lowPercent": 20
             },
+            "stats": {
+                "show": [
+                    "cpu",
+                    "mem"
+                ],
+                "hot": 0.85,
+                "topCount": 5,
+                "monitorCommand": [
+                    "ghostty",
+                    "-e",
+                    "btop"
+                ]
+            },
             "clock": {
                 "format": "ddd d MMM HH:mm",
                 "clickPopup": "notifications"
@@ -212,12 +226,16 @@ Singleton {
         "nightLight": {
             "temperature": 4500
         },
+        "stats": {
+            "interval": 2000,
+            "thermalZone": "auto"
+        },
         "brightness": {
             "device": "auto",
             "step": 5
         },
         "wallpaper": {
-            "path": "~/Pictures/Wallpapers/gradient-1-clean.png",
+            "path": "",
             "fill": "cover",
             "color": "#000000",
             "transition": 500
