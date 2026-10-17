@@ -58,7 +58,10 @@ Scope {
                 width: root.cardWidth
                 spacing: 8
                 Repeater {
-                    model: Notifs.popups
+                    // ScriptModel diffs by identity: only added/removed banners create/destroy
+                    // delegates (a plain JS array model rebuilt every delegate on any change, so
+                    // hovering - pause/resume rewrote the list - slid every banner in again)
+                    model: ScriptModel { values: Notifs.popupNotifs }
                     Item {
                         id: slot
                         required property var modelData
@@ -74,8 +77,8 @@ Scope {
                         NotificationCard {
                             id: card
                             width: parent.width
-                            notification: slot.modelData.n
-                            onCloseRequested: Notifs.hidePopup(slot.modelData.n)
+                            notification: slot.modelData
+                            onCloseRequested: Notifs.hidePopup(slot.modelData)
                             // slide in from the edge (mock .bn)
                             x: shownIn ? 0 : (root.position === "top-left" ? -1 : 1) * (width + 24)
                             property bool shownIn: false

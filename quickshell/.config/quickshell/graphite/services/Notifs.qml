@@ -26,8 +26,12 @@ Singleton {
     readonly property var list: (server.item?.trackedNotifications?.values ?? []).slice().reverse()
     readonly property int count: list.length
 
-    // popups currently on screen: [{ n: Notification, deadline: ms epoch | 0 (sticky) }], newest first
+    // popups currently on screen: [{ n: Notification, deadline: ms epoch | 0 (sticky) }], newest first.
+    // Entries are created once per popup and only their `deadline` changes (pause/resume); the
+    // banner stack models the Notification objects (ScriptModel diffs by identity), so pausing,
+    // a new banner or a dismissal never recreates (= re-animates) the banners already on screen.
     property var popups: []
+    readonly property var popupNotifs: popups.map(p => p.n)
     property var arrived: ({})     // notification id -> ms epoch (for "2m ago")
     property bool paused: false    // pointer over the popups: timers stop (like macOS)
     property real pausedAt: 0
@@ -59,7 +63,7 @@ Singleton {
         paused = p;
         if (p) { pausedAt = Date.now(); expiry.stop(); return; }
         const extra = Date.now() - pausedAt;
-        popups = popups.map(x => x.deadline ? { n: x.n, deadline: x.deadline + extra } : x);
+        for (const x of popups) if (x.deadline) x.deadline += extra;   // in place: the list itself is unchanged
         schedule();
     }
 
