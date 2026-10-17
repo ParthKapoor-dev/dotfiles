@@ -41,6 +41,7 @@ Item {
         visible: root.card
         anchors.fill: parent
         menu: true
+        color: Theme.cardGlass
         radius: Theme.square ? 6 : 16
     }
     MouseArea {

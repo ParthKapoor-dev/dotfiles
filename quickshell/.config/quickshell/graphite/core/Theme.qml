@@ -74,6 +74,7 @@ Singleton {
             "menubarAlpha": 0.72,
             "launcherAlpha": 0.92,
             "menuAlpha": 0.9,
+            "cardAlpha": 0.96,
             "blurSize": 6,
             "blurPasses": 2,
             "saturation": 1.2
@@ -259,6 +260,9 @@ Singleton {
     // menus + popovers (wifi, bluetooth, sound, logo/app menus, CC, notification center): denser than
     // bar/dock glass so the wallpaper hue never dominates text (tokens glass.menuAlpha)
     readonly property color menuGlass: rgba(t.color.glass, t.glass.menuAlpha ?? Math.max(t.glass.alpha, 0.9))
+    // Notification Center / banner cards: near-opaque so a saturated wallpaper (blurred behind the
+    // layer) can't tint them (tokens glass.cardAlpha; opaque looks stay opaque)
+    readonly property color cardGlass: rgba(t.color.glass, Math.max(t.glass.cardAlpha ?? 0.96, t.glass.menuAlpha ?? 0))
     readonly property color shadow: rgba(t.shadow.focused.color, t.shadow.focused.alpha)
     // glass.alpha >= 1 = opaque surfaces (Telemetry): no translucent rim, hairline edge instead
     readonly property bool glassOpaque: t.glass.alpha >= 1
