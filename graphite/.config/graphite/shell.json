@@ -33,7 +33,7 @@
     "magnify": true,
     "showRunning": true,
     "ignoredAppIds": [],
-    "pinned": ["zen", "slack", "dev.zed.Zed", "code-oss", "com.mitchellh.ghostty", "obsidian", "org.kde.dolphin"]
+    "pinned": ["zen", "slack", "dev.zed.Zed", "stably-orca", "netsoft-com.netsoft.hubstaff", "chromium", "helium", "com.mitchellh.ghostty"]
   },
   "controlCenter": {
     "sections": ["connectivity", "display", "sound", "media", "notifications"],
