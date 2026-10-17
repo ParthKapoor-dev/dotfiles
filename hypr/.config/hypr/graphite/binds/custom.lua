@@ -1,9 +1,11 @@
--- Bind group "custom": the user's own binds. Port of custom/keybinds.conf
--- (User, Monitors, Fixes 2026-10-17) and the jcode managed block at the end of
--- hyprland.conf.
+-- Bind group "custom": the user's own binds. Port of the old custom/keybinds.conf
+-- (User, Monitors, Fixes 2026-10-17) and the jcode managed block of the old
+-- hyprland.conf (both removed with ii, 2026-10-17).
 --
--- jcode: `jcode setup-hotkey` edits hyprland.conf, which the Lua config does not
--- read. Re-run it -> copy the new lines here.
+-- jcode: `jcode setup-hotkey` still writes a managed block into
+-- ~/.config/hypr/hyprland.conf (it would create the file), which the Lua config
+-- does not read. TODO: retarget jcode; until then re-run it, copy the new bind
+-- lines here and delete the hyprland.conf it created.
 
 return function(ctx)
     local C = ctx.core
