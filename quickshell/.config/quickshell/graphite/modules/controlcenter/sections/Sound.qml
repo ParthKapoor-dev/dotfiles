@@ -7,6 +7,7 @@ import qs.services
 // mock Sound module: title + current output, slider, output rows (.orow: 22px chip, accent = current)
 Card {
     id: root
+    property bool shown: Audio.sink !== null      // no PipeWire sink: hide instead of a dead 0% slider
     CardTitle { id: t; width: parent.width; text: "Sound"; detail: Audio.sinkName }
     GSlider {
         id: sld

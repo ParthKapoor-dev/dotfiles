@@ -142,9 +142,12 @@ BarButton {
         anchorItem: root
         align: "itemRight"
         content: Column {
+            // no Wi-Fi hardware (desktop, rfkill'd card that vanished): no switch, no "Searching…"
+            readonly property bool hasWifi: Network.wifiDevice !== null
+            readonly property bool wifiOn: hasWifi && Network.wifiEnabled
             PopHeader {
-                width: parent.width; title: "Wi-Fi"
-                showSwitch: true; checked: Network.wifiEnabled
+                width: parent.width; title: parent.hasWifi ? "Wi-Fi" : "Network"
+                showSwitch: parent.hasWifi; checked: Network.wifiEnabled
                 onToggled: Network.setWifi(!Network.wifiEnabled)
             }
             ListRow {
@@ -152,12 +155,14 @@ BarButton {
                 width: parent.width
                 icon: "lan"; title: "Ethernet"; subtitle: "Connected"; on: true
             }
-            SectionLabel { visible: !Network.wifiEnabled; text: "Wi-Fi is off"; bottomPadding: 10 }
-            SectionLabel { visible: Network.wifiEnabled && Network.knownList.length > 0; text: Network.knownList.length > 1 ? "Known Networks" : "Known Network" }
-            Repeater { model: Network.wifiEnabled ? Network.knownList : []; WifiRow {} }
-            SectionLabel { visible: Network.wifiEnabled && Network.otherList.length > 0; text: "Other Networks" }
-            Repeater { model: Network.wifiEnabled ? Network.otherList.slice(0, root.options.maxOther ?? 8) : []; WifiRow {} }
-            SectionLabel { visible: Network.wifiEnabled && Network.unique.length === 0; text: "Searching…"; bottomPadding: 8 }
+            SectionLabel { visible: parent.hasWifi && !Network.wifiEnabled; text: "Wi-Fi is off"; bottomPadding: 10 }
+            SectionLabel { visible: !parent.hasWifi && !Network.wired; text: "No network adapter"; bottomPadding: 10 }
+            SectionLabel { visible: !parent.hasWifi && Network.wired; text: "No Wi-Fi adapter"; bottomPadding: 10 }
+            SectionLabel { visible: parent.wifiOn && Network.knownList.length > 0; text: Network.knownList.length > 1 ? "Known Networks" : "Known Network" }
+            Repeater { model: parent.wifiOn ? Network.knownList : []; WifiRow {} }
+            SectionLabel { visible: parent.wifiOn && Network.otherList.length > 0; text: "Other Networks" }
+            Repeater { model: parent.wifiOn ? Network.otherList.slice(0, root.options.maxOther ?? 8) : []; WifiRow {} }
+            SectionLabel { visible: parent.wifiOn && Network.unique.length === 0; text: "Searching…"; bottomPadding: 8 }
             MenuSep { width: parent.width; visible: settings.visible }
             MenuRow {
                 id: settings

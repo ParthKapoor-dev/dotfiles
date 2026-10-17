@@ -21,16 +21,16 @@ Item {
                 width: parent.width
                 icon: Network.wired ? "lan" : Network.wifiEnabled ? "wifi" : "wifiOff"
                 name: Network.wired ? "Network" : "Wi-Fi"
-                on: Network.wired || Network.wifiEnabled
-                status: Network.wired ? "Ethernet" : !Network.wifiEnabled ? "Off" : (Network.ssid || "Not connected")
-                onClicked: Network.setWifi(!Network.wifiEnabled)
+                on: Network.wired || (Network.wifiDevice !== null && Network.wifiEnabled)
+                status: Network.wired ? "Ethernet" : Network.wifiDevice === null ? "No adapter" : !Network.wifiEnabled ? "Off" : (Network.ssid || "Not connected")
+                onClicked: if (Network.wifiDevice !== null) Network.setWifi(!Network.wifiEnabled)
             }
             ControlToggle {
                 width: parent.width
                 icon: Bt.enabled ? "bt" : "btOff"
                 name: "Bluetooth"
                 on: Bt.enabled
-                status: !Bt.enabled ? "Off" : Bt.connected.length ? Bt.nameOf(Bt.connected[0]) : "On"
+                status: Bt.adapter === null ? "No adapter" : !Bt.enabled ? "Off" : Bt.connected.length ? Bt.nameOf(Bt.connected[0]) : "On"
                 onClicked: Bt.setEnabled(!Bt.enabled)
             }
             ControlToggle {
