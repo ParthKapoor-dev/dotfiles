@@ -50,6 +50,8 @@ Scope {
             function winsOn(ws) { return wins.filter(t => t.workspace?.id === ws); }
             readonly property int wsCount: Math.max(root.opts.minWorkspaces ?? 5, curWs, ...Hyprland.workspaces.values.filter(w => w.id > 0 && w.monitor === win.mon).map(w => w.id))
             readonly property var current: winsOn(curWs)
+            // thumbnail width: 176 (mock) unless that many desktops + "+" would not fit the screen
+            readonly property real thumbW: Math.max(72, Math.min(176, (sw - 80 - 44 - wsCount * 22) / Math.max(1, wsCount)))
             function close() { Panels.overviewOpen = false; }
             function go(ws) { Hypr.workspace(ws); close(); }
             function focus(t) { Hypr.focusWindow(t.address); close(); }
@@ -111,7 +113,7 @@ Scope {
                                 spacing: 7
                                 Item {
                                     id: mini
-                                    width: 176; height: Math.round(176 * win.sh / win.sw)
+                                    width: win.thumbW; height: Math.round(win.thumbW * win.sh / win.sw)
                                     y: thMouse.containsMouse ? -2 : 0
                                     Behavior on y { NumberAnimation { duration: Theme.durSheet; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveSheet } }
                                     Rectangle {
@@ -163,7 +165,7 @@ Scope {
                         }
                         // "+" (mock .wsadd): next empty desktop
                         Rectangle {
-                            width: 44; height: Math.round(176 * win.sh / win.sw)
+                            width: 44; height: Math.round(win.thumbW * win.sh / win.sw)
                             radius: Theme.square ? 4 : 8
                             color: addMouse.containsMouse ? Theme.white(0.14) : Theme.white(0.08)
                             border.width: 1; border.color: Theme.white(0.1)

@@ -182,7 +182,7 @@ Scope {
                     anchors.centerIn: parent
                     spacing: 8
                     Glyph { name: root.hudGlyph; size: 16; color: Theme.accent; anchors.verticalCenter: parent.verticalCenter }
-                    GText { text: root.hudText; anchors.verticalCenter: parent.verticalCenter }
+                    GText { text: root.hudText; width: Math.min(implicitWidth, 520); anchors.verticalCenter: parent.verticalCenter }
                 }
             }
         }
