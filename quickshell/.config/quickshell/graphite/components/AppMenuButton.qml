@@ -16,22 +16,59 @@ BarButton {
     onClicked: Panels.toggle(popupId)
     onEntered: if (Panels.popup.startsWith("bar:menu:") || Panels.popup === "bar:logo") Panels.open(popupId)
 
-    GText {
+    property real maxTextWidth: 100000
+    // Telemetry: app name in mono caps with an accent square (mock .mbi.app::before)
+    readonly property bool monoApp: bold && Theme.labelsMono && Theme.square
+    Rectangle {
+        visible: root.monoApp
+        width: 6; height: 6; color: Theme.accent
         anchors.verticalCenter: parent.verticalCenter
-        text: root.label
-        // long app names / raw app ids elide instead of pushing the menus and workspaces right
-        width: root.bold ? Math.min(implicitWidth, 220) : implicitWidth
-        font.weight: root.bold ? Font.Bold : Font.Normal
-        // Telemetry: app name in mono caps with an accent square (mock .mbi.app::before)
-        font.family: root.bold && Theme.labelsMono && Theme.square ? Theme.fontLabel : Theme.fontUi
-        font.pixelSize: root.bold && Theme.labelsMono && Theme.square ? 12 : Theme.fontSize
-        font.capitalization: root.bold && Theme.labelsMono && Theme.square ? Font.AllUppercase : Font.MixedCase
-        font.letterSpacing: root.bold && Theme.labelsMono && Theme.square ? 0.84 : 0
-        leftPadding: root.bold && Theme.labelsMono && Theme.square ? 12 : 0
-        Rectangle {
-            visible: parent.leftPadding > 0
-            width: 6; height: 6; color: Theme.accent
-            anchors.verticalCenter: parent.verticalCenter
+    }
+    // Label with a crossfade: a new label fades in over the old one (motion.pop / fade) while the
+    // button's width eases to the new text's width; no jump, and the row after it doesn't move
+    // (the app name sits in a fixed-width slot, see AppName).
+    Item {
+        id: label
+        anchors.verticalCenter: parent.verticalCenter
+        height: ta.implicitHeight
+        property bool flip: false                  // false: ta is the current text, true: tb
+        readonly property Item front: flip ? tb : ta
+        width: Math.min(front.implicitWidth, root.maxTextWidth)
+        Behavior on width {
+            enabled: root.bold
+            NumberAnimation { duration: Theme.durSheet; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveSheet }
+        }
+        GText {
+            id: ta
+            width: Math.min(implicitWidth, root.maxTextWidth)
+            font.weight: root.bold ? Font.Bold : Font.Normal
+            font.family: root.monoApp ? Theme.fontLabel : Theme.fontUi
+            font.pixelSize: root.monoApp ? 12 : Theme.fontSize
+            font.capitalization: root.monoApp ? Font.AllUppercase : Font.MixedCase
+            font.letterSpacing: root.monoApp ? 0.84 : 0
+            opacity: label.flip ? 0 : 1
+            Behavior on opacity { NumberAnimation { duration: label.flip ? Theme.durPop : Theme.durFade; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+        }
+        GText {
+            id: tb
+            width: Math.min(implicitWidth, root.maxTextWidth)
+            font.weight: root.bold ? Font.Bold : Font.Normal
+            font.family: root.monoApp ? Theme.fontLabel : Theme.fontUi
+            font.pixelSize: root.monoApp ? 12 : Theme.fontSize
+            font.capitalization: root.monoApp ? Font.AllUppercase : Font.MixedCase
+            font.letterSpacing: root.monoApp ? 0.84 : 0
+            opacity: label.flip ? 1 : 0
+            Behavior on opacity { NumberAnimation { duration: label.flip ? Theme.durFade : Theme.durPop; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+        }
+        Component.onCompleted: ta.text = root.label
+        Connections {
+            target: root
+            function onLabelChanged() {
+                if (!root.bold) { ta.text = root.label; return; }
+                // the outgoing text keeps its string while it fades; the incoming one gets the new
+                (label.flip ? ta : tb).text = root.label;
+                label.flip = !label.flip;
+            }
         }
     }
 
