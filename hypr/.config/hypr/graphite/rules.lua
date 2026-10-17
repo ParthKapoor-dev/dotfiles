@@ -1,5 +1,5 @@
 -- Window + layer rules. Port of hyprland/rules.conf (+ custom/rules.conf, empty,
--- + the pinned-border rule from the matugen colors.conf).
+-- + the pinned-border rule from the old generated colors.conf).
 -- Layer rules per shell live in shells/<name>.lua (`layer_rules`).
 --
 -- Rules are applied in list order; for the same effect a later rule wins.
