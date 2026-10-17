@@ -1,0 +1,17 @@
+[Unit]
+Description=KDE Connect daemon (phone link: clipboard, files, notifications)
+Documentation=https://userbase.kde.org/KDEConnect
+# only the daemon: no tray indicator; kdeconnect-app / kdeconnect-settings talk to it over D-Bus
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=dbus
+BusName=org.kde.kdeconnect
+ExecStart=/usr/bin/kdeconnectd
+Restart=on-failure
+RestartSec=3
+Slice=app.slice
+
+[Install]
+WantedBy=graphical-session.target

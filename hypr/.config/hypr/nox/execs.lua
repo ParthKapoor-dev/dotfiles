@@ -21,9 +21,9 @@ return function(ctx)
         -- [base0 2026-10-17 disabled] gnome-keyring-daemon (systemd user unit provides it)
         "hypridle",
         "dbus-update-activation-environment --all",
-        "sleep 1 && dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP",
-        -- graphical-session.target for xdg-desktop-portal 1.22+ (screen sharing)
-        "systemctl --user start hyprland-session.target",
+        -- graphical-session.target for xdg-desktop-portal 1.22+ (screen sharing) and session units
+        -- (kdeconnectd): started after the env import so they see WAYLAND_DISPLAY
+        "sleep 1 && dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP; systemctl --user start hyprland-session.target",
         -- [base0 2026-10-17 disabled] easyeffects (not installed)
         -- [base0 2026-10-17 disabled] start_geoclue_agent.sh (weather off)
     })
