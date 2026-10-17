@@ -1,5 +1,5 @@
 {
-  "_comment": "Graphite shell (qs -c graphite) user config. Live-reloaded. Missing keys fall back to built-in defaults (core/Config.qml). Widget ids: modules/bar/BarWidgets.qml; control-center section ids: modules/controlcenter/CcSections.qml; launcher provider ids: modules/launcher/LauncherProviders.qml; action names (logo menu, session, commands): services/Actions.qml.",
+  "_comment": "Nox shell (qs -c nox) user config. Live-reloaded. Missing keys fall back to built-in defaults (core/Config.qml). Widget ids: modules/bar/BarWidgets.qml; control-center section ids: modules/controlcenter/CcSections.qml; launcher provider ids: modules/launcher/LauncherProviders.qml; action names (logo menu, session, commands): services/Actions.qml.",
   "modules": {
     "bar": true, "dock": true, "controlCenter": true, "launcher": true, "osd": true, "notifications": true,
     "wallpaper": true, "corners": true, "overview": true, "session": true, "polkit": true, "clipboard": true, "cheatsheet": true

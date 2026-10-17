@@ -5,7 +5,7 @@ import Quickshell.Wayland
 import qs.core
 import qs.services
 
-// Wallpaper (background layer, namespace graphite:wallpaper). One image per screen, decoded at
+// Wallpaper (background layer, namespace nox:wallpaper). One image per screen, decoded at
 // screen resolution; changes cross-fade (wallpaper.transition ms). No blur, no effects.
 // wallpaper.fill: cover | fit | stretch | center | tile; wallpaper.color fills the rest.
 Variants {
@@ -15,7 +15,7 @@ Variants {
         id: win
         required property ShellScreen modelData
         screen: modelData
-        WlrLayershell.namespace: "graphite:wallpaper"
+        WlrLayershell.namespace: "nox:wallpaper"
         WlrLayershell.layer: WlrLayer.Background
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
         exclusionMode: ExclusionMode.Ignore

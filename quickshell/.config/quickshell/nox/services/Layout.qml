@@ -4,8 +4,8 @@ import Quickshell
 import Quickshell.Io
 
 // Current Hyprland tiling layout. Read once at start (`hyprctl -j getoption general:layout`);
-// afterwards the `graphite-layout` helper (Hyprland side) reports every change through
-// `qs -c graphite ipc call layout changed <name>` (IpcHandler in shell.qml), so nothing polls.
+// afterwards the `nox layout` helper (Hyprland side) reports every change through
+// `qs -c nox ipc call layout changed <name>` (IpcHandler in shell.qml), so nothing polls.
 Singleton {
     id: root
     property string name: ""
@@ -15,9 +15,9 @@ Singleton {
     readonly property string glyph: glyphs[name] ?? "layout"
 
     function changed(n) { if (n) root.name = String(n).trim(); }
-    function next() { Quickshell.execDetached(["graphite-layout", "next"]); }
-    function prev() { Quickshell.execDetached(["graphite-layout", "prev"]); }
-    function set(n) { Quickshell.execDetached(["graphite-layout", "set", n]); }
+    function next() { Quickshell.execDetached(["nox", "layout", "next"]); }
+    function prev() { Quickshell.execDetached(["nox", "layout", "prev"]); }
+    function set(n) { Quickshell.execDetached(["nox", "layout", "set", n]); }
     function refresh() { reader.running = true; }
 
     Process {

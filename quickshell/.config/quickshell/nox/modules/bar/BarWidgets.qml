@@ -27,7 +27,7 @@ Singleton {
     })
     function url(id) {
         const f = registry[id];
-        if (!f) { console.warn("graphite: unknown bar widget id:", id); return ""; }
+        if (!f) { console.warn("nox: unknown bar widget id:", id); return ""; }
         return Qt.resolvedUrl("widgets/" + f);
     }
 }

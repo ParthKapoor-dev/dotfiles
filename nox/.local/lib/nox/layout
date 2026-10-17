@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# graphite-layout - change the Hyprland tiling layout at runtime.
+# nox layout - change the Hyprland tiling layout at runtime.
 #
-#   graphite-layout next | prev        step through settings.layouts (wraps)
-#   graphite-layout set <name>         dwindle | master | scrolling | monocle
-#   graphite-layout get                print the active layout
+#   nox layout next | prev        step through settings.layouts (wraps)
+#   nox layout set <name>         dwindle | master | scrolling | monocle
+#   nox layout get                print the active layout
 #
-# Under the Graphite Lua config (Hyprland 0.55.4) `hyprctl keyword` is refused,
+# Under the Nox Lua config (Hyprland 0.55.4) `hyprctl keyword` is refused,
 # so this calls the config's own Lua function through `hyprctl eval`:
-#   hyprctl eval 'graphite_layout("next")'
+#   hyprctl eval 'nox_layout("next")'
 # That is the same code Super+\ / Super+Shift+\ run in-process
-# (hypr/.config/hypr/graphite/layouts.lua). It sets general.layout, remembers the
+# (hypr/.config/hypr/nox/layouts.lua). It sets general.layout, remembers the
 # choice for this session and notifies the shell:
-#   qs -c graphite ipc call layout changed <name>
-# Fallback (config without graphite_layout(), or the legacy hyprland.conf):
+#   qs -c nox ipc call layout changed <name>
+# Fallback (config without nox_layout(), or the legacy hyprland.conf):
 # the change is made here directly and the shell is notified from here.
 
 set -uo pipefail
@@ -20,7 +20,7 @@ set -uo pipefail
 KNOWN="dwindle master scrolling monocle"
 DEFAULT_LIST="dwindle scrolling master"
 
-die() { printf 'graphite-layout: %s\n' "$*" >&2; exit 1; }
+die() { printf 'nox layout: %s\n' "$*" >&2; exit 1; }
 
 current() {
     hyprctl -j getoption general:layout 2>/dev/null | jq -r '.str // empty'
@@ -37,7 +37,7 @@ is_known() {
 }
 
 notify_shell() {
-    qs -c graphite ipc call layout changed "$1" >/dev/null 2>&1 || true
+    qs -c nox ipc call layout changed "$1" >/dev/null 2>&1 || true
 }
 
 # direct change without the config's helper
@@ -67,14 +67,14 @@ fallback_step() {
     fallback_set "${list[$(( (idx + delta + n) % n ))]}"
 }
 
-# run graphite_layout(...) inside the compositor; 0 = done, 1 = not available
+# run nox_layout(...) inside the compositor; 0 = done, 1 = not available
 via_eval() {
     [ "$(provider)" = "lua" ] || return 1
     local out
-    out=$(hyprctl eval "if not graphite_layout then error('no graphite_layout', 0) end graphite_layout($1)" 2>&1)
+    out=$(hyprctl eval "if not nox_layout then error('no nox_layout', 0) end nox_layout($1)" 2>&1)
     case "$out" in
         ok|"") return 0 ;;
-        *"no graphite_layout"*) return 1 ;;
+        *"no nox_layout"*) return 1 ;;
         *) die "$out" ;;
     esac
 }
@@ -91,5 +91,5 @@ case "$cmd" in
         ;;
     get) current ;;
     -h|--help|help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//' ;;
-    *) die "usage: graphite-layout next|prev|set <name>|get" ;;
+    *) die "usage: nox layout next|prev|set <name>|get" ;;
 esac

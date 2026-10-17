@@ -8,9 +8,9 @@ local function load_group(ctx, name)
     local S = ctx.settings
     local src
     if name == "shell" then
-        src = require("graphite.shells." .. S.shell).binds
+        src = require("nox.shells." .. S.shell).binds
     else
-        src = require("graphite.binds." .. name)
+        src = require("nox.binds." .. name)
     end
     if type(src) == "function" then src = src(ctx) end
     return src or {}

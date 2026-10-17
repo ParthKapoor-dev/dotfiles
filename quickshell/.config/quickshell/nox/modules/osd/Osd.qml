@@ -64,7 +64,7 @@ Scope {
             id: win
             screen: root.focusedScreen
             color: "transparent"
-            WlrLayershell.namespace: "graphite:osd"
+            WlrLayershell.namespace: "nox:osd"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
             exclusionMode: ExclusionMode.Ignore
@@ -153,7 +153,7 @@ Scope {
             id: hud
             screen: root.focusedScreen
             color: "transparent"
-            WlrLayershell.namespace: "graphite:osd"
+            WlrLayershell.namespace: "nox:osd"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
             exclusionMode: ExclusionMode.Ignore

@@ -4,7 +4,7 @@ import qs.core
 import qs.services
 
 // Desktop applications: fuzzy match on name (then generic name, keywords, comment), boosted by
-// frecency (launch history in ~/.local/state/graphite/launcher.json). Empty query = recent apps.
+// frecency (launch history in ~/.local/state/nox/launcher.json). Empty query = recent apps.
 // options: limit, showRecent, recentLimit, frecencyWeight, terminal (argv prefix for Terminal=true apps)
 Item {
     id: root

@@ -1,14 +1,14 @@
--- Offline bind dump: runs the Graphite config under plain `lua` (5.5, same as
+-- Offline bind dump: runs the Nox config under plain `lua` (5.5, same as
 -- Hyprland 0.55) with a mock `hl`, and prints every bind as one JSON object per
 -- line in a hyprctl-like shape (legacy dispatcher names). (Its partner
 -- binddiff.py, a diff against a running .conf session, was removed with the
 -- .conf config on 2026-10-17.)
 --
---   lua graphite/tools/binddump.lua ~/.config/hypr/graphite.lua > lua-binds.jsonl
+--   lua nox/tools/binddump.lua ~/.config/hypr/nox.lua > lua-binds.jsonl
 --
 -- Not loaded by Hyprland (nothing require()s it).
 
-local entry = assert(arg[1], "usage: lua binddump.lua <path/to/graphite.lua>")
+local entry = assert(arg[1], "usage: lua binddump.lua <path/to/nox.lua>")
 local dir = entry:match("^(.*)/[^/]*$") or "."
 package.path = dir .. "/?.lua;" .. dir .. "/?/init.lua;" .. package.path
 
@@ -54,7 +54,7 @@ hl = setmetatable({
 local ok, err = pcall(dofile, entry)
 if not ok then io.stderr:write("config error: " .. tostring(err) .. "\n") end
 
-local core = package.loaded["graphite.core"]
+local core = package.loaded["nox.core"]
 
 local function legacy(action)
     if type(action) == "function" then

@@ -1,13 +1,13 @@
--- Shell profile: Graphite (own Quickshell shell, `qs -c graphite`).
+-- Shell profile: Nox (own Quickshell shell, `qs -c nox`).
 --
--- With settings.shell = "graphite" this file is the WHOLE shell side of the
+-- With settings.shell = "nox" this file is the WHOLE shell side of the
 -- compositor: env, autostart, gestures, the "shell" bind group and layer rules.
 -- It replaced the old shells/ii.lua (end-4 illogical-impulse, removed 2026-10-17)
 -- bind for bind (mapping + dropped binds listed above P.binds and in
 -- lnx/reports/hypr-v2.md).
 --
 -- Shell-independent binds (volume, media, Print, lock, apps, windows, layout
--- cycling) live in graphite/binds/*.lua and are the same for every shell.
+-- cycling) live in nox/binds/*.lua and are the same for every shell.
 
 local P = {}
 
@@ -16,9 +16,9 @@ local P = {}
 -- GlobalShortcuts land (status 2026-10-17: "live" = answered by the running
 -- shell today, "planned" = being built in shell-v2).
 ---------------------------------------------------------------------------
-P.QS = "qs -c graphite"
+P.QS = "qs -c nox"
 
--- `qs -c graphite ipc call <target> <function> [args]`
+-- `qs -c nox ipc call <target> <function> [args]`
 P.IPC = {
     launcher       = "launcher toggle",         -- live
     clipboard      = "launcher clipboard",      -- planned
@@ -29,11 +29,11 @@ P.IPC = {
     dnd            = "notifications toggleDnd", -- live
     control_center = "controlCenter toggle",    -- live
     dock           = "dock toggle",             -- live
-    wallpaper_set  = "wallpaper set",           -- planned (+ <path>; used by bin/graphite-wallpaper)
-    layout_changed = "layout changed",          -- planned (+ <name>; sent by graphite/layouts.lua)
+    wallpaper_set  = "wallpaper set",           -- planned (+ <path>; used by nox wallpaper)
+    layout_changed = "layout changed",          -- planned (+ <name>; sent by nox/layouts.lua)
 }
 
--- GlobalShortcut names (appid "graphite"), dispatched as global "graphite:<name>"
+-- GlobalShortcut names (appid "nox"), dispatched as global "nox:<name>"
 P.GLOBAL = {
     launcher            = "launcherToggle",                 -- live
     launcher_release    = "launcherToggleRelease",          -- live
@@ -42,7 +42,7 @@ P.GLOBAL = {
     dnd                 = "dndToggle",                      -- live
 }
 
--- exits != 0 only when no graphite instance answers (`ipc call` to a missing
+-- exits != 0 only when no nox instance answers (`ipc call` to a missing
 -- target or function still exits 0), so `ALIVE || fallback` = "shell is dead"
 P.ALIVE = P.QS .. " ipc show >/dev/null 2>&1"
 
@@ -51,16 +51,16 @@ local function ipc(name, arg)
 end
 P.ipc = ipc
 
-local function G(name) return hl.dsp.global("graphite:" .. P.GLOBAL[name]) end
+local function G(name) return hl.dsp.global("nox:" .. P.GLOBAL[name]) end
 local function X(cmd) return hl.dsp.exec_cmd(cmd) end
 
-local HS = "~/.config/hypr/graphite/scripts"
+local HS = "~/.config/hypr/nox/scripts"
 
 ---------------------------------------------------------------------------
 -- env / autostart / gestures
 ---------------------------------------------------------------------------
 
--- Nothing shell-specific: Qt/cursor/XDG variables come from graphite/env.lua.
+-- Nothing shell-specific: Qt/cursor/XDG variables come from nox/env.lua.
 P.env = {}
 
 -- Started first (exec-once order as with ii). The shell draws wallpaper, bar,
@@ -75,7 +75,7 @@ P.execs = {
     -- clipboard history: plain cliphist (ii also poked its own service over IPC)
     "wl-paste --type text --watch cliphist store",
     "wl-paste --type image --watch cliphist store",
-    -- polkit: graphite's polkit module is the agent. If it is not there yet,
+    -- polkit: nox's polkit module is the agent. If it is not there yet,
     -- uncomment the KDE agent (polkit-kde-agent is installed):
     -- "/usr/lib/polkit-kde-authentication-agent-1",
     -- lock right after login (ii had lock.launchOnStartup = true). Not needed
@@ -92,31 +92,31 @@ P.gestures = {
 ---------------------------------------------------------------------------
 -- "shell" bind group. Every ii bind (former shells/ii.lua) is mapped or dropped:
 --
--- ii                                 graphite
+-- ii                                 nox
 -- Super tap (release) search         global launcherToggleRelease + interrupts; fuzzel if shell dead
--- Super_L/R hold: workspaceNumber    DROPPED (no hold-to-show-numbers overlay in graphite)
+-- Super_L/R hold: workspaceNumber    DROPPED (no hold-to-show-numbers overlay in nox)
 -- Super+Tab overview                 ipc overview toggle
 -- Super+V clipboard                  ipc launcher clipboard; cliphist | fuzzel if shell dead
--- Super+. emoji                      fuzzel-emoji.sh (graphite has no emoji picker)
+-- Super+. emoji                      fuzzel-emoji.sh (nox has no emoji picker)
 -- Super+A, Super+Alt+A, Super+B/O    DROPPED (ii left sidebar: AI chat, translator, booru)
 -- Super+N right sidebar              global notificationCenterToggle
--- Super+/ cheatsheet                 DROPPED (no graphite cheatsheet)
--- Super+K on-screen keyboard         DROPPED (no OSK in graphite; no touch screen)
+-- Super+/ cheatsheet                 DROPPED (no nox cheatsheet)
+-- Super+K on-screen keyboard         DROPPED (no OSK in nox; no touch screen)
 -- Super+M media controls             ipc controlCenter toggle (Now Playing lives there)
--- Super+G overlay widgets            DROPPED (no graphite overlay)
+-- Super+G overlay widgets            DROPPED (no nox overlay)
 -- Ctrl+Alt+Delete session menu       ipc session toggle; wlogout if shell dead
 -- Super+J bar toggle                 ipc dock toggle (the menubar is always shown)
 -- Super+Shift+Alt+/ welcome app      DROPPED (ii only)
--- Brightness keys (ii ipc)           brightnessctl (graphite's OSD follows the backlight)
--- Ctrl+Super+T wallpaper selector    graphite-wallpaper pick
--- Ctrl+Super+Alt+T random wallpaper  graphite-wallpaper random
--- Ctrl+Super+R restart shell         qs -c graphite kill; qs -c graphite -d
+-- Brightness keys (ii ipc)           brightnessctl (nox's OSD follows the backlight)
+-- Ctrl+Super+T wallpaper selector    nox wallpaper pick
+-- Ctrl+Super+Alt+T random wallpaper  nox wallpaper random
+-- Ctrl+Super+R restart shell         qs -c nox kill; qs -c nox -d
 -- Ctrl+Super+P panel family cycle    DROPPED (ii only)
--- Super+Shift+S region screenshot    graphite-shot region (clipboard + swappy)
+-- Super+Shift+S region screenshot    nox shot region (clipboard + swappy)
 -- Super+Shift+A region search        snip_to_search.sh (Google Lens, unchanged)
--- Super+Shift+X / T OCR              graphite-shot ocr
--- Super+Shift+R, Super+Alt+R record  graphite-record (region, toggle)
--- Ctrl+Alt+R, Super+Shift+Alt+R      graphite-record --fullscreen [--sound]
+-- Super+Shift+X / T OCR              nox shot ocr
+-- Super+Shift+R, Super+Alt+R record  nox record (region, toggle)
+-- Ctrl+Alt+R, Super+Shift+Alt+R      nox record --fullscreen [--sound]
 -- Super+keypad -/+ zoom (ii ipc)     in-process cursor zoom (same 1..3 clamp)
 -- New: Super+Alt+D Do Not Disturb, Alt+Print window shot, Shift+Print monitor shot.
 -- (Super+Space launcher and Super+Alt+N Control Center live in binds/custom.lua.)
@@ -154,21 +154,21 @@ function P.binds(ctx)
         { "XF86MonBrightnessDown", X("brightnessctl s 5%-"), locked = true, repeating = true, desc = "Brightness down" },
 
         -- wallpaper / shell
-        { "CTRL + SUPER + T", X("graphite-wallpaper pick"), desc = "Choose wallpaper" },
-        { "CTRL + SUPER + ALT + T", X("graphite-wallpaper random"), desc = "Random wallpaper" },
+        { "CTRL + SUPER + T", X("nox wallpaper pick"), desc = "Choose wallpaper" },
+        { "CTRL + SUPER + ALT + T", X("nox wallpaper random"), desc = "Random wallpaper" },
         { "CTRL + SUPER + R", X(P.QS .. " kill; " .. P.QS .. " -d"), desc = "Restart shell" },
 
-        -- ##! Utilities: screenshot / OCR / record (bin/graphite-shot, bin/graphite-record)
-        { "SUPER + SHIFT + S", X("graphite-shot region"), desc = "Screenshot region to clipboard and edit" },
-        { "ALT + Print", X("graphite-shot window"), locked = true, desc = "Screenshot window to file and clipboard" },
-        { "SHIFT + Print", X("graphite-shot screen"), locked = true, desc = "Screenshot monitor to file and clipboard" },
+        -- ##! Utilities: screenshot / OCR / record (nox shot, nox record)
+        { "SUPER + SHIFT + S", X("nox shot region"), desc = "Screenshot region to clipboard and edit" },
+        { "ALT + Print", X("nox shot window"), locked = true, desc = "Screenshot window to file and clipboard" },
+        { "SHIFT + Print", X("nox shot screen"), locked = true, desc = "Screenshot monitor to file and clipboard" },
         { "SUPER + SHIFT + A", X("pidof slurp || " .. HS .. "/snip_to_search.sh"), desc = "Search region with Google Lens" },
-        { "SUPER + SHIFT + X", X("graphite-shot ocr"), desc = "OCR region to clipboard" },
-        { "SUPER + SHIFT + T", X("graphite-shot ocr"), desc = "OCR region to clipboard" },
-        { "SUPER + SHIFT + R", X("graphite-record"), locked = true, desc = "Record region (toggle)" },
-        { "SUPER + ALT + R", X("graphite-record"), locked = true, desc = "Record region (toggle)" },
-        { "CTRL + ALT + R", X("graphite-record --fullscreen"), locked = true, desc = "Record screen (toggle)" },
-        { "SUPER + SHIFT + ALT + R", X("graphite-record --fullscreen --sound"), locked = true, desc = "Record screen with audio (toggle)" },
+        { "SUPER + SHIFT + X", X("nox shot ocr"), desc = "OCR region to clipboard" },
+        { "SUPER + SHIFT + T", X("nox shot ocr"), desc = "OCR region to clipboard" },
+        { "SUPER + SHIFT + R", X("nox record"), locked = true, desc = "Record region (toggle)" },
+        { "SUPER + ALT + R", X("nox record"), locked = true, desc = "Record region (toggle)" },
+        { "CTRL + ALT + R", X("nox record --fullscreen"), locked = true, desc = "Record screen (toggle)" },
+        { "SUPER + SHIFT + ALT + R", X("nox record --fullscreen --sound"), locked = true, desc = "Record screen with audio (toggle)" },
 
         -- ##! Screen: keypad zoom (in-process, same clamp as Super+-/=)
         { "SUPER + code:82", C.zoom_fn(-0.1), repeating = true, desc = "Zoom out" },
@@ -179,9 +179,9 @@ function P.binds(ctx)
 end
 
 ---------------------------------------------------------------------------
--- layer rules. Namespaces: graphite:bar, graphite:dock, graphite:popup,
--- graphite:launcher, graphite:osd (new modules get the base blur rule through
--- ^graphite:.*$)
+-- layer rules. Namespaces: nox:bar, nox:dock, nox:popup,
+-- nox:launcher, nox:osd (new modules get the base blur rule through
+-- ^nox:.*$)
 ---------------------------------------------------------------------------
 function P.layer_rules(ctx)
     local T = ctx.tokens
@@ -192,19 +192,19 @@ function P.layer_rules(ctx)
     local padded = math.min(T.hypr.layerIgnoreAlphaPadded, minGlass - 0.05)
 
     return {
-        { match = { namespace = "^graphite:.*$" }, blur = true, blur_popups = true, ignore_alpha = ia },
+        { match = { namespace = "^nox:.*$" }, blur = true, blur_popups = true, ignore_alpha = ia },
         -- menubar slides with the workspace feel; dock rises from the bottom
-        { match = { namespace = "^graphite:bar$" }, animation = "slide top" },
-        { match = { namespace = "^graphite:dock$" }, animation = "slide bottom", ignore_alpha = padded },
+        { match = { namespace = "^nox:bar$" }, animation = "slide top" },
+        { match = { namespace = "^nox:dock$" }, animation = "slide bottom", ignore_alpha = padded },
         -- menus, launcher, OSD: quick fade (they animate their own content)
-        { match = { namespace = "^graphite:popup$" }, animation = "fade", ignore_alpha = padded },
-        { match = { namespace = "^graphite:launcher$" }, animation = "fade" },
-        { match = { namespace = "^graphite:osd$" }, animation = "fade" },
-        { match = { namespace = "^graphite:notifications$" }, animation = "fade" },
+        { match = { namespace = "^nox:popup$" }, animation = "fade", ignore_alpha = padded },
+        { match = { namespace = "^nox:launcher$" }, animation = "fade" },
+        { match = { namespace = "^nox:osd$" }, animation = "fade" },
+        { match = { namespace = "^nox:notifications$" }, animation = "fade" },
         -- 0.5: lower values blur the soft card shadows (orange halo on Ember wallpaper)
         -- full-screen / static surfaces: no blur, no compositor animation (they animate themselves)
-        { match = { namespace = "^graphite:(wallpaper|corners|overview)$" }, blur = false },
-        { match = { namespace = "^graphite:(corners|overview|session|polkit)$" }, no_anim = true },
+        { match = { namespace = "^nox:(wallpaper|corners|overview)$" }, blur = false },
+        { match = { namespace = "^nox:(corners|overview|session|polkit)$" }, no_anim = true },
     }
 end
 

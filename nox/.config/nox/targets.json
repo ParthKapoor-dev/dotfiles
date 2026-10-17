@@ -1,13 +1,13 @@
 {
   "_comment": [
     "theme target manifest. Add an app = drop a template in templates/ + add one entry here; no code changes.",
-    "Fields: name (unique), template (relative to templates/, optional), output (relative to ~/.local/state/graphite/out/ unless absolute/~),",
-    "        enabled (default true; `--only name` runs a disabled target), check (json|lua|css|ini|keyvalue|text, used by `theme check`),",
-    "        apply: list of hooks run by `theme apply` (all string fields are templates; {{ _.output }} = this target's rendered file).",
+    "Fields: name (unique), template (relative to templates/, optional), output (relative to ~/.local/state/nox/out/ unless absolute/~),",
+    "        enabled (default true; `--only name` runs a disabled target), check (json|lua|css|ini|keyvalue|text, used by `nox theme check`),",
+    "        apply: list of hooks run by `nox theme apply` (all string fields are templates; {{ _.output }} = this target's rendered file).",
     "Hook types: write{path,content} | copy{path[,from]} | symlink{path[,to]} | line{path,match(regex),line} (replace first match or append)",
     "            | ini{path, from_output?, values?{section:{key:val}}, exclude_sections?[]} | gsettings{schema,key,value(GVariant text)}",
     "Every hook may carry requires:[paths]; the hook is skipped with a warning if any is missing (e.g. an icon theme not installed yet).",
-    "reload: {SIGNAL: [process names]} sent by `theme switch` after re-applying (e.g. ghostty USR2, kitty USR1)."
+    "reload: {SIGNAL: [process names]} sent by `nox theme switch` after re-applying (e.g. ghostty USR2, kitty USR1)."
   ],
   "targets": [
     {
@@ -33,7 +33,7 @@
         {
           "type": "write",
           "path": "~/.config/gtk-3.0/gtk.css",
-          "content": "/* Graphite: managed by theme (revert: theme revert) */\n@import url(\"file://{{ _.output }}\");\n"
+          "content": "/* Nox: managed by nox theme (revert: nox theme revert) */\n@import url(\"file://{{ _.output }}\");\n"
         }
       ]
     },
@@ -46,7 +46,7 @@
         {
           "type": "write",
           "path": "~/.config/gtk-4.0/gtk.css",
-          "content": "/* Graphite: managed by theme (revert: theme revert) */\n@import url(\"file://{{ _.output }}\");\n"
+          "content": "/* Nox: managed by nox theme (revert: nox theme revert) */\n@import url(\"file://{{ _.output }}\");\n"
         }
       ]
     },
@@ -150,13 +150,13 @@
     },
     {
       "name": "kde-colors",
-      "template": "kde/Graphite.colors",
-      "output": "kde/Graphite.colors",
+      "template": "kde/Nox.colors",
+      "output": "kde/Nox.colors",
       "check": "ini",
       "apply": [
         {
           "type": "symlink",
-          "path": "~/.local/share/color-schemes/Graphite.colors"
+          "path": "~/.local/share/color-schemes/Nox.colors"
         },
         {
           "type": "ini",
@@ -198,14 +198,14 @@
     },
     {
       "name": "ghostty",
-      "template": "ghostty/graphite",
-      "output": "ghostty/graphite",
+      "template": "ghostty/nox",
+      "output": "ghostty/nox",
       "check": "keyvalue",
       "apply": [
         {
           "type": "line",
           "path": "~/.config/ghostty/config",
-          "match": "^config-file\\s*=.*graphite",
+          "match": "^config-file\\s*=.*nox",
           "line": "config-file = ?{{ _.output }}"
         }
       ],
@@ -217,14 +217,14 @@
     },
     {
       "name": "kitty",
-      "template": "kitty/graphite.conf",
-      "output": "kitty/graphite.conf",
+      "template": "kitty/nox.conf",
+      "output": "kitty/nox.conf",
       "check": "text",
       "apply": [
         {
           "type": "line",
           "path": "~/.config/kitty/kitty.conf",
-          "match": "^include\\s+.*graphite",
+          "match": "^include\\s+.*nox",
           "line": "include {{ _.output }}"
         }
       ],
@@ -236,8 +236,8 @@
     },
     {
       "name": "fuzzel",
-      "template": "fuzzel/graphite.ini",
-      "output": "fuzzel/graphite.ini",
+      "template": "fuzzel/nox.ini",
+      "output": "fuzzel/nox.ini",
       "check": "ini",
       "apply": [
         {
@@ -257,12 +257,12 @@
         {
           "type": "write",
           "path": "~/.config/hypr/hyprlock/colors.conf",
-          "content": "# Graphite: managed by theme (revert: theme revert)\nsource = {{ _.output }}\n"
+          "content": "# Nox: managed by nox theme (revert: nox theme revert)\nsource = {{ _.output }}\n"
         },
         {
           "type": "write",
           "path": "~/.config/hypr/hyprlock/layout.conf",
-          "content": "# Graphite: managed by theme (revert: theme revert)\n# lock layout = token lock.style, else card.style (flat = Ember/Sequoia/Minimal, hairline = Telemetry)\nsource = {{ _.out }}/hyprlock/layout-{{ lock.style | default(card.style) }}.conf\n"
+          "content": "# Nox: managed by nox theme (revert: nox theme revert)\n# lock layout = token lock.style, else card.style (flat = Ember/Sequoia/Minimal, hairline = Telemetry)\nsource = {{ _.out }}/hyprlock/layout-{{ lock.style | default(card.style) }}.conf\n"
         }
       ]
     },
@@ -282,25 +282,25 @@
     },
     {
       "name": "btop",
-      "template": "btop/graphite.theme",
-      "output": "btop/graphite.theme",
+      "template": "btop/nox.theme",
+      "output": "btop/nox.theme",
       "check": "keyvalue",
       "apply": [
         {
           "type": "symlink",
-          "path": "~/.config/btop/themes/graphite.theme"
+          "path": "~/.config/btop/themes/nox.theme"
         },
         {
           "type": "line",
           "path": "~/.config/btop/btop.conf",
           "match": "^color_theme\\s*=",
-          "line": "color_theme = \"{{ _.home }}/.config/btop/themes/graphite.theme\""
+          "line": "color_theme = \"{{ _.home }}/.config/btop/themes/nox.theme\""
         }
       ]
     },
     {
       "name": "term-sequences",
-      "_comment": "OSC palette for terminals without a theme file; read in place from ~/.local/state/graphite/out/terminal/sequences.txt (fish config.fish cats it). No hook: the old ii copy target is gone.",
+      "_comment": "OSC palette for terminals without a theme file; read in place from ~/.local/state/nox/out/terminal/sequences.txt (fish config.fish cats it). No hook: the old ii copy target is gone.",
       "template": "terminal/sequences.txt",
       "output": "terminal/sequences.txt",
       "check": "text",

@@ -52,7 +52,7 @@ Singleton {
             onStreamFinished: {
                 let v = "";
                 try { v = JSON.parse(text).tag ?? ""; } catch (e) {}
-                Panels.hud("Graphite · Hyprland " + v.replace(/^v/, "") + " · Arch Linux", "logo");
+                Panels.hud("Nox · Hyprland " + v.replace(/^v/, "") + " · Arch Linux", "logo");
             }
         }
     }
@@ -60,7 +60,7 @@ Singleton {
     function has(name) { return table[name] !== undefined; }
     function run(name) {
         const f = table[name];
-        if (!f) { console.warn("graphite: unknown action", name); return false; }
+        if (!f) { console.warn("nox: unknown action", name); return false; }
         f();
         return true;
     }

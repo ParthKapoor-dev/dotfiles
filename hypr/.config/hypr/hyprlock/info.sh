@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Text sources for the Graphite hyprlock layouts (cmd[...] labels).
+# Text sources for the Nox hyprlock layouts (cmd[...] labels).
 # Output may contain Pango markup; everything user-controlled is escaped.
 #
 #   info.sh date                 SATURDAY, 17 OCTOBER

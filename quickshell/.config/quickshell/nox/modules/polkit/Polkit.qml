@@ -9,9 +9,9 @@ import Quickshell.Services.Polkit
 import qs.core
 import qs.components
 
-// Polkit authentication agent + dialog (namespace graphite:polkit). Only one agent can register
+// Polkit authentication agent + dialog (namespace nox:polkit). Only one agent can register
 // per session: while another one (e.g. ii) holds it, `registered` stays false; after that agent
-// exits, `qs -c graphite ipc call polkit retry` (or a shell restart) registers graphite's.
+// exits, `qs -c nox ipc call polkit retry` (or a shell restart) registers nox's.
 // Dialog: dimmed screen, glass sheet with key glyph, the action message, password field
 // (Enter = OK, Esc = Cancel), wrong-password shake, Cancel / Authenticate buttons.
 Scope {
@@ -47,7 +47,7 @@ Scope {
             id: win
             screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
             color: "transparent"
-            WlrLayershell.namespace: "graphite:polkit"
+            WlrLayershell.namespace: "nox:polkit"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
             exclusionMode: ExclusionMode.Ignore
@@ -150,7 +150,7 @@ Scope {
         }
     }
 
-    // qs -c graphite ipc call polkit status | retry
+    // qs -c nox ipc call polkit status | retry
     IpcHandler {
         target: "polkit"
         function status(): string { return "registered=" + root.registered + " active=" + root.active; }

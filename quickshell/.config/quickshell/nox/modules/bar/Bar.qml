@@ -4,7 +4,7 @@ import Quickshell
 import Quickshell.Wayland
 import qs.core
 
-// Menu bar (mock #menubar): flush top, full width, glass (namespace graphite:bar), reserves its
+// Menu bar (mock #menubar): flush top, full width, glass (namespace nox:bar), reserves its
 // height, 8px side padding, 1px hairline at the bottom.
 Variants {
     model: Config.screensFor(Config.opt.bar?.screens)
@@ -13,7 +13,7 @@ Variants {
         id: bar
         required property ShellScreen modelData
         screen: modelData
-        WlrLayershell.namespace: "graphite:bar"
+        WlrLayershell.namespace: "nox:bar"
         WlrLayershell.layer: WlrLayer.Top
         anchors { top: true; left: true; right: true }
         implicitHeight: Theme.barHeight

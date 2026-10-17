@@ -60,4 +60,4 @@ keybind = ctrl+shift+plus=increase_font_size:1
 keybind = ctrl+shift+minus=decrease_font_size:1
 keybind = ctrl+shift+backspace=reset_font_size
 
-config-file = ?/home/parth/.local/state/graphite/out/ghostty/graphite
+config-file = ?/home/parth/.local/state/nox/out/ghostty/nox

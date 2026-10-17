@@ -8,13 +8,13 @@ import qs.core
 import qs.components
 import qs.services
 
-// Mission Control (mock #wsstrip + overview): namespace graphite:overview, full screen.
+// Mission Control (mock #wsstrip + overview): namespace nox:overview, full screen.
 // Top: a strip of desktops (176px thumbnails with their windows, current one ringed in the
 // accent, "+" = next empty desktop). Below: the current desktop's windows spread out (mock
 // overviewRects: 1 / 2 / 3 columns, 44x52 gaps, scale <= 0.72) with live previews and labels.
 // Click a window = focus it; click a desktop = switch; drag a window onto a desktop = move it
 // there. Keys: Esc / Enter close, 1-9 switch desktop, arrows/Tab select, typing opens the
-// launcher with that text. `qs -c graphite ipc call overview toggle`.
+// launcher with that text. `qs -c nox ipc call overview toggle`.
 //
 // Motion (mock: windows transform from their real geometry, strip slides down, wallpaper dims):
 // one progress value `p` (0 = desktop, 1 = overview) drives everything, eased on the sheet curve
@@ -72,7 +72,7 @@ Scope {
             readonly property real sx: win.screen?.x ?? 0
             readonly property real sy: win.screen?.y ?? 0
             color: "transparent"
-            WlrLayershell.namespace: "graphite:overview"
+            WlrLayershell.namespace: "nox:overview"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: root.open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
             exclusionMode: ExclusionMode.Ignore

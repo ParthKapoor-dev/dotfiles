@@ -1,11 +1,11 @@
--- Graphite design-token DEFAULTS for Hyprland.
+-- Nox design-token DEFAULTS for Hyprland.
 --
--- This is the fallback used when ~/.local/state/graphite/tokens.lua (written by the
--- token renderer from ~/.config/graphite/tokens.json) is missing or incomplete.
+-- This is the fallback used when ~/.local/state/nox/tokens.lua (written by the
+-- token renderer from ~/.config/nox/tokens.json) is missing or incomplete.
 -- The live tokens are deep-merged over this table, so any key the renderer omits
 -- falls back to the value here.
 --
--- Keys mirror tokens.json EXACTLY (preset "sequoia-graphite", copied 2026-10-17).
+-- Keys mirror tokens.json EXACTLY (preset "sequoia", copied 2026-10-17).
 -- Keep this in sync with tokens.json when the preset changes.
 --
 -- The `hypr` table at the bottom is NOT in tokens.json: it holds compositor-only
@@ -14,7 +14,7 @@
 -- them) so no module hardcodes a look value.
 
 return {
-    name = "sequoia-graphite",
+    name = "sequoia",
 
     color = {
         page = "#070708",
@@ -90,9 +90,9 @@ return {
         inputMethodsIgnoreAlpha = 0.8,
         -- Layer blur only samples pixels whose alpha is ABOVE ignore_alpha. It must sit
         -- below the shell's glass alpha or blur silently turns off (the old ii bug:
-        -- ignore_alpha 0.79 vs bar alpha 0.76). Graphite glass is 0.54..0.78.
-        layerIgnoreAlpha = 0.50,     -- graphite:* layers (also clamped below min glass alpha)
-        layerIgnoreAlphaPadded = 0.50, -- graphite:dock / graphite:popup: surface is larger than the
+        -- ignore_alpha 0.79 vs bar alpha 0.76). Nox glass is 0.54..0.78.
+        layerIgnoreAlpha = 0.50,     -- nox:* layers (also clamped below min glass alpha)
+        layerIgnoreAlphaPadded = 0.50, -- nox:dock / nox:popup: surface is larger than the
                                        -- glass (full-width dock, popup shadow margins) - keep the
                                        -- transparent/shadow area out of the blur
         popinWindowIn = 92,          -- % scale windows pop in from

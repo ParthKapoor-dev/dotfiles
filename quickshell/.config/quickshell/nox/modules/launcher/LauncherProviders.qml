@@ -30,7 +30,7 @@ Singleton {
     })
     function url(id) {
         const f = registry[id];
-        if (!f) { console.warn("graphite: unknown launcher provider id:", id); return ""; }
+        if (!f) { console.warn("nox: unknown launcher provider id:", id); return ""; }
         return Qt.resolvedUrl("providers/" + f);
     }
 }

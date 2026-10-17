@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# graphite-hypr - check / (re)activate the Graphite Lua config of Hyprland.
+# nox hypr - check / (re)activate the Nox Lua config of Hyprland.
 #
-#   graphite-hypr status          what is running, what the next login will load
-#   graphite-hypr check           Hyprland --verify-config on the Lua entry (no side effects)
-#   graphite-hypr on [--live]     verify, then symlink hyprland.lua -> graphite.lua
-#   graphite-hypr off             REFUSES: there is no hyprland.conf to fall back to
+#   nox hypr status          what is running, what the next login will load
+#   nox hypr check           Hyprland --verify-config on the Lua entry (no side effects)
+#   nox hypr on [--live]     verify, then symlink hyprland.lua -> nox.lua
+#   nox hypr off             REFUSES: there is no hyprland.conf to fall back to
 #                                 any more (the ii-era .conf tree was removed on
 #                                 2026-10-17; Hyprland 0.57 drops .conf anyway)
 #
@@ -14,7 +14,7 @@
 # cached for the session: creating/removing hyprland.lua changes nothing until
 # Hyprland restarts or `hyprctl reload full-reset` (what --live runs).
 #
-# `on` only creates ONE thing: the symlink <hypr>/hyprland.lua -> graphite.lua
+# `on` only creates ONE thing: the symlink <hypr>/hyprland.lua -> nox.lua
 # (tracked in the dotfiles repo, so normally it already exists).
 # Without hyprland.lua (and without hyprland.conf) Hyprland would write and load
 # its own default config, so `off` no longer removes the link. To go back to the
@@ -25,16 +25,16 @@
 
 set -euo pipefail
 
-HYPR_DIR="${GRAPHITE_HYPR_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/hypr}"
-ENTRY_NAME="graphite.lua"
+HYPR_DIR="${NOX_HYPR_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/hypr}"
+ENTRY_NAME="nox.lua"
 ENTRY="$HYPR_DIR/$ENTRY_NAME"
 LINK="$HYPR_DIR/hyprland.lua"
 CONF="$HYPR_DIR/hyprland.conf"
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/graphite"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/nox"
 LOG="$STATE_DIR/hypr-switch.log"
 
 say() { printf '%s\n' "$*"; }
-die() { printf 'graphite-hypr: %s\n' "$*" >&2; exit 1; }
+die() { printf 'nox hypr: %s\n' "$*" >&2; exit 1; }
 
 log() {
     mkdir -p "$STATE_DIR"
@@ -96,20 +96,20 @@ do_status() {
     local st=0
     link_state || st=$?
     case $st in
-        0) say "hyprland.lua:      symlink -> $ENTRY_NAME  (Graphite ON for next start)";;
+        0) say "hyprland.lua:      symlink -> $ENTRY_NAME  (Nox ON for next start)";;
         1) if [[ -e "$CONF" ]]; then
-               say "hyprland.lua:      absent  (next start loads $CONF - NOT the Graphite config)"
+               say "hyprland.lua:      absent  (next start loads $CONF - NOT the Nox config)"
            else
-               say "hyprland.lua:      ABSENT and no hyprland.conf: next start loads Hyprland's generated default config! Fix: graphite-hypr on"
+               say "hyprland.lua:      ABSENT and no hyprland.conf: next start loads Hyprland's generated default config! Fix: nox hypr on"
            fi;;
-        2) say "hyprland.lua:      FOREIGN file/link, not managed by graphite-hypr: $(ls -l "$LINK")";;
+        2) say "hyprland.lua:      FOREIGN file/link, not managed by nox hypr: $(ls -l "$LINK")";;
     esac
     local ov
     ov="$(running_overrides)"
     [[ -n "$ov" ]] && say "WARNING:           $ov"
-    local tok="${XDG_STATE_HOME:-$HOME/.local/state}/graphite/tokens.lua"
-    if [[ -f "$tok" ]]; then say "tokens:            $tok"; else say "tokens:            (none) -> built-in defaults (graphite/defaults.lua)"; fi
-    [[ -f "$HYPR_DIR/graphite/local.lua" ]] && say "local overrides:   $HYPR_DIR/graphite/local.lua"
+    local tok="${XDG_STATE_HOME:-$HOME/.local/state}/nox/tokens.lua"
+    if [[ -f "$tok" ]]; then say "tokens:            $tok"; else say "tokens:            (none) -> built-in defaults (nox/defaults.lua)"; fi
+    [[ -f "$HYPR_DIR/nox/local.lua" ]] && say "local overrides:   $HYPR_DIR/nox/local.lua"
     [[ -f "$LOG" ]] && say "last switch:       $(tail -1 "$LOG")"
     return 0
 }
@@ -141,7 +141,7 @@ do_on() {
     if [[ "$live" == "--live" ]]; then
         live_reload
     else
-        say "Takes effect at the next Hyprland start (log out/in). Rollback: graphite-hypr off"
+        say "Takes effect at the next Hyprland start (log out/in). Rollback: nox hypr off"
     fi
 }
 
@@ -167,5 +167,5 @@ case "${1:-status}" in
     on) do_on "${2:-}" ;;
     off) do_off ;;
     -h|--help|help) sed -n '2,/^set -euo/{/^#/p}' "$0" | sed 's/^# \{0,1\}//' ;;
-    *) die "usage: graphite-hypr status|check|on [--live]|off" ;;
+    *) die "usage: nox hypr status|check|on [--live]|off" ;;
 esac

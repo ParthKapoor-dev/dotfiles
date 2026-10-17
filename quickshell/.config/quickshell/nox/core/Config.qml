@@ -4,13 +4,13 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// User shell config from ~/.config/graphite/shell.json (live reload).
+// User shell config from ~/.config/nox/shell.json (live reload).
 // `defaults` mirrors the shipped shell.json; user values are deep-merged over it
 // (arrays replace, objects merge).
 Singleton {
     id: root
 
-    // generated from graphite/.config/graphite/shell.json (keep in sync)
+    // generated from nox/.config/nox/shell.json (keep in sync)
     readonly property var defaults: ({
         "modules": {
             "bar": true,
@@ -564,9 +564,9 @@ Singleton {
                 const parsed = JSON.parse(text());
                 root.raw = parsed;
                 root.opt = root.merge(root.defaults, parsed);
-            } catch (e) { console.warn("graphite: shell.json parse error, keeping previous config:", e); }
+            } catch (e) { console.warn("nox: shell.json parse error, keeping previous config:", e); }
             root.loaded = true;
         }
-        onLoadFailed: err => { console.info("graphite: shell.json not loaded (" + err + "), using defaults"); root.loaded = true; }
+        onLoadFailed: err => { console.info("nox: shell.json not loaded (" + err + "), using defaults"); root.loaded = true; }
     }
 }

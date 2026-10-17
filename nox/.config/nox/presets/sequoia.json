@@ -1,6 +1,6 @@
 {
-  "_comment": "Preset overlay: Sequoia Graphite (the original macOS-like look: graphite greys, Apple blue, SF Pro, real glass).",
-  "name": "sequoia-graphite",
+  "_comment": "Preset overlay: Sequoia (the original macOS-like look: neutral greys, Apple blue, SF Pro, real glass).",
+  "name": "sequoia",
   "color": {
     "page": "#070708",
     "bg": "#1C1C1E",

@@ -1,4 +1,4 @@
--- Graphite Hyprland config: shared helpers.
+-- Nox Hyprland config: shared helpers.
 --
 -- Pure helpers + the context object every module receives. Nothing in here touches
 -- the compositor at require time; only functions called by modules do.
@@ -75,16 +75,16 @@ function C.state_dir()
     return C.HOME .. "/.local/state"
 end
 
--- defaults (graphite/defaults.lua) <- live tokens (~/.local/state/graphite/tokens.lua)
+-- defaults (nox/defaults.lua) <- live tokens (~/.local/state/nox/tokens.lua)
 function C.load_tokens()
-    local t = C.deepcopy(require("graphite.defaults"))
+    local t = C.deepcopy(require("nox.defaults"))
     local entry = C.state_dir() .. "/?.lua"
     if not package.path:find(entry, 1, true) then
         package.path = package.path .. ";" .. entry
     end
-    -- resolves to <state>/graphite/tokens.lua (nothing named graphite/tokens.lua
+    -- resolves to <state>/nox/tokens.lua (nothing named nox/tokens.lua
     -- exists in the config dir, so the config dir entries of package.path miss).
-    local live = C.optional_require("graphite.tokens")
+    local live = C.optional_require("nox.tokens")
     if type(live) == "table" then
         C.deepmerge(t, live)
         C.tokens_source = "live"

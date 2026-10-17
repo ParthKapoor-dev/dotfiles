@@ -7,8 +7,8 @@ import qs.services
 // Wallpapers (prefix "#"): every image under launcher.provider.wallpapers.directory (default
 // ~/Pictures), recursively; hidden folders are skipped and so is Screenshots (skipScreenshots).
 // Rows show the path relative to the directory with a thumbnail; Enter sets the wallpaper
-// (same as `graphite-wallpaper set`). Thumbnails are made lazily, one `magick` at a time and only
-// for listed rows, cached in ~/.cache/graphite/wallpaper-thumbs/<md5(path:mtime)>.png.
+// (same as `nox wallpaper set`). Thumbnails are made lazily, one `magick` at a time and only
+// for listed rows, cached in ~/.cache/nox/wallpaper-thumbs/<md5(path:mtime)>.png.
 // The listing (`find`) runs when the prefix is typed, at most every 10 s.
 Item {
     id: root
@@ -21,7 +21,7 @@ Item {
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string dir: String(options.directory ?? "~/Pictures").replace(/^~(?=\/|$)/, home).replace(/\/+$/, "")
-    readonly property string cacheDir: (Quickshell.env("XDG_CACHE_HOME") || home + "/.cache") + "/graphite/wallpaper-thumbs"
+    readonly property string cacheDir: (Quickshell.env("XDG_CACHE_HOME") || home + "/.cache") + "/nox/wallpaper-thumbs"
     property var files: []          // [{ path, rel, key }]
     property var have: ({})         // thumbnail keys already on disk
     property real loadedAt: 0

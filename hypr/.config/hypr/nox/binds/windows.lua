@@ -6,7 +6,7 @@
 -- disabled for the record:
 --   SUPER + Semicolon / Apostrophe -> splitratio -/+0.1 (jcode launchers own these keys)
 
-local L = require("graphite.layouts")
+local L = require("nox.layouts")
 
 return function(ctx)
     local C, S = ctx.core, ctx.settings
@@ -41,7 +41,7 @@ return function(ctx)
         { "SUPER + Semicolon", D.layout("splitratio -0.1"), repeating = true, desc = "Shrink split", enabled = false },
         { "SUPER + Apostrophe", D.layout("splitratio +0.1"), repeating = true, desc = "Grow split", enabled = false },
 
-        -- layout cycling through settings.layouts (graphite/layouts.lua); dwindle's
+        -- layout cycling through settings.layouts (nox/layouts.lua); dwindle's
         -- togglesplit moved from Super+\ to Super+Alt+\
         { "SUPER + Backslash", L.bind_fn(C, S, 1), desc = "Next layout" },
         { "SUPER + SHIFT + Backslash", L.bind_fn(C, S, -1), desc = "Previous layout" },

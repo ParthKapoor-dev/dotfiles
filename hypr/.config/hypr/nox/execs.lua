@@ -5,7 +5,7 @@
 
 return function(ctx)
     local C, S = ctx.core, ctx.settings
-    local shell = require("graphite.shells." .. S.shell)
+    local shell = require("nox.shells." .. S.shell)
 
     local cmds = {}
     local function add(list)

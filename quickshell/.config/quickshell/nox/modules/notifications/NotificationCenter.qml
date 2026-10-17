@@ -14,7 +14,7 @@ import qs.services
 // batteries card (laptop + Bluetooth devices that report a level). Every block is a card of the
 // same width and glass (tokens glass.cardAlpha: near-opaque, so a saturated wallpaper blurred
 // behind the layer can't tint them). Popup id "notifications" (clock click,
-// `qs -c graphite ipc call notifications toggle`).
+// `qs -c nox ipc call notifications toggle`).
 GPopup {
     id: nc
     readonly property var opts: Config.opt.notifications?.center ?? ({})

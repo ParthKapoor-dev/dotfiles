@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# graphite-wallpaper - choose the wallpaper for the Graphite shell
+# nox wallpaper - choose the wallpaper for the Nox shell
 # (replaces ii's wallpaper selector binds).
 #
-#   graphite-wallpaper pick [--all]     fuzzel list of every image under $GRAPHITE_WALLPAPER_DIR
+#   nox wallpaper pick [--all]     fuzzel list of every image under $NOX_WALLPAPER_DIR
 #                                        (default ~/Pictures), recursively, labelled by relative path
-#   graphite-wallpaper random [--all]   random image from that list
-#   graphite-wallpaper list [--all]     print the list (absolute paths)
-#   graphite-wallpaper set <path>
+#   nox wallpaper random [--all]   random image from that list
+#   nox wallpaper list [--all]     print the list (absolute paths)
+#   nox wallpaper set <path>
 # png/jpg/jpeg/webp/avif; hidden folders are skipped, and so is Screenshots unless --all.
 # The launcher has the same list with thumbnails: type "#" (provider "wallpapers").
-# The shell draws it: qs -c graphite ipc call wallpaper set <path>
+# The shell draws it: qs -c nox ipc call wallpaper set <path>
 
 set -uo pipefail
 
-dir="${GRAPHITE_WALLPAPER_DIR:-$(xdg-user-dir PICTURES 2>/dev/null || echo "$HOME/Pictures")}"
+dir="${NOX_WALLPAPER_DIR:-$(xdg-user-dir PICTURES 2>/dev/null || echo "$HOME/Pictures")}"
 dir="${dir%/}"
 all=0
 for a in "$@"; do [ "$a" = "--all" ] && all=1; done
@@ -27,9 +27,9 @@ list() {
 
 set_wp() {
     local p
-    p=$(realpath -e -- "$1" 2>/dev/null) || { echo "graphite-wallpaper: no such file: $1" >&2; exit 1; }
-    if ! qs -c graphite ipc call wallpaper set "$p" >/dev/null 2>&1; then
-        notify-send -a Wallpaper "Graphite shell is not running" "Could not set $(basename "$p")" >/dev/null 2>&1
+    p=$(realpath -e -- "$1" 2>/dev/null) || { echo "nox wallpaper: no such file: $1" >&2; exit 1; }
+    if ! qs -c nox ipc call wallpaper set "$p" >/dev/null 2>&1; then
+        notify-send -a Wallpaper "Nox shell is not running" "Could not set $(basename "$p")" >/dev/null 2>&1
         exit 1
     fi
 }
@@ -43,9 +43,9 @@ case "${1:-pick}" in
     list) list ;;
     random)
         f=$(list | shuf -n 1)
-        [ -n "$f" ] || { echo "graphite-wallpaper: no images in $dir" >&2; exit 1; }
+        [ -n "$f" ] || { echo "nox wallpaper: no images in $dir" >&2; exit 1; }
         set_wp "$f"
         ;;
-    set) set_wp "${2:?usage: graphite-wallpaper set <path>}" ;;
-    *) echo "usage: graphite-wallpaper pick|random|list [--all] | set <path>" >&2; exit 2 ;;
+    set) set_wp "${2:?usage: nox wallpaper set <path>}" ;;
+    *) echo "usage: nox wallpaper pick|random|list [--all] | set <path>" >&2; exit 2 ;;
 esac

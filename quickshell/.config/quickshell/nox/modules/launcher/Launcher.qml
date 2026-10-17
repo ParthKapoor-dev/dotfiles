@@ -14,7 +14,7 @@ import qs.services
 // Results come from pluggable providers (LauncherProviders registry; order/options in shell.json
 // launcher.providers + launcher.provider.<id>). Typing a provider's prefix ("=", "@", "/", ">")
 // queries only that provider. Keys: Up/Down, Tab/Shift+Tab, Ctrl+N/Ctrl+P, Enter, Esc.
-// Layer surface namespace graphite:launcher; it only exists while open.
+// Layer surface namespace nox:launcher; it only exists while open.
 Scope {
     id: root
     readonly property var opts: Config.opt.launcher ?? ({})
@@ -91,7 +91,7 @@ Scope {
         for (const run of runs) {
             let res;
             try { res = run.x.p.query(run.q, run.prefixed) ?? []; }
-            catch (e) { console.warn("graphite: launcher provider failed:", run.x.p.providerId, e); continue; }
+            catch (e) { console.warn("nox: launcher provider failed:", run.x.p.providerId, e); continue; }
             // by score; ties keep the provider's order
             res = res.map((it, i) => [it, i]).sort((a, b) => ((b[0].score ?? 0) - (a[0].score ?? 0)) || (a[1] - b[1]))
                      .map(x => x[0]).slice(0, run.x.limit);
@@ -118,10 +118,10 @@ Scope {
         if (!cur) return;
         if (cur.confirm && !confirming) { confirming = true; return; }
         Panels.launcherOpen = false;
-        try { cur.run(); } catch (e) { console.warn("graphite: launcher action failed:", e); }
+        try { cur.run(); } catch (e) { console.warn("nox: launcher action failed:", e); }
     }
 
-    // qs -c graphite ipc call launcher toggle | open | close | search "<text>" | results
+    // qs -c nox ipc call launcher toggle | open | close | search "<text>" | results
     IpcHandler {
         target: "launcher"
         function toggle(): void { Panels.launcherOpen = !Panels.launcherOpen; }
@@ -189,7 +189,7 @@ Scope {
             id: win
             screen: root.targetScreen
             color: "transparent"
-            WlrLayershell.namespace: "graphite:launcher"
+            WlrLayershell.namespace: "nox:launcher"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: root.open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
             exclusionMode: ExclusionMode.Ignore
@@ -366,7 +366,7 @@ Scope {
                                 GText {
                                     anchors.verticalCenter: parent.verticalCenter
                                     width: Math.min(implicitWidth, footLeft.width - 21)
-                                    text: "Graphite Launcher"; small: true; secondary: true
+                                    text: "Nox Launcher"; small: true; secondary: true
                                 }
                             }
                             Row {

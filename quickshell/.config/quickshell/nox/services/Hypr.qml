@@ -10,7 +10,7 @@ import Quickshell.Hyprland
 // read once from `hyprctl -j status` (configProvider "lua" | "hyprlang").
 Singleton {
     id: root
-    property bool lua: true            // assume Lua until detection says otherwise (graphite targets it)
+    property bool lua: true            // assume Lua until detection says otherwise (nox targets it)
     property bool ready: false
 
     function dispatch(legacy, luaExpr) { Hyprland.dispatch(lua ? luaExpr : legacy); }

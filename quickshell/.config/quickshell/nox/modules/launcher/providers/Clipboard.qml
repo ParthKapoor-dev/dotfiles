@@ -4,9 +4,9 @@ import Quickshell.Io
 import qs.core
 import qs.services
 
-// Clipboard history (cliphist). Prefix ":" (also `qs -c graphite ipc call launcher clipboard`).
+// Clipboard history (cliphist). Prefix ":" (also `qs -c nox ipc call launcher clipboard`).
 // Lists `cliphist list` (newest first) when the prefix is typed; image entries get thumbnails
-// decoded once into $XDG_RUNTIME_DIR/graphite/clip/. Enter = `cliphist decode <id> | wl-copy`,
+// decoded once into $XDG_RUNTIME_DIR/nox/clip/. Enter = `cliphist decode <id> | wl-copy`,
 // Shift+Delete = `cliphist delete` for that entry. Nothing runs until the provider is queried.
 // The store itself is filled by Hyprland: `wl-paste --watch cliphist store`.
 Item {
@@ -21,7 +21,7 @@ Item {
     property var entries: []                // [{ id, line, text, image: bool, ext, meta }]
     property var thumbs: ({})               // id -> file url
     property real loadedAt: 0
-    readonly property string thumbDir: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/graphite/clip"
+    readonly property string thumbDir: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/nox/clip"
 
     function refresh() { if (!lister.running) lister.running = true; }
 

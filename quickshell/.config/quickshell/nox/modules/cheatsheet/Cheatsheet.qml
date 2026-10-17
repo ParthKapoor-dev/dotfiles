@@ -15,7 +15,7 @@ import qs.components
 // (merged over the defaults below; keys "SUPER+SHIFT+Q", "#" = any digit 1-0). Binds with neither
 // are hidden unless cheatsheet.showUnlabeled. Same label + mods with digit keys merge to "1–0".
 // Groups: cheatsheet.groups { "<label>": "<group>" } overrides, else keyword heuristics.
-// Type to filter, Esc closes. `qs -c graphite ipc call cheatsheet toggle`.
+// Type to filter, Esc closes. `qs -c nox ipc call cheatsheet toggle`.
 Scope {
     id: root
     readonly property var opts: Config.opt.cheatsheet ?? ({})
@@ -101,7 +101,7 @@ Scope {
         stdout: StdioCollector {
             onStreamFinished: {
                 let list = [];
-                try { list = JSON.parse(text); } catch (e) { console.warn("graphite: cheatsheet: bad hyprctl output", e); return; }
+                try { list = JSON.parse(text); } catch (e) { console.warn("nox: cheatsheet: bad hyprctl output", e); return; }
                 const rows = [], byKey = {};
                 for (const b of list) {
                     if (b.submap && b.submap !== "global" && b.submap !== "") continue;
@@ -163,7 +163,7 @@ Scope {
             id: win
             screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
             color: "transparent"
-            WlrLayershell.namespace: "graphite:cheatsheet"
+            WlrLayershell.namespace: "nox:cheatsheet"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: root.open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
             exclusionMode: ExclusionMode.Ignore

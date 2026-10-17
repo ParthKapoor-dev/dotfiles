@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# graphite-dpms on|off|toggle [monitor] - screen power for hypridle and binds.
+# nox dpms on|off|toggle [monitor] - screen power for hypridle and binds.
 # Works under both Hyprland config providers:
-#   Lua (graphite.lua):   hyprctl dispatch 'hl.dsp.dpms({ action = "off" })'
+#   Lua (nox.lua):   hyprctl dispatch 'hl.dsp.dpms({ action = "off" })'
 #   legacy (hyprland.conf): hyprctl dispatch dpms off
 # (`hyprctl dispatch dpms off` is a Lua syntax error under the Lua config.)
 set -u
 action="${1:-toggle}"
 mon="${2:-}"
-case "$action" in on | off | toggle) ;; *) echo "usage: graphite-dpms on|off|toggle [monitor]" >&2; exit 2 ;; esac
+case "$action" in on | off | toggle) ;; *) echo "usage: nox dpms on|off|toggle [monitor]" >&2; exit 2 ;; esac
 
 if hyprctl -j status 2>/dev/null | grep -q '"configProvider": *"lua"'; then
     if [ -n "$mon" ]; then

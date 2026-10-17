@@ -1,5 +1,5 @@
 -- Bind group "apps": launchers. Port of `##! Apps` in hyprland/keybinds.conf
--- (launch_first_available.sh in graphite/scripts/ tries each in order).
+-- (launch_first_available.sh in nox/scripts/ tries each in order).
 -- Super+X (text editor) is overridden in binds/custom.lua (2026-10-17 Fixes).
 
 return function(ctx)

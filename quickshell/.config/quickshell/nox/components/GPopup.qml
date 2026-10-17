@@ -6,7 +6,7 @@ import Quickshell.Wayland
 import Quickshell.Hyprland
 import qs.core
 
-// Glass popover on its own layer surface (namespace graphite:popup so Hyprland can blur it).
+// Glass popover on its own layer surface (namespace nox:popup so Hyprland can blur it).
 // - open state lives in Panels.popup (one popup at a time); the window only exists while shown
 // - closes on outside click (HyprlandFocusGrab; bar windows are included so bar buttons
 //   switch popups in one click) and on Esc
@@ -36,7 +36,7 @@ Scope {
     property bool fillHeight: false         // panel spans the screen height (Notification Center)
     property bool bare: false               // no glass body (content draws its own cards)
     property real radius: align === "right" || align === "left" ? Theme.radiusPanel + 2 : Theme.radiusMenu
-    property string namespace: "graphite:popup"
+    property string namespace: "nox:popup"
     property Component content
     property ShellScreen screen: anchorItem?.QsWindow.window?.screen ?? Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
     readonly property alias window: loader.item

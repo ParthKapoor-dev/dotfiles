@@ -4,7 +4,7 @@ import qs.components
 import qs.services
 
 // Current Hyprland layout as a compact glyph (dwindle = Tiling, scrolling, master, monocle).
-// Click = next layout, right click = previous (`graphite-layout next|prev`); hover shows the name.
+// Click = next layout, right click = previous (`nox layout next|prev`); hover shows the name.
 // widgets.layout.showLabel: "hover" (default) | "always" | "never"
 BarButton {
     id: root

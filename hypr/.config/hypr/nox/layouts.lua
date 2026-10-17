@@ -10,9 +10,9 @@
 --
 -- Runtime entry points (same logic everywhere):
 --   binds      -> L.step(S, +1 / -1)                      (in-process)
---   CLI        -> graphite-layout next|prev|set <n>|get
---                 = hyprctl eval 'graphite_layout("next")'  (global installed below)
--- After every change the shell is told: qs -c graphite ipc call layout changed <name>
+--   CLI        -> nox layout next|prev|set <n>|get
+--                 = hyprctl eval 'nox_layout("next")'  (global installed below)
+-- After every change the shell is told: qs -c nox ipc call layout changed <name>
 --
 -- Persistence: the choice survives config reloads (the config auto-reloads on
 -- every file change, including theme token updates) through a file in
@@ -37,7 +37,7 @@ end
 function L.state_file()
     local rt = os.getenv("XDG_RUNTIME_DIR")
     if not rt or rt == "" then return nil end
-    return rt .. "/graphite-hypr-layout"
+    return rt .. "/nox-layout"
 end
 
 local function index_of(list, name)
@@ -80,10 +80,10 @@ function L.current()
     return "dwindle"
 end
 
--- shell notification; the IPC name lives in the API table of shells/graphite.lua
+-- shell notification; the IPC name lives in the API table of shells/nox.lua
 local function notify_cmd(name)
-    local ok, gp = pcall(require, "graphite.shells.graphite")
-    local qs = ok and type(gp) == "table" and gp.QS or "qs -c graphite"
+    local ok, gp = pcall(require, "nox.shells.nox")
+    local qs = ok and type(gp) == "table" and gp.QS or "qs -c nox"
     local call = ok and type(gp) == "table" and gp.IPC and gp.IPC.layout_changed or "layout changed"
     return string.format("%s ipc call %s %s >/dev/null 2>&1", qs, call, name)
 end
@@ -96,8 +96,8 @@ function L.set(S, name)
     hl.exec_cmd(notify_cmd(name))
     if S.layout_hud ~= false then
         local label = (S.layout_labels or {})[name] or name
-        local ok, gp = pcall(require, "graphite.shells.graphite")
-        local qs = ok and type(gp) == "table" and gp.QS or "qs -c graphite"
+        local ok, gp = pcall(require, "nox.shells.nox")
+        local qs = ok and type(gp) == "table" and gp.QS or "qs -c nox"
         hl.exec_cmd(string.format("%s ipc call hud show '%s' >/dev/null 2>&1", qs, label:gsub("'", "")))
     end
     return name
@@ -120,10 +120,10 @@ function L.bind_fn(C, S, delta)
     return C.fn("layout " .. (delta > 0 and "next" or "prev"), function() L.step(S, delta) end)
 end
 
--- global for `hyprctl eval` (graphite-layout CLI). Returns the active layout name.
---   graphite_layout("next" | "prev" | "get")   graphite_layout("set", "master")
+-- global for `hyprctl eval` (nox layout CLI). Returns the active layout name.
+--   nox_layout("next" | "prev" | "get")   nox_layout("set", "master")
 function L.install_global(S)
-    _G.graphite_layout = function(cmd, arg)
+    _G.nox_layout = function(cmd, arg)
         if cmd == "next" then return L.step(S, 1) end
         if cmd == "prev" then return L.step(S, -1) end
         if cmd == "set" then

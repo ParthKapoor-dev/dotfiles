@@ -12,7 +12,7 @@ import qs.services
 // cosine magnification, running indicators, tooltip, context menu, Downloads/Trash stacks.
 // dock.autohide (default true): no reserved space; a 3px hot strip under the shelf reveals it after
 // 150 ms, it hides 400 ms after the pointer leaves (not while its menu is open); slides with the
-// sheet curve. `qs -c graphite ipc call dock toggle|open|close` reveals/hides it.
+// sheet curve. `qs -c nox ipc call dock toggle|open|close` reveals/hides it.
 // Without autohide it reserves its height (dock.reserveSpace) like the mock's tiling area.
 // The layer surface is full width but its input mask is only the shelf (or the hot strip).
 Variants {
@@ -79,7 +79,7 @@ Variants {
             return x + 2 + size / 2;
         }
 
-        WlrLayershell.namespace: "graphite:dock"
+        WlrLayershell.namespace: "nox:dock"
         WlrLayershell.layer: WlrLayer.Top
         anchors { bottom: true; left: true; right: true }
         exclusionMode: ExclusionMode.Normal

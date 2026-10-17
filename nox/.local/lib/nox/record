@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# graphite-record - toggle a screen recording (wf-recorder). Replaces ii's
+# nox record - toggle a screen recording (wf-recorder). Replaces ii's
 # scripts/videos/record.sh without its config.json dependency.
 #
-#   graphite-record [--fullscreen] [--sound]
+#   nox record [--fullscreen] [--sound]
 #     default       select a region (slurp)
 #     --fullscreen  the focused monitor
 #     --sound       also record the default sink's monitor (desktop audio)
 # Running it while a recording is active stops the recording.
-# Output: $GRAPHITE_RECORD_DIR or ~/Videos/recording_<date>.mp4
+# Output: $NOX_RECORD_DIR or ~/Videos/recording_<date>.mp4
 
 set -uo pipefail
 
@@ -22,11 +22,11 @@ for a in "$@"; do
     case "$a" in
         --fullscreen) full=1 ;;
         --sound) sound=1 ;;
-        *) echo "usage: graphite-record [--fullscreen] [--sound]" >&2; exit 2 ;;
+        *) echo "usage: nox record [--fullscreen] [--sound]" >&2; exit 2 ;;
     esac
 done
 
-dir="${GRAPHITE_RECORD_DIR:-$(xdg-user-dir VIDEOS 2>/dev/null || echo "$HOME/Videos")}"
+dir="${NOX_RECORD_DIR:-$(xdg-user-dir VIDEOS 2>/dev/null || echo "$HOME/Videos")}"
 mkdir -p "$dir"
 f="$dir/recording_$(date '+%Y-%m-%d_%H.%M.%S').mp4"
 

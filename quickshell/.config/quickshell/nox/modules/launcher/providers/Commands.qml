@@ -62,7 +62,7 @@ Item {
                         const f = root.builtins[it.action];
                         if (f) f();
                         else if (Actions.has(it.action)) Actions.run(it.action);
-                        else console.warn("graphite: unknown launcher action", it.action);
+                        else console.warn("nox: unknown launcher action", it.action);
                     }
                     else if (it.command) Quickshell.execDetached(it.command);
                 }

@@ -2,7 +2,7 @@
 -- Port of hyprland/general.conf (input, gestures, misc, binds, cursor, dwindle,
 -- xwayland, non-look `general` keys) + custom/general.conf (misc.vrr).
 
-local layouts = require("graphite.layouts")
+local layouts = require("nox.layouts")
 
 return function(ctx)
     local S = ctx.settings
@@ -36,7 +36,7 @@ return function(ctx)
             resize_on_border = true,
             no_focus_fallback = true,
             allow_tearing = true, -- lets the `immediate` window rule work
-            -- first of settings.layouts, or the session's last choice (graphite/layouts.lua)
+            -- first of settings.layouts, or the session's last choice (nox/layouts.lua)
             layout = layouts.initial(S),
         },
 
@@ -82,7 +82,7 @@ return function(ctx)
         },
     })
 
-    -- `hyprctl eval 'graphite_layout("next")'` entry point for bin/graphite-layout
+    -- `hyprctl eval 'nox_layout("next")'` entry point for nox layout
     layouts.install_global(S)
 
     -- Trackpad gestures. Shell-specific gestures (overview) come from the shell profile.
@@ -91,7 +91,7 @@ return function(ctx)
         { fingers = 3, direction = "pinch", action = "float" },
         { fingers = 4, direction = "horizontal", action = "workspace" },
     }
-    local shell = require("graphite.shells." .. S.shell)
+    local shell = require("nox.shells." .. S.shell)
     for _, g in ipairs(shell.gestures or {}) do gestures[#gestures + 1] = g end
     for _, g in ipairs(gestures) do hl.gesture(g) end
 end

@@ -8,7 +8,7 @@ import qs.components
 import qs.services
 
 // Notification popups (banners): glass cards stacked at a screen corner, newest on top.
-// Own layer surface, namespace graphite:notifications; it only exists while a popup is shown.
+// Own layer surface, namespace nox:notifications; it only exists while a popup is shown.
 // Pointer over the stack pauses all timeouts. shell.json notifications.{position,width,screen}.
 Scope {
     id: root
@@ -25,7 +25,7 @@ Scope {
             id: win
             screen: Config.screensFor(root.opts.screen ? [root.opts.screen] : [])[0] ?? Quickshell.screens[0] ?? null
             color: "transparent"
-            WlrLayershell.namespace: "graphite:notifications"
+            WlrLayershell.namespace: "nox:notifications"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
             // mock #banners: bar + 8px, 10px from the screen edge. Layer margins can't be negative,

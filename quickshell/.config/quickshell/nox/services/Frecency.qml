@@ -3,7 +3,7 @@ import QtQuick
 import Quickshell
 import qs.core
 
-// Launch history for the launcher, in ~/.local/state/graphite/launcher.json:
+// Launch history for the launcher, in ~/.local/state/nox/launcher.json:
 //   { "<namespace>": { "<key>": { "n": launches, "t": last launch (ms epoch) } } }
 // score() = log2(1 + n) weighted by recency; namespaces keep providers apart ("apps", "commands", ...).
 Singleton {

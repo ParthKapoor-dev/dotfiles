@@ -5,8 +5,8 @@ import Quickshell
 import Quickshell.Io
 
 // Design tokens, live-reloaded. Source order:
-//   1. $XDG_STATE_HOME/graphite/tokens.json  (merged base + preset, written by `graphite-theme switch <look>`)
-//   2. ~/.config/graphite/tokens.json        (base tokens, if the merged file is missing/broken)
+//   1. $XDG_STATE_HOME/nox/tokens.json  (merged base + preset, written by `nox theme switch <look>`)
+//   2. ~/.config/nox/tokens.json        (base tokens, if the merged file is missing/broken)
 //   3. `fallback` below                       (mirrors the base tokens.json minus _comment keys; also fills missing keys)
 // Never rename keys here without renaming them in tokens.json (other tools read the same file).
 Singleton {
@@ -208,7 +208,7 @@ Singleton {
     function white(a) { return rgba(t.color.label, a); }
 
     property var merged: null     // parsed state file (preset applied)
-    property var base: null       // parsed ~/.config/graphite/tokens.json
+    property var base: null       // parsed ~/.config/nox/tokens.json
     property var t: merge(fallback, merged ?? base ?? {})
 
     FileView {
@@ -219,7 +219,7 @@ Singleton {
         onFileChanged: reload()
         onLoaded: {
             try { root.merged = JSON.parse(text()); }
-            catch (e) { console.warn("graphite: merged tokens unreadable, using base tokens.json:", e); root.merged = null; }
+            catch (e) { console.warn("nox: merged tokens unreadable, using base tokens.json:", e); root.merged = null; }
         }
         onLoadFailed: root.merged = null
     }
@@ -230,9 +230,9 @@ Singleton {
         onFileChanged: reload()
         onLoaded: {
             try { root.base = JSON.parse(text()); }
-            catch (e) { console.warn("graphite: tokens.json parse error, keeping previous tokens:", e); }
+            catch (e) { console.warn("nox: tokens.json parse error, keeping previous tokens:", e); }
         }
-        onLoadFailed: err => console.info("graphite: tokens.json not loaded (" + err + "), using built-in fallback")
+        onLoadFailed: err => console.info("nox: tokens.json not loaded (" + err + "), using built-in fallback")
     }
 
     // ---- colors ----

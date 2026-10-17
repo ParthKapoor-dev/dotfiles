@@ -10,7 +10,7 @@ import qs.services
 // ("darkMode" = old id of "look").
 // Look replaces the mock's "Dark Mode (locked)": the shell is dark-only, so a tile that can never
 // change was dead weight. It shows the current look and switches to the next one in
-// controlCenter.looks (presets for `theme switch`; "default" = the base Ember tokens).
+// controlCenter.looks (presets for `nox theme switch`; "default" = the base Ember tokens).
 Item {
     id: root
     readonly property var ids: Config.opt.controlCenter?.tiles ?? ["screenshot", "record", "look", "lock"]
@@ -28,8 +28,8 @@ Item {
     function title(s) { return s.split(/[-_ ]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" "); }
     function switchLook() {
         Panels.hud("Look: " + title(lookName(nextLook)), "sparkle");
-        // `theme` lives in ~/.local/bin, which may not be on the shell's PATH
-        Quickshell.execDetached(["sh", "-c", "if command -v theme >/dev/null 2>&1; then exec theme switch \"$1\"; else exec \"$HOME/.local/bin/theme\" switch \"$1\"; fi", "sh", nextLook]);
+        // `nox` lives in ~/.local/bin, which may not be on the shell's PATH
+        Quickshell.execDetached(["sh", "-c", "if command -v nox >/dev/null 2>&1; then exec nox theme switch \"$1\"; else exec \"$HOME/.local/bin/nox\" theme switch \"$1\"; fi", "sh", nextLook]);
     }
 
     readonly property var defs: ({

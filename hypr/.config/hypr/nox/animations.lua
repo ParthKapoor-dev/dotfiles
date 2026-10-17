@@ -10,7 +10,7 @@ return function(ctx)
     local M, H = T.motion, T.hypr
 
     -- curve token name -> Hyprland bezier name
-    local curves = { ease = "graphiteEase", sheet = "graphiteSheet", snap = "graphiteSnap" }
+    local curves = { ease = "noxEase", sheet = "noxSheet", snap = "noxSnap" }
     for tok, name in pairs(curves) do
         local p = M[tok]
         hl.curve(name, { type = "bezier", points = { { p[1], p[2] }, { p[3], p[4] } } })

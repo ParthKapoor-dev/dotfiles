@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""theme: render Graphite design tokens into per-app theme files.
+"""nox theme: render Nox design tokens into per-app theme files.
 
 Pipeline:  tokens.json  <- presets/<name>.json  <- local.json   (deep merge, later wins)
            targets.json lists {template, output, apply hooks, enabled}
-           render -> ~/.local/state/graphite/out/...   (never touches app configs)
+           render -> ~/.local/state/nox/out/...   (never touches app configs)
            diff   -> what `apply` would change in live app configs
-           apply  -> run hooks, backups in ~/.local/state/graphite/backup/<ts>/
+           apply  -> run hooks, backups in ~/.local/state/nox/backup/<ts>/
            revert -> restore the most recent (or given) backup
 
 Template syntax:  {{ path.to.token | filter | filter(arg, arg) }}
@@ -20,11 +20,15 @@ Python 3 stdlib only.
 import argparse, datetime, difflib, json, os, re, shutil, subprocess, sys
 
 HOME = os.path.expanduser("~")
-STATE = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.join(HOME, ".local/state")), "graphite")
+STATE = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.join(HOME, ".local/state")), "nox")
 OUT = os.path.join(STATE, "out")
 BACKUP = os.path.join(STATE, "backup")
-CONF = os.environ.get("GRAPHITE_CONFIG") or os.path.normpath(
-    os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../.config/graphite"))
+# config dir: $NOX_CONFIG, else the package's own .config/nox next to this file
+# (<pkg>/.local/lib/nox/theme -> <pkg>/.config/nox; works from a worktree and via
+# the stow link), else $XDG_CONFIG_HOME/nox.
+_PKG_CONF = os.path.normpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../../.config/nox"))
+CONF = os.environ.get("NOX_CONFIG") or (_PKG_CONF if os.path.isdir(_PKG_CONF) else os.path.join(
+    os.environ.get("XDG_CONFIG_HOME", os.path.join(HOME, ".config")), "nox"))
 
 
 class ThemeError(Exception):
@@ -55,7 +59,7 @@ def load_tokens(preset=None):
     tokens = load_json(os.path.join(CONF, "tokens.json"))
     local_path = os.path.join(CONF, "local.json")
     local = load_json(local_path) if os.path.exists(local_path) else {}
-    preset = preset or os.environ.get("GRAPHITE_PRESET") or local.pop("_preset", None)
+    preset = preset or os.environ.get("NOX_PRESET") or local.pop("_preset", None)
     local.pop("_preset", None)
     if preset:
         p = os.path.join(CONF, "presets", preset + ".json")
@@ -501,7 +505,7 @@ def cmd_apply(targets, rendered):
     for p, text in f.items():
         os.makedirs(os.path.dirname(p), exist_ok=True)
         mode = os.stat(p).st_mode & 0o7777 if os.path.exists(p) else None
-        tmp = p + ".graphite-tmp"
+        tmp = p + ".nox-tmp"
         with open(tmp, "w") as fh:
             fh.write(text)
         if mode is not None:
@@ -517,13 +521,13 @@ def cmd_apply(targets, rendered):
     for s, k, v, _ in g:
         subprocess.run(["gsettings", "set", s, k, v], check=True)
         print("gsettings", s, k, v)
-    print(f"backup: {bdir}\nrevert with: theme revert")
+    print(f"backup: {bdir}\nrevert with: nox theme revert")
     return 0
 
 
 def cmd_revert(which=None):
     if which is None:
-        # no name: undo every applied backup, newest first -> exact pre-graphite state
+        # no name: undo every applied backup, newest first -> exact pre-nox state
         rc = 0
         while os.path.isdir(BACKUP) and any(not d.endswith(".reverted") for d in os.listdir(BACKUP)):
             rc |= _revert_one(None)
@@ -566,7 +570,7 @@ def _revert_one(which=None):
 
 
 def applied():
-    """True while theme apply is in effect (an un-reverted backup exists)."""
+    """True while nox theme apply is in effect (an un-reverted backup exists)."""
     return os.path.isdir(BACKUP) and any(not d.endswith(".reverted") for d in os.listdir(BACKUP))
 
 
@@ -586,7 +590,7 @@ def set_local_preset(name):
     if not local and os.path.exists(path):
         os.remove(path)
         return
-    tmp = path + ".graphite-tmp"
+    tmp = path + ".nox-tmp"
     with open(tmp, "w") as fh:
         json.dump(local, fh, indent=2)
         fh.write("\n")
@@ -616,14 +620,14 @@ def cmd_switch(name):
         cmd_apply(targets, rendered)
         reload_apps(targets)
     else:
-        print("rendered only (themes not applied yet; run theme apply to hook apps in)")
+        print("rendered only (themes not applied yet; run nox theme apply to hook apps in)")
     return 0
 
 
 # ---------------------------------------------------------------- CLI
 def main():
-    ap = argparse.ArgumentParser(prog="theme", description=__doc__.split("\n")[0])
-    ap.add_argument("--preset", help="overlay presets/<NAME>.json (default: $GRAPHITE_PRESET or local.json _preset)")
+    ap = argparse.ArgumentParser(prog="nox theme", description=__doc__.split("\n")[0])
+    ap.add_argument("--preset", help="overlay presets/<NAME>.json (default: $NOX_PRESET or local.json _preset)")
     ap.add_argument("--only", help="comma-separated target names (also selects disabled targets)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("render", help="render templates into " + OUT)
@@ -632,7 +636,7 @@ def main():
     sub.add_parser("apply", help="hook outputs into app configs (with backup)")
     sw = sub.add_parser("switch", help="switch look: switch <preset>|default (persists in local.json, re-renders, re-applies if applied)")
     sw.add_argument("name", nargs="?")
-    rv = sub.add_parser("revert", help="undo apply: all backups (back to pre-graphite), or one named backup")
+    rv = sub.add_parser("revert", help="undo apply: all backups (back to pre-nox), or one named backup")
     rv.add_argument("backup", nargs="?")
     sub.add_parser("targets", help="list targets")
     g = sub.add_parser("get", help="print one token, e.g. get color.accent | hex")
@@ -640,9 +644,9 @@ def main():
     argv = sys.argv[1:]
     cmds = {"render", "check", "diff", "apply", "revert", "targets", "get", "switch", "-h", "--help", "--preset", "--only"}
     if not argv:
-        argv = ["switch"]                      # `theme` alone: list looks
+        argv = ["switch"]                      # `nox theme` alone: list looks
     elif argv[0] not in cmds and not argv[0].startswith("-"):
-        argv = ["switch"] + argv               # `theme ember` == `theme switch ember`
+        argv = ["switch"] + argv               # `nox theme ember` == `nox theme switch ember`
     a = ap.parse_args(argv)
     try:
         if a.cmd == "revert":
@@ -686,7 +690,7 @@ def main():
         if a.cmd == "apply":
             return cmd_apply(targets, rendered)
     except ThemeError as e:
-        print("theme:", e, file=sys.stderr)
+        print("nox theme:", e, file=sys.stderr)
         return 1
 
 

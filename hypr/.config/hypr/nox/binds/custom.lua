@@ -8,9 +8,9 @@ return function(ctx)
 
     return {
         -- ##! User
-        { "CTRL + SUPER + Slash", X("xdg-open ~/.config/graphite/shell.json"), desc = "Edit shell config" },
+        { "CTRL + SUPER + Slash", X("xdg-open ~/.config/nox/shell.json"), desc = "Edit shell config" },
         -- was custom/keybinds.conf; now opens this file
-        { "CTRL + SUPER + ALT + Slash", X("xdg-open ~/.config/hypr/graphite/binds/custom.lua"), desc = "Edit custom keybinds" },
+        { "CTRL + SUPER + ALT + Slash", X("xdg-open ~/.config/hypr/nox/binds/custom.lua"), desc = "Edit custom keybinds" },
 
         -- ##! Monitors (dual-monitor)
         { "SUPER + ALT + Right", D.workspace.move({ monitor = "+1" }), desc = "Move desktop to next monitor" },
@@ -21,10 +21,10 @@ return function(ctx)
         -- Text editor: same window as the `nv` shell function
         { "SUPER + X", X("ghostty --gtk-single-instance=false --class=dev.neovim --title=nvim --config-file=\"" .. C.HOME .. "/.config/nvim/ghostty.conf\" -e nvim"), desc = "Open Neovim" },
 
-        -- ##! Graphite shell
-        { "SUPER + Slash", X("qs -c graphite ipc call cheatsheet toggle"), desc = "Show keyboard shortcuts" },
-        { "SUPER + Space", X("qs -c graphite ipc call launcher toggle"), desc = "Open launcher" }, -- Spotlight-style
-        { "SUPER + ALT + N", X("qs -c graphite ipc call controlCenter toggle"), desc = "Open Control Center" },
+        -- ##! Nox shell
+        { "SUPER + Slash", X("qs -c nox ipc call cheatsheet toggle"), desc = "Show keyboard shortcuts" },
+        { "SUPER + Space", X("qs -c nox ipc call launcher toggle"), desc = "Open launcher" }, -- Spotlight-style
+        { "SUPER + ALT + N", X("qs -c nox ipc call controlCenter toggle"), desc = "Open Control Center" },
 
     }
 end

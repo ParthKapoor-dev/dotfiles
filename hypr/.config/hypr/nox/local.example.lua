@@ -1,17 +1,17 @@
--- Machine-specific overrides. Copy to graphite/local.lua (it is optional and
+-- Machine-specific overrides. Copy to nox/local.lua (it is optional and
 -- ignored when missing; it is hot-reloaded like every other module).
 --
 -- All three fields are optional.
 return {
-    -- merged over graphite/settings.lua BEFORE any module runs
+    -- merged over nox/settings.lua BEFORE any module runs
     settings = {
-        -- shell = "graphite",                       -- swap env + autostart + shell binds
+        -- shell = "nox",                       -- swap env + autostart + shell binds
         -- bind_groups = { "shell", "windows", "workspaces", "system", "apps", "custom" },
         -- disabled_modules = { "animations" },
         -- bind_submap = false,                      -- binds in the default submap (no catchall)
     },
 
-    -- merged over the tokens (defaults <- ~/.local/state/graphite/tokens.lua)
+    -- merged over the tokens (defaults <- ~/.local/state/nox/tokens.lua)
     tokens = {
         -- hypr = { dimInactive = true, blurSpecial = false },
         -- size = { gapsOut = 6 },

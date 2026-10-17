@@ -6,12 +6,12 @@ import Quickshell.Wayland
 import Quickshell.Hyprland
 import qs.core
 
-// Rounded screen corners: four tiny overlay surfaces (namespace graphite:corners, no input), each
+// Rounded screen corners: four tiny overlay surfaces (namespace nox:corners, no input), each
 // a black quarter-circle mask of radius tokens size.screenCorner (0 = off). Hidden on fullscreen
 // workspaces (corners.hideOnFullscreen).
 // The four windows come from a nested Variants, not a Repeater: a Repeater only instantiates
 // Item delegates inside a parent Item, so with a PanelWindow delegate inside a Scope it created
-// nothing (no graphite:corners layer at all). Fullscreen hides them (visible) instead of
+// nothing (no nox:corners layer at all). Fullscreen hides them (visible) instead of
 // destroying and re-creating the surfaces on every fullscreen toggle.
 Variants {
     model: Theme.screenCorner > 0 ? Quickshell.screens : []
@@ -31,7 +31,7 @@ Variants {
                 readonly property real r: Theme.screenCorner
                 screen: scr.modelData
                 visible: !scr.hidden
-                WlrLayershell.namespace: "graphite:corners"
+                WlrLayershell.namespace: "nox:corners"
                 WlrLayershell.layer: WlrLayer.Overlay
                 WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
                 exclusionMode: ExclusionMode.Ignore

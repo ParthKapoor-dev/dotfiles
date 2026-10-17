@@ -8,10 +8,10 @@ import qs.core
 import qs.components
 import qs.services
 
-// Power menu (namespace graphite:session): dimmed full screen, a row of glass tiles (Lock,
+// Power menu (namespace nox:session): dimmed full screen, a row of glass tiles (Lock,
 // Log Out, Sleep, Restart, Shut Down; shell.json session.items). Destructive items
 // (session.confirm) need a second click / Enter: the tile turns red and asks again.
-// Keys: ←/→/Tab, Enter, Esc, or the first letter. `qs -c graphite ipc call session toggle`.
+// Keys: ←/→/Tab, Enter, Esc, or the first letter. `qs -c nox ipc call session toggle`.
 Scope {
     id: root
     readonly property bool open: Panels.sessionOpen
@@ -49,7 +49,7 @@ Scope {
             id: win
             screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
             color: "transparent"
-            WlrLayershell.namespace: "graphite:session"
+            WlrLayershell.namespace: "nox:session"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: root.open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
             exclusionMode: ExclusionMode.Ignore

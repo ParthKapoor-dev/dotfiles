@@ -16,7 +16,7 @@ Singleton {
     })
     function url(id) {
         const f = registry[id];
-        if (!f) { console.warn("graphite: unknown control center section id:", id); return ""; }
+        if (!f) { console.warn("nox: unknown control center section id:", id); return ""; }
         return Qt.resolvedUrl("sections/" + f);
     }
 }

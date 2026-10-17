@@ -78,7 +78,7 @@ Singleton {
             for (const field of ["appName", "summary", "body", "desktopEntry"]) {
                 if (r[field] === undefined) continue;
                 try { if (!new RegExp(r[field], "i").test(n[field] ?? "")) { ok = false; break; } }
-                catch (e) { console.warn("graphite: bad notification rule regex:", r[field]); ok = false; break; }
+                catch (e) { console.warn("nox: bad notification rule regex:", r[field]); ok = false; break; }
             }
             if (ok) Object.assign(out, r);
         }

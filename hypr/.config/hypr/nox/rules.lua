@@ -62,7 +62,7 @@ return function(ctx)
 
     for _, r in ipairs(window_rules) do hl.window_rule(r) end
 
-    -- Old ii look: no shadow on tiled windows. Graphite shows focus with the shadow,
+    -- Old ii look: no shadow on tiled windows. Nox shows focus with the shadow,
     -- so this is off unless tokens.hypr.tiledShadows == false.
     if T.hypr.tiledShadows == false then
         hl.window_rule({ match = { float = false }, no_shadow = true })
@@ -77,7 +77,7 @@ return function(ctx)
     hl.layer_rule({ match = { namespace = ".*" }, xray = true })
 
     for _, name in ipairs(S.layer_rule_shells) do
-        local shell = require("graphite.shells." .. name)
+        local shell = require("nox.shells." .. name)
         local rules = shell.layer_rules
         if type(rules) == "function" then rules = rules(ctx) end
         for _, r in ipairs(rules or {}) do hl.layer_rule(r) end

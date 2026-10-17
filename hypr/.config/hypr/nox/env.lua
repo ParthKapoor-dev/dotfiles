@@ -37,7 +37,7 @@ return function(ctx)
     env[#env + 1] = { "XCURSOR_THEME", cursor }
     env[#env + 1] = { "XCURSOR_SIZE", tostring(ctx.cursor.size) }
 
-    local shell = require("graphite.shells." .. S.shell)
+    local shell = require("nox.shells." .. S.shell)
     for _, kv in ipairs(shell.env or {}) do env[#env + 1] = kv end
 
     for _, kv in ipairs(env) do
