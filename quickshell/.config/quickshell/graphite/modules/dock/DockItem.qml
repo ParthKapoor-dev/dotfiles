@@ -51,7 +51,7 @@ Item {
         mipmap: true
         scale: root.norm
         // tokens ui.dockIcons = "monochrome-until-running"
-        readonly property bool mono: Theme.dockIcons === "monochrome-until-running" && !root.running && !root.item?.stack
+        readonly property bool mono: Theme.dockIcons === "monochrome-until-running" && !root.running
         opacity: mouse.pressed ? 0.7 : 1
         layer.enabled: mono && !mouse.containsMouse
         layer.effect: MultiEffect { saturation: -1; brightness: -0.08 }

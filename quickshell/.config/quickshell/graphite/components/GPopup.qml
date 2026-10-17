@@ -101,7 +101,7 @@ Scope {
                 anchors.fill: body
                 radius: body.radius
                 offset.y: 22; blur: 56; spread: -8
-                color: Theme.rgba("#000000", 0.55)
+                color: Theme.rgba("#000000", 0.42)
                 opacity: body.opacity
             }
             RectangularShadow {

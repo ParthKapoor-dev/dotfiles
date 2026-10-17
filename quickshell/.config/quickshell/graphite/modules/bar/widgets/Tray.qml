@@ -29,7 +29,10 @@ Item {
         popup.anchorItem = anchor;
         Panels.open(popupId);
     }
-    function nameOf(it) { return it.title || it.id || it.tooltipTitle; }
+    function nameOf(it) {
+        const generic = t => !t || /status_icon|^tray|^[a-z]+_\d+$/i.test(t);
+        return !generic(it.title) ? it.title : (it.tooltipTitle || it.title || it.id);
+    }
 
     BarButton {
         id: btn

@@ -212,7 +212,7 @@ Scope {
                     // ---- input (mock .ln-in) ----
                     Item {
                         width: parent.width; height: 56
-                        GIcon { id: glass; x: 18; anchors.verticalCenter: parent.verticalCenter; name: "search"; size: 22; color: Theme.label2 }
+                        Glyph { id: glass; x: 18; anchors.verticalCenter: parent.verticalCenter; name: "search"; size: 22; color: Theme.label2 }
                         TextInput {
                             id: input
                             anchors.left: glass.right; anchors.leftMargin: 12
@@ -221,8 +221,10 @@ Scope {
                             color: Theme.label
                             selectionColor: Theme.accent
                             selectedTextColor: Theme.onAccent
-                            font.family: Theme.fontDisplay
-                            font.pixelSize: Theme.fontSizeLarge
+                            // Telemetry: mono 18px input (mock .ln-in input)
+                            readonly property bool mono: Theme.square && Theme.labelsMono
+                            font.family: mono ? Theme.fontLabel : Theme.fontDisplay
+                            font.pixelSize: mono ? 18 : Theme.fontSizeLarge
                             clip: true
                             focus: true
                             onTextEdited: { root.text = text; root.search(); }
@@ -238,8 +240,8 @@ Scope {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: root.opts.placeholder ?? "Search"
                                 color: Theme.label3
-                                font.family: Theme.fontDisplay
-                                font.pixelSize: Theme.fontSizeLarge
+                                font.family: input.font.family
+                                font.pixelSize: input.font.pixelSize
                             }
 
                             Keys.onPressed: e => {
