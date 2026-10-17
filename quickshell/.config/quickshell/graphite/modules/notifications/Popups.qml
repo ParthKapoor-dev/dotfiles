@@ -28,26 +28,33 @@ Scope {
             WlrLayershell.namespace: "graphite:notifications"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-            exclusionMode: ExclusionMode.Normal
-            exclusiveZone: 0
+            // mock #banners: bar + 8px, 10px from the screen edge. Layer margins can't be negative,
+            // so with the 28px shadow pad inside the window the cards used to land 28px under the bar
+            // and 28px from the edge. Now the window ignores the bar's zone and starts pad px above
+            // the wanted card top (the pad overlaps the bar but is outside the input mask), and on
+            // the anchored side the card sits `edge` px from the screen edge (the shadow beyond it
+            // would be off-screen anyway).
+            readonly property real edge: 10
+            readonly property real topY: (Config.moduleEnabled("bar") ? Theme.barHeight : 0) + 8
+            readonly property bool atRight: root.position === "top-right"
+            readonly property bool atLeft: root.position === "top-left"
+            exclusionMode: ExclusionMode.Ignore
             anchors.top: true
-            anchors.right: root.position === "top-right"
-            anchors.left: root.position === "top-left"
-            // mock #banners: bar + 8px, 10px from the screen edge
-            margins.top: Math.max(0, 8 - root.pad)
-            margins.right: Math.max(0, 10 - root.pad)
-            margins.left: Math.max(0, 10 - root.pad)
-            implicitWidth: root.cardWidth + root.pad * 2
-            implicitHeight: stack.implicitHeight + root.pad * 2
+            anchors.right: atRight
+            anchors.left: atLeft
+            margins.top: Math.max(0, topY - root.pad)
+            implicitWidth: root.cardWidth + (atRight || atLeft ? root.pad + edge : root.pad * 2)
+            implicitHeight: stack.implicitHeight + root.pad + (topY - margins.top)
             mask: Region { item: maskArea }
             // input area = the stack plus room for the close buttons that overhang each card
-            Item { id: maskArea; x: root.pad - 8; y: root.pad - 8; width: stack.width + 16; height: stack.height + 16 }
+            Item { id: maskArea; x: stack.x - 8; y: stack.y - 8; width: stack.width + 16; height: stack.height + 16 }
 
             HoverHandler { onHoveredChanged: Notifs.setPaused(hovered) }
 
             Column {
                 id: stack
-                x: root.pad; y: root.pad
+                x: win.atLeft ? win.edge : root.pad
+                y: win.topY - win.margins.top
                 width: root.cardWidth
                 spacing: 8
                 Repeater {

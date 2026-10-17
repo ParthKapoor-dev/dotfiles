@@ -42,7 +42,10 @@ GPopup {
     content: Flickable {
         id: flick
         contentHeight: col.implicitHeight + 24
-        clip: true
+        // clipping cuts the cards' side shadows into hard vertical edges: only clip while the
+        // column actually overflows and scrolls
+        clip: contentHeight > height
+        interactive: contentHeight > height
         boundsBehavior: Flickable.StopAtBounds
 
         // notifications grouped by app, newest group first

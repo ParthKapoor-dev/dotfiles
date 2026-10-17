@@ -129,7 +129,9 @@ Item {
 
     // close button (mock .nt .x: 20px round glass at the top-left corner, on hover)
     Rectangle {
-        x: root.card ? -6 : -20; y: root.card ? -6 : -16
+        // in the NC the row sits 14px inside its group card and the column clips at the card's
+        // left edge, so the mock's -20 would cut the button in half: keep it inside the card
+        x: root.card ? -6 : -12; y: root.card ? -6 : -10
         width: 20; height: 20
         color: Theme.rgba(Theme.t.color.glass, 0.95)
         radius: Theme.square ? 4 : 10
