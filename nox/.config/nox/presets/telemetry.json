@@ -134,7 +134,7 @@
       "enabled": true
     },
     "widgets": true,
-    "wallpaperPath": "~/Pictures/Wallpapers/nox/generated/telemetry-topo.png"
+    "wallpaperPath": "~/Pictures/Wallpapers/nox/mock/signal-grid.png"
   },
   "card": {
     "style": "hairline",
