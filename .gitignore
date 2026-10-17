@@ -11,6 +11,7 @@
 # (fresh clone: run ~/.config/quickshell/ii/scripts/colors/switchwall.sh --image <wallpaper> once)
 hypr/.config/hypr/hyprland/colors.conf
 hypr/.config/hypr/hyprlock/colors.conf
+hypr/.config/hypr/hyprlock/layout.conf
 hypr/.config/hypr/custom/scripts/__restore_video_wallpaper.sh
 fuzzel/.config/fuzzel/fuzzel_theme.ini
 gtk/.config/gtk-3.0/gtk.css
