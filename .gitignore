@@ -25,9 +25,9 @@ illogical-impulse/.config/illogical-impulse/installed_true
 *.pyc
 zed/.config/zed/settings_backup.json
 
-# crash dumps / logs
-core
-core.*
+# crash dumps / logs (anchored: graphite has a core/ dir and core.lua)
+/core
+/core.[0-9]*
 *.log
 
 # tmux plugins: installed by TPM (bootstrap in tmux.conf), not committed
