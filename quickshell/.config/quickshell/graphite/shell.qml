@@ -15,13 +15,13 @@ import qs.modules.osd
 import qs.modules.notifications
 
 ShellRoot {
-    LazyLoader { active: Config.moduleEnabled("bar"); component: Bar {} }
-    LazyLoader { active: Config.moduleEnabled("dock"); component: Dock {} }
-    LazyLoader { active: Config.moduleEnabled("controlCenter"); component: ControlCenter {} }
-    LazyLoader { active: Config.moduleEnabled("launcher"); component: Launcher {} }
-    LazyLoader { active: Config.moduleEnabled("osd"); component: Osd {} }
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("bar"); component: Bar {} }
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("dock"); component: Dock {} }
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("controlCenter"); component: ControlCenter {} }
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("launcher"); component: Launcher {} }
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("osd"); component: Osd {} }
     // The notification D-Bus server itself is in services/Notifs (same switch).
-    LazyLoader { active: Config.moduleEnabled("notifications"); component: Notifications {} }
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("notifications"); component: Notifications {} }
 
     // qs -c graphite ipc call controlCenter toggle
     IpcHandler {
@@ -33,9 +33,10 @@ ShellRoot {
     // qs -c graphite ipc call dock toggle
     IpcHandler {
         target: "dock"
-        function toggle(): void { Panels.dockVisible = !Panels.dockVisible; }
-        function open(): void { Panels.dockVisible = true; }   // ("show" is reserved by the qs ipc CLI)
-        function close(): void { Panels.dockVisible = false; }
+        // with dock.autohide these reveal/conceal it; otherwise they show/hide it (and its reserved space)
+        function toggle(): void { if (Config.opt.dock?.autohide) Panels.dockRevealed = !Panels.dockRevealed; else Panels.dockVisible = !Panels.dockVisible; }
+        function open(): void { Panels.dockVisible = true; if (Config.opt.dock?.autohide) Panels.dockRevealed = true; }   // ("show" is reserved by the qs ipc CLI)
+        function close(): void { if (Config.opt.dock?.autohide) Panels.dockRevealed = false; else Panels.dockVisible = false; }
     }
     // qs -c graphite ipc call popup toggle bar:network   (ids: "controlCenter", "bar:<widgetId>")
     // qs -c graphite ipc call popup close                  (closes whatever popup is open)
