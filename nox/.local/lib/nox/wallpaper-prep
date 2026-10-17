@@ -1,0 +1,254 @@
+#!/usr/bin/env python3
+"""nox wallpaper prep - make images into desktop wallpapers (nox look).
+
+  nox wallpaper prep [--out DIR] [--force] [--jobs N] <image|dir|@listfile>...
+
+Each image becomes <out>/<name>.jpg at the screen's shape (2560 wide or the screen, whichever is
+bigger; 16:9 here). Defaults: out = ~/Pictures/Wallpapers/prepped. Originals are never touched.
+
+  landscape (wider than 1.3:1)  cover-crop; the crop window follows the subject (edge energy) and
+                                puts it on a third when there is room
+  portrait / square             full-height on the right third, edges feathered into a blurred,
+                                darkened copy of itself (no black bars, no stretched pixels)
+  then, for every image:        Lanczos upscale (+ light sharpen) when needed, near-blacks pulled
+                                to the theme's page color, top strip darkened behind the bar,
+                                grain (stronger the more it was upscaled)
+
+Theme page color comes from ~/.local/state/nox/tokens.json. Needs ImageMagick 7 (magick).
+NOX_WALLPAPER_SIZE=WxH overrides the size.
+"""
+import json, os, re, subprocess, sys
+from concurrent.futures import ThreadPoolExecutor
+
+EXTS = (".png", ".jpg", ".jpeg", ".webp", ".avif")
+STATE = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state")), "nox")
+
+
+def target_size():
+    env = os.environ.get("NOX_WALLPAPER_SIZE", "")
+    if re.fullmatch(r"\d+x\d+", env):
+        return tuple(map(int, env.split("x")))
+    w, h = 1920, 1080
+    try:
+        mons = json.loads(subprocess.run(["hyprctl", "-j", "monitors"], capture_output=True, text=True).stdout)
+        m = max(mons, key=lambda m: m["width"] * m["height"])
+        w, h = m["width"], m["height"]
+        if m.get("transform", 0) % 2:
+            w, h = h, w
+    except Exception:
+        pass
+    k = max(1.0, 2560 / w)  # headroom above fractional scaling
+    return round(w * k / 2) * 2, round(h * k / 2) * 2
+
+
+def page_color():
+    try:
+        c = json.load(open(os.path.join(STATE, "tokens.json")))["color"]["page"]
+        return c if re.fullmatch(r"#[0-9A-Fa-f]{6}", c) else "#000000"
+    except Exception:
+        return "#000000"
+
+
+def magick(*args, out=True):
+    r = subprocess.run(["magick", *map(str, args)], capture_output=True)
+    if r.returncode:
+        raise RuntimeError(r.stderr.decode(errors="replace").strip()[:300])
+    return r.stdout
+
+
+def size_of(src):
+    w, h = magick(src + "[0]", "-format", "%w %h", "info:").split()
+    return int(w), int(h)
+
+
+def subject_center(src, n=64):
+    """(x, y) in 0..1: weighted center of edge energy + distance from the median tone."""
+    raw = magick(src + "[0]", "-auto-orient", "-resize", f"{n}x{n}!", "-colorspace", "gray",
+                 "-depth", "8", "gray:-")
+    px = list(raw)
+    med = sorted(px)[len(px) // 2]
+    wsum = xs = ys = 0.0
+    for i, v in enumerate(px):
+        x, y = i % n, i // n
+        right = px[i + 1] if x + 1 < n else v
+        down = px[i + n] if y + 1 < n else v
+        e = abs(v - right) + abs(v - down) + 0.5 * abs(v - med)
+        wsum += e; xs += e * x; ys += e * y
+    if wsum == 0:
+        return 0.5, 0.5
+    return xs / wsum / (n - 1), ys / wsum / (n - 1)
+
+
+def crop_offset(slack, center, full):
+    """Offset of a window inside `full` px (window = full - slack) so the subject at `center` (0..1)
+    sits on the nearer third of the window, or as close as the slack allows."""
+    if slack <= 0:
+        return 0
+    win = full - slack
+    c = center * full
+    third = 1 / 3 if center < 0.5 else 2 / 3
+    want = c - third * win
+    if abs(center - 0.5) < 0.08:  # centered subject: keep it centered
+        want = c - win / 2
+    return int(min(max(want, 0), slack))
+
+
+def prep(src, dst, W, H, page):
+    w, h = size_of(src)
+    cx, cy = subject_center(src)
+    head = [src + "[0]", "-auto-orient", "-colorspace", "sRGB", "-alpha", "remove", "-alpha", "off"]
+    if w / h >= 1.3:
+        k = max(W / w, H / h)
+        rw, rh = round(w * k), round(h * k)
+        ox = crop_offset(rw - W, cx, rw)
+        # vertical: favour keeping the bottom (the top gets the bar), but follow the subject
+        oy = crop_offset(rh - H, min(cy + 0.05, 1), rh)
+        body = ["-filter", "Lanczos", "-resize", f"{rw}x{rh}!", "-crop", f"{W}x{H}+{ox}+{oy}", "+repage"]
+        scale = k
+        mode = "fill"
+    else:
+        k = H / h
+        fw = round(w * k)
+        if fw > W * 0.9:  # nearly the screen's shape anyway: just cover
+            return prep_cover(src, dst, W, H, page, head, w, h, cx, cy)
+        x = int(min(max(W * 0.64 - fw / 2, W * 0.04), W - fw - W * 0.02))
+        ramp = max(1, round(fw * 0.22))
+        edge = edge_color(src)
+        body = [
+            # background: the image's own edge color, with a faint, very blurred, dark copy over it
+            "(", "+clone", "-resize", f"{W // 16}x{H // 16}^", "-gravity", "center", "-extent", f"{W // 16}x{H // 16}",
+            "-blur", "0x4", "-filter", "Gaussian", "-resize", f"{W}x{H}!", "-modulate", "40,60",
+            "(", "-size", f"{W}x{H}", f"xc:{edge}", ")", "+swap",
+            "-compose", "blend", "-define", "compose:args=35", "-composite", ")",
+            # foreground: full height, sides feathered
+            "(", "-clone", "0", "-filter", "Lanczos", "-resize", f"{fw}x{H}!",
+            "(", "-size", f"{fw}x1", "xc:", "-fx", f"min(1,min(i,w-1-i)/{ramp})", "-scale", f"{fw}x{H}!", ")",
+            "-alpha", "off", "-compose", "CopyOpacity", "-composite", ")",
+            "-delete", "0", "-gravity", "northwest", "-compose", "over", "-geometry", f"+{x}+0", "-composite",
+        ]
+        scale = k
+        mode = "compose"
+    finish(head + body, dst, W, H, page, scale)
+    return mode, w, h, scale
+
+
+def edge_color(src):
+    """Average color of the outer 4% columns (what the feathered sides fade into)."""
+    rgb = magick(src + "[0]", "-auto-orient", "-colorspace", "sRGB", "-alpha", "off",
+                 "(", "+clone", "-gravity", "west", "-crop", "4%x100%+0+0", ")",
+                 "(", "-clone", "0", "-gravity", "east", "-crop", "4%x100%+0+0", ")",
+                 "-delete", "0", "+append", "-resize", "1x1!", "-format", "%[pixel:p{0,0}]", "info:").decode()
+    m = re.findall(r"[\d.]+%?", rgb)
+    if len(m) >= 3:
+        v = [float(x[:-1]) * 2.55 if x.endswith("%") else float(x) for x in m[:3]]
+        # never lighter than a dark grey: the desktop stays dark
+        k = min(1.0, 60 / max(max(v), 1))
+        return "#%02x%02x%02x" % tuple(int(c * k) for c in v)
+    return "#000000"
+
+
+def prep_cover(src, dst, W, H, page, head, w, h, cx, cy):
+    k = max(W / w, H / h)
+    rw, rh = round(w * k), round(h * k)
+    body = ["-filter", "Lanczos", "-resize", f"{rw}x{rh}!",
+            "-crop", f"{W}x{H}+{crop_offset(rw - W, cx, rw)}+{crop_offset(rh - H, cy, rh)}", "+repage"]
+    finish(head + body, dst, W, H, page, k)
+    return "cover", w, h, k
+
+
+def finish(cmd, dst, W, H, page, scale):
+    bar = round(H * 0.10)
+    grain = 0.3 + 0.4 * min(1.0, max(0.0, scale - 1.0))  # attenuate: ~2% at native, ~4% at 2x+
+    cmd += [] if scale <= 1.3 else ["-unsharp", "0x1+0.45+0.02"]
+    cmd += [
+        # near-blacks -> page color
+        "-level", "1.5%,100%",
+    ]
+    if page.lower() != "#000000":
+        cmd += ["+level-colors", f"{page},white"]
+    cmd += [
+        # darken the strip behind the bar
+        "(", "-size", f"{W}x{bar}", f"gradient:{page}-{page}", "(", "-size", f"{W}x{bar}", "gradient:gray(60%)-black", ")",
+        "-alpha", "off", "-compose", "CopyOpacity", "-composite", ")",
+        "-gravity", "north", "-compose", "over", "-composite",
+        # grain
+        # grain: mono noise added around 0 (softlight brightened dark images and banded them)
+        "(", "-size", f"{W}x{H}", "xc:gray50", "-attenuate", f"{grain:.2f}", "+noise", "Gaussian", "-modulate", "100,0", ")",
+        "-compose", "Mathematics", "-define", "compose:args=0,1,1,-0.5", "-composite",
+        "-strip", "-sampling-factor", "4:4:4", "-quality", "90", dst + ".part.jpg",
+    ]
+    magick(*cmd)
+    os.replace(dst + ".part.jpg", dst)
+
+
+def slug(path):
+    base = os.path.splitext(os.path.basename(path))[0]
+    s = re.sub(r"[^\w\-]+", "-", base).strip("-").lower()
+    return s[:80] or "wallpaper"
+
+
+def gather(args):
+    for a in args:
+        if a.startswith("@"):
+            for line in open(a[1:]):
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    yield line
+        elif os.path.isdir(a):
+            for root, dirs, files in os.walk(a):
+                dirs[:] = sorted(d for d in dirs if not d.startswith("."))
+                for f in sorted(files):
+                    if f.lower().endswith(EXTS):
+                        yield os.path.join(root, f)
+        else:
+            yield a
+
+
+def main(argv):
+    out = os.path.expanduser("~/Pictures/Wallpapers/prepped")
+    force, jobs, items = False, 3, []
+    it = iter(argv)
+    for a in it:
+        if a == "--out": out = os.path.expanduser(next(it))
+        elif a == "--force": force = True
+        elif a == "--jobs": jobs = int(next(it))
+        elif a in ("-h", "--help"): print(__doc__); return 0
+        else: items.append(a)
+    if not items:
+        print(__doc__); return 2
+    W, H = target_size()
+    page = page_color()
+    os.makedirs(out, exist_ok=True)
+    # an item may be "path<TAB>name" (from a list file) to choose the output name
+    work, seen = [], set()
+    for item in gather(items):
+        src, _, name = item.partition("\t")
+        src = os.path.expanduser(src)
+        dst = os.path.join(out, (name or slug(src)) + ".jpg")
+        if dst in seen:
+            continue
+        seen.add(dst)
+        if not force and os.path.exists(dst) and os.path.getmtime(dst) >= os.path.getmtime(src):
+            continue
+        work.append((src, dst))
+    print(f"{len(work)} to do -> {out} at {W}x{H}, page {page}")
+    env_threads = os.environ.setdefault("MAGICK_THREAD_LIMIT", "2")
+
+    def one(job):
+        src, dst = job
+        try:
+            mode, w, h, k = prep(src, dst, W, H, page)
+            return f"ok   {mode:7} {w}x{h} x{k:.2f}  {os.path.basename(dst)}"
+        except Exception as e:
+            return f"FAIL {os.path.basename(src)}: {e}"
+
+    fails = 0
+    with ThreadPoolExecutor(jobs) as ex:
+        for line in ex.map(one, work):
+            fails += line.startswith("FAIL")
+            print(line, flush=True)
+    return 1 if fails else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

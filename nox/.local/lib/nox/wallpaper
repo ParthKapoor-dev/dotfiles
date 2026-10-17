@@ -7,6 +7,9 @@
 #   nox wallpaper random [--all]   random image from that list
 #   nox wallpaper list [--all]     print the list (absolute paths)
 #   nox wallpaper set <path>
+#   nox wallpaper prep [--out DIR] [--force] <image|dir>...
+#                                  make images into nox wallpapers (screen shape, subject on a third,
+#                                  dark top strip, grain) -> ~/Pictures/Wallpapers/prepped; see wallpaper-prep
 # png/jpg/jpeg/webp/avif; hidden folders are skipped, and so is Screenshots unless --all.
 # The launcher has the same list with thumbnails: type "#" (provider "wallpapers").
 # The shell draws it: qs -c nox ipc call wallpaper set <path>
@@ -47,5 +50,6 @@ case "${1:-pick}" in
         set_wp "$f"
         ;;
     set) set_wp "${2:?usage: nox wallpaper set <path>}" ;;
-    *) echo "usage: nox wallpaper pick|random|list [--all] | set <path>" >&2; exit 2 ;;
+    prep) shift; exec "$(dirname "$(realpath "$0")")/wallpaper-prep" "$@" ;;
+    *) echo "usage: nox wallpaper pick|random|list [--all] | set <path> | prep <image|dir>..." >&2; exit 2 ;;
 esac
