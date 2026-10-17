@@ -17,8 +17,6 @@ gtk/.config/gtk-3.0/bookmarks
 
 # runtime / installer state
 hypr/.config/hypr/hyprpm/
-illogical-impulse/.config/illogical-impulse/installed_listfile
-illogical-impulse/.config/illogical-impulse/installed_true
 **/__pycache__/
 *.pyc
 zed/.config/zed/settings_backup.json
