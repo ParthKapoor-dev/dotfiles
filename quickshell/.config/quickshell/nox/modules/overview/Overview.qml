@@ -74,7 +74,9 @@ Scope {
             color: "transparent"
             WlrLayershell.namespace: "nox:overview"
             WlrLayershell.layer: WlrLayer.Overlay
-            WlrLayershell.keyboardFocus: root.open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+            // focus goes back to the app only once the close transition is over (its refocus repaint
+            // would otherwise compete with the transition); keys are ignored meanwhile (stage.enabled)
+            WlrLayershell.keyboardFocus: root.shown ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
             exclusionMode: ExclusionMode.Ignore
             anchors { top: true; bottom: true; left: true; right: true }
 
@@ -89,16 +91,23 @@ Scope {
             function go(ws) { Hypr.workspace(ws); close(); }
             function focus(t) { Hypr.focusWindow(t.address); close(); }
 
-            // background: the wallpaper fades in over the desktop, dimmed (mock brightness .55)
+            // background: the wallpaper fades in over the desktop, dimmed (mock brightness .55).
+            // Opaque base so the real windows never show through behind their copies; the image is
+            // the decode Wallpaper keeps alive (same url/sourceSize/fill = cache hit, no pop).
             Item {
                 anchors.fill: parent
                 opacity: root.p
+                Rectangle { anchors.fill: parent; color: Theme.page }
                 Image {
+                    id: backdrop
                     anchors.fill: parent
                     source: Wallpaper.url
                     fillMode: Image.PreserveAspectCrop
                     asynchronous: true
-                    sourceSize.width: win.sw; sourceSize.height: win.sh
+                    cache: true
+                    sourceSize: Wallpaper.screenSize
+                    opacity: status === Image.Ready ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: Theme.durFade } }
                 }
                 Rectangle { anchors.fill: parent; color: Qt.rgba(0, 0, 0, 0.45) }
             }
@@ -144,6 +153,14 @@ Scope {
                                 readonly property int ws: index + 1
                                 readonly property bool cur: ws === win.curWs
                                 readonly property bool drop: dragProxy.active && dragProxy.overWs === ws
+                                // like area.list: only reset the miniatures when the set of windows
+                                // changes, so the refresh at open does not recreate them (and restart
+                                // their captures) in the middle of the transition
+                                readonly property var fresh: win.winsOn(ws)
+                                property var list: []
+                                property string listKey: ""
+                                onFreshChanged: { const k = fresh.map(t => t.address).join(","); if (k !== listKey) { listKey = k; list = fresh; } }
+                                Component.onCompleted: { listKey = fresh.map(t => t.address).join(","); list = fresh; }
                                 spacing: 7
                                 Item {
                                     id: mini
@@ -171,7 +188,7 @@ Scope {
                                             asynchronous: true
                                         }
                                         Repeater {
-                                            model: win.winsOn(th.ws)
+                                            model: th.list
                                             Item {
                                                 id: mw
                                                 required property var modelData
@@ -295,7 +312,9 @@ Scope {
                                     id: shotView
                                     anchors.fill: parent
                                     captureSource: root.capture && cell.modelData.wayland ? cell.modelData.wayland : null
-                                    live: root.opts.live ?? true
+                                    // frozen while closing: the refocused window repaints then, and copying
+                                    // those frames would compete with the transition
+                                    live: (root.opts.live ?? true) && root.open
                                 }
                                 // hover / selection ring (mock: inset 3px accent, constant on screen)
                                 Rectangle {
@@ -345,6 +364,7 @@ Scope {
                     Component.onCompleted: {
                         listKey = sorted.map(t => t.address).join(","); list = sorted;
                         root.readyCheck = () => {
+                            if (backdrop.status === Image.Loading) return false;
                             for (let i = 0; i < cells.count; i++) { const c = cells.itemAt(i); if (c && !c.ready) return false; }
                             return true;
                         };
