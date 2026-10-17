@@ -1,5 +1,5 @@
 {
-  "_comment": "Preset overlay (deep-merged over tokens.json; arrays replace). Use: graphite-theme --preset minimal render, or \"_preset\": \"minimal\" in local.json. Opaque, flat, tighter.",
+  "_comment": "Preset overlay (deep-merged over tokens.json; arrays replace). Use: theme --preset minimal render, or \"_preset\": \"minimal\" in local.json. Opaque, flat, tighter.",
   "glass": { "alpha": 1.0, "menubarAlpha": 1.0, "launcherAlpha": 1.0, "blurPasses": 0 },
   "radius": { "window": 8, "menu": 8, "control": 5, "panel": 10 },
   "size": { "gapsIn": 3, "gapsOut": 6 },

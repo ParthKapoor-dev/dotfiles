@@ -1,13 +1,13 @@
 {
   "_comment": [
-    "graphite-theme target manifest. Add an app = drop a template in templates/ + add one entry here; no code changes.",
+    "theme target manifest. Add an app = drop a template in templates/ + add one entry here; no code changes.",
     "Fields: name (unique), template (relative to templates/, optional), output (relative to ~/.local/state/graphite/out/ unless absolute/~),",
-    "        enabled (default true; `--only name` runs a disabled target), check (json|lua|css|ini|keyvalue|text, used by `graphite-theme check`),",
-    "        apply: list of hooks run by `graphite-theme apply` (all string fields are templates; {{ _.output }} = this target's rendered file).",
+    "        enabled (default true; `--only name` runs a disabled target), check (json|lua|css|ini|keyvalue|text, used by `theme check`),",
+    "        apply: list of hooks run by `theme apply` (all string fields are templates; {{ _.output }} = this target's rendered file).",
     "Hook types: write{path,content} | copy{path[,from]} | symlink{path[,to]} | line{path,match(regex),line} (replace first match or append)",
     "            | ini{path, from_output?, values?{section:{key:val}}, exclude_sections?[]} | gsettings{schema,key,value(GVariant text)}",
     "Every hook may carry requires:[paths]; the hook is skipped with a warning if any is missing (e.g. an icon theme not installed yet).",
-    "reload: {SIGNAL: [process names]} sent by `graphite-theme switch` after re-applying (e.g. ghostty USR2, kitty USR1)."
+    "reload: {SIGNAL: [process names]} sent by `theme switch` after re-applying (e.g. ghostty USR2, kitty USR1)."
   ],
   "targets": [
     {
@@ -33,7 +33,7 @@
         {
           "type": "write",
           "path": "~/.config/gtk-3.0/gtk.css",
-          "content": "/* Graphite: managed by graphite-theme (revert: graphite-theme revert) */\n@import url(\"file://{{ _.output }}\");\n"
+          "content": "/* Graphite: managed by theme (revert: theme revert) */\n@import url(\"file://{{ _.output }}\");\n"
         }
       ]
     },
@@ -46,7 +46,7 @@
         {
           "type": "write",
           "path": "~/.config/gtk-4.0/gtk.css",
-          "content": "/* Graphite: managed by graphite-theme (revert: graphite-theme revert) */\n@import url(\"file://{{ _.output }}\");\n"
+          "content": "/* Graphite: managed by theme (revert: theme revert) */\n@import url(\"file://{{ _.output }}\");\n"
         }
       ]
     },
@@ -257,7 +257,7 @@
         {
           "type": "write",
           "path": "~/.config/hypr/hyprlock/colors.conf",
-          "content": "# Graphite: managed by graphite-theme (revert: graphite-theme revert)\nsource = {{ _.output }}\n"
+          "content": "# Graphite: managed by theme (revert: theme revert)\nsource = {{ _.output }}\n"
         }
       ]
     },
@@ -271,7 +271,7 @@
         {
           "type": "write",
           "path": "~/.config/hypr/hyprland/colors.conf",
-          "content": "# Graphite: managed by graphite-theme (revert: graphite-theme revert)\nsource = {{ _.output }}\n"
+          "content": "# Graphite: managed by theme (revert: theme revert)\nsource = {{ _.output }}\n"
         }
       ]
     },

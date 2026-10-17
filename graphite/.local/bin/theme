@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""graphite-theme: render Graphite design tokens into per-app theme files.
+"""theme: render Graphite design tokens into per-app theme files.
 
 Pipeline:  tokens.json  <- presets/<name>.json  <- local.json   (deep merge, later wins)
            targets.json lists {template, output, apply hooks, enabled}
@@ -517,7 +517,7 @@ def cmd_apply(targets, rendered):
     for s, k, v, _ in g:
         subprocess.run(["gsettings", "set", s, k, v], check=True)
         print("gsettings", s, k, v)
-    print(f"backup: {bdir}\nrevert with: graphite-theme revert")
+    print(f"backup: {bdir}\nrevert with: theme revert")
     return 0
 
 
@@ -563,7 +563,7 @@ def _revert_one(which=None):
 
 
 def applied():
-    """True while graphite-theme apply is in effect (an un-reverted backup exists)."""
+    """True while theme apply is in effect (an un-reverted backup exists)."""
     return os.path.isdir(BACKUP) and any(not d.endswith(".reverted") for d in os.listdir(BACKUP))
 
 
@@ -613,13 +613,13 @@ def cmd_switch(name):
         cmd_apply(targets, rendered)
         reload_apps(targets)
     else:
-        print("rendered only (themes not applied yet; run graphite-theme apply to hook apps in)")
+        print("rendered only (themes not applied yet; run theme apply to hook apps in)")
     return 0
 
 
 # ---------------------------------------------------------------- CLI
 def main():
-    ap = argparse.ArgumentParser(prog="graphite-theme", description=__doc__.split("\n")[0])
+    ap = argparse.ArgumentParser(prog="theme", description=__doc__.split("\n")[0])
     ap.add_argument("--preset", help="overlay presets/<NAME>.json (default: $GRAPHITE_PRESET or local.json _preset)")
     ap.add_argument("--only", help="comma-separated target names (also selects disabled targets)")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -634,7 +634,13 @@ def main():
     sub.add_parser("targets", help="list targets")
     g = sub.add_parser("get", help="print one token, e.g. get color.accent | hex")
     g.add_argument("expr", nargs="+")
-    a = ap.parse_args()
+    argv = sys.argv[1:]
+    cmds = {"render", "check", "diff", "apply", "revert", "targets", "get", "switch", "-h", "--help", "--preset", "--only"}
+    if not argv:
+        argv = ["switch"]                      # `theme` alone: list looks
+    elif argv[0] not in cmds and not argv[0].startswith("-"):
+        argv = ["switch"] + argv               # `theme ember` == `theme switch ember`
+    a = ap.parse_args(argv)
     try:
         if a.cmd == "revert":
             return cmd_revert(a.backup)
@@ -677,7 +683,7 @@ def main():
         if a.cmd == "apply":
             return cmd_apply(targets, rendered)
     except ThemeError as e:
-        print("graphite-theme:", e, file=sys.stderr)
+        print("theme:", e, file=sys.stderr)
         return 1
 
 
