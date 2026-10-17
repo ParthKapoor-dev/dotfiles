@@ -1,0 +1,43 @@
+{
+  "_comment": "Graphite shell (qs -c graphite) user config. Live-reloaded. Missing keys fall back to built-in defaults (core/Config.qml). Widget ids are listed in modules/bar/BarWidgets.qml, control-center section ids in modules/controlcenter/CcSections.qml.",
+  "modules": { "bar": true, "dock": true, "controlCenter": true },
+  "bar": {
+    "screens": [],
+    "left": ["logo", "appName", "workspaces"],
+    "center": [],
+    "right": ["tray", "network", "bluetooth", "volume", "battery", "controlCenter", "clock"]
+  },
+  "widgets": {
+    "logo": {
+      "menu": [
+        { "label": "Lock Screen", "command": ["loginctl", "lock-session"] },
+        { "separator": true },
+        { "label": "Sleep", "command": ["systemctl", "suspend"] },
+        { "label": "Restart…", "command": ["systemctl", "reboot"] },
+        { "label": "Shut Down…", "command": ["systemctl", "poweroff"] }
+      ]
+    },
+    "appName": { "fallback": "Desktop" },
+    "windowTitle": { "maxWidth": 360 },
+    "workspaces": { "minCount": 4, "scroll": true },
+    "tray": { "monochrome": true },
+    "network": { "settingsCommand": [] },
+    "bluetooth": { "settingsCommand": ["blueman-manager"] },
+    "volume": { "step": 0.05 },
+    "battery": { "showPercent": "hover", "lowPercent": 20 },
+    "clock": { "format": "ddd d MMM HH:mm" }
+  },
+  "dock": {
+    "screens": [],
+    "reserveSpace": true,
+    "magnify": true,
+    "showRunning": true,
+    "ignoredAppIds": [],
+    "pinned": ["zen", "slack", "dev.zed.Zed", "code-oss", "com.mitchellh.ghostty", "obsidian", "org.kde.dolphin"]
+  },
+  "controlCenter": {
+    "sections": ["connectivity", "display", "sound", "media"],
+    "lockCommand": ["loginctl", "lock-session"]
+  },
+  "brightness": { "device": "auto", "step": 5 }
+}

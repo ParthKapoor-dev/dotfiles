@@ -1,0 +1,6 @@
+{
+  "_comment": "Copy to local.json (git-ignored) for machine-local overrides; deep-merged last, after tokens.json and the preset. Optional \"_preset\" selects a preset persistently.",
+  "_preset": "minimal",
+  "color": { "accent": "#BF5AF2", "blue": "#0A84FF" },
+  "glass": { "launcherAlpha": 0.85 }
+}

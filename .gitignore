@@ -32,3 +32,6 @@ core.*
 
 # tmux plugins: installed by TPM (bootstrap in tmux.conf), not committed
 tmux/.config/tmux/plugins/
+
+# graphite machine-local overrides
+hypr/.config/hypr/graphite/local.lua

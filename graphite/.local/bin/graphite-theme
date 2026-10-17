@@ -1,0 +1,608 @@
+#!/usr/bin/env python3
+"""graphite-theme: render Graphite design tokens into per-app theme files.
+
+Pipeline:  tokens.json  <- presets/<name>.json  <- local.json   (deep merge, later wins)
+           targets.json lists {template, output, apply hooks, enabled}
+           render -> ~/.local/state/graphite/out/...   (never touches app configs)
+           diff   -> what `apply` would change in live app configs
+           apply  -> run hooks, backups in ~/.local/state/graphite/backup/<ts>/
+           revert -> restore the most recent (or given) backup
+
+Template syntax:  {{ path.to.token | filter | filter(arg, arg) }}
+  colour ops : alpha(a) over(bg) mix(c,t) lighten(t) darken(t)
+  colour fmt : hex  hexa  strip  stripa  rgb (r,g,b ints)  rgba (css)  css  hypr
+  numbers    : num  int  round  mul(x)  add(x)
+  any value  : lua  json  quote  upper  lower  default(x)
+  args are numbers, "strings", or token paths.  `.` is the whole token tree;
+  `_.output`, `_.out`, `_.state`, `_.home`, `_.preset`, `_.name` are runtime vars.
+Python 3 stdlib only.
+"""
+import argparse, datetime, difflib, json, os, re, shutil, subprocess, sys
+
+HOME = os.path.expanduser("~")
+STATE = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.join(HOME, ".local/state")), "graphite")
+OUT = os.path.join(STATE, "out")
+BACKUP = os.path.join(STATE, "backup")
+CONF = os.environ.get("GRAPHITE_CONFIG") or os.path.normpath(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../.config/graphite"))
+
+
+class ThemeError(Exception):
+    pass
+
+
+# ---------------------------------------------------------------- tokens
+def load_json(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        raise ThemeError(f"{path}: {e}")
+
+
+def deep_merge(base, over):
+    for k, v in over.items():
+        if k == "_comment":
+            continue
+        if isinstance(v, dict) and isinstance(base.get(k), dict):
+            deep_merge(base[k], v)
+        else:
+            base[k] = v
+    return base
+
+
+def load_tokens(preset=None):
+    tokens = load_json(os.path.join(CONF, "tokens.json"))
+    local_path = os.path.join(CONF, "local.json")
+    local = load_json(local_path) if os.path.exists(local_path) else {}
+    preset = preset or os.environ.get("GRAPHITE_PRESET") or local.pop("_preset", None)
+    local.pop("_preset", None)
+    if preset:
+        p = os.path.join(CONF, "presets", preset + ".json")
+        if not os.path.exists(p):
+            raise ThemeError(f"unknown preset '{preset}' (no {p})")
+        deep_merge(tokens, load_json(p))
+    deep_merge(tokens, local)
+    return tokens, preset
+
+
+# ---------------------------------------------------------------- colours
+class Color:
+    def __init__(self, r, g, b, a=1.0):
+        self.r, self.g, self.b, self.a = r, g, b, a
+
+    @classmethod
+    def of(cls, v):
+        if isinstance(v, Color):
+            return v
+        m = re.fullmatch(r"#?([0-9a-fA-F]{6})([0-9a-fA-F]{2})?", str(v))
+        if not m:
+            raise ThemeError(f"not a colour: {v!r}")
+        h = m.group(1)
+        a = int(m.group(2), 16) / 255 if m.group(2) else 1.0
+        return cls(int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16), a)
+
+    def mix(self, o, t):
+        o = Color.of(o)
+        f = lambda x, y: x + (y - x) * t
+        return Color(f(self.r, o.r), f(self.g, o.g), f(self.b, o.b), f(self.a, o.a))
+
+    def ints(self):
+        return tuple(max(0, min(255, round(c))) for c in (self.r, self.g, self.b))
+
+    def a8(self):
+        return max(0, min(255, round(self.a * 255)))
+
+
+def fmt_num(v):
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    return repr(v) if isinstance(v, float) else str(v)
+
+
+LUA_ID = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
+LUA_KW = set("and break do else elseif end false for function goto if in local nil not or repeat return then true until while".split())
+
+
+def lua_str(s):
+    out = []
+    for ch in s:
+        o = ord(ch)
+        if ch in '"\\':
+            out.append("\\" + ch)
+        elif ch == "\n":
+            out.append("\\n")
+        elif o < 32 or o == 127:
+            out.append("\\%03d" % o)
+        else:
+            out.append(ch)
+    return '"' + "".join(out) + '"'
+
+
+def to_lua(v, ind=0):
+    pad, pad2 = "  " * ind, "  " * (ind + 1)
+    if isinstance(v, dict):
+        items = [(k, x) for k, x in v.items() if k != "_comment" and x is not None]
+        if not items:
+            return "{}"
+        rows = [pad2 + (k if LUA_ID.match(k) and k not in LUA_KW else "[" + lua_str(k) + "]")
+                + " = " + to_lua(x, ind + 1) for k, x in items]
+        return "{\n" + ",\n".join(rows) + ",\n" + pad + "}"
+    if isinstance(v, list):
+        return "{ " + ", ".join(to_lua(x, ind + 1) for x in v) + " }"
+    if isinstance(v, str):
+        return lua_str(v)
+    if v is None:
+        return "nil"
+    if isinstance(v, float):
+        return repr(v)  # keep float subtype: 1.0 stays 1.0
+    return fmt_num(v)
+
+
+def _hex(c):
+    return "#%02X%02X%02X" % c.ints()
+
+
+FILTERS = {
+    # colour transforms
+    "alpha": lambda v, a: (lambda c: Color(c.r, c.g, c.b, float(a)))(Color.of(v)),
+    "over": lambda v, bg: (lambda c: Color.of(bg).mix(Color(c.r, c.g, c.b, Color.of(bg).a), c.a))(Color.of(v)),
+    "mix": lambda v, o, t: Color.of(v).mix(o, float(t)),
+    "lighten": lambda v, t: Color.of(v).mix(Color(255, 255, 255, Color.of(v).a), float(t)),
+    "darken": lambda v, t: Color.of(v).mix(Color(0, 0, 0, Color.of(v).a), float(t)),
+    # colour formats
+    "hex": lambda v: _hex(Color.of(v)),
+    "hexa": lambda v: _hex(Color.of(v)) + "%02X" % Color.of(v).a8(),
+    "strip": lambda v: _hex(Color.of(v))[1:],
+    "stripa": lambda v: _hex(Color.of(v))[1:] + "%02X" % Color.of(v).a8(),
+    "rgb": lambda v: "%d,%d,%d" % Color.of(v).ints(),
+    "rgba": lambda v: "rgba(%d, %d, %d, %s)" % (Color.of(v).ints() + (fmt_num(round(Color.of(v).a, 3)),)),
+    "css": lambda v: FILTERS["hex"](v) if Color.of(v).a >= 1 else FILTERS["rgba"](v),
+    "hypr": lambda v: "rgba(%s)" % FILTERS["stripa"](v),
+    # numbers
+    "num": lambda v: fmt_num(v),
+    "int": lambda v: str(int(round(float(v)))),
+    "round": lambda v, n=0: fmt_num(round(float(v), int(n))),
+    "mul": lambda v, x: float(v) * float(x),
+    "add": lambda v, x: float(v) + float(x),
+    # generic
+    "lua": lambda v: to_lua(v),
+    "json": lambda v: json.dumps(v),
+    "quote": lambda v: json.dumps(str(v)),
+    "upper": lambda v: str(v).upper(),
+    "lower": lambda v: str(v).lower(),
+    "default": lambda v, d: d if v is None else v,
+}
+
+
+# ---------------------------------------------------------------- templates
+_MISSING = object()
+
+
+def lookup(ctx, path):
+    if path == ".":
+        return {k: v for k, v in ctx.items() if k != "_"}
+    cur = ctx
+    for part in path.split("."):
+        if isinstance(cur, dict) and part in cur:
+            cur = cur[part]
+        elif isinstance(cur, list) and part.isdigit() and int(part) < len(cur):
+            cur = cur[int(part)]
+        else:
+            return _MISSING
+    return cur
+
+
+def parse_arg(ctx, a):
+    a = a.strip()
+    if a[:1] in "\"'":
+        return a[1:-1]
+    if re.fullmatch(r"-?\d+(\.\d+)?", a):
+        return float(a) if "." in a else int(a)
+    if a.startswith("#"):
+        return a
+    v = lookup(ctx, a)
+    if v is _MISSING:
+        raise ThemeError(f"unknown token in filter argument: {a}")
+    return v
+
+
+def evaluate(ctx, expr):
+    parts = [p.strip() for p in expr.split("|")]
+    v = lookup(ctx, parts[0])
+    if v is _MISSING:
+        if any(p.startswith("default(") for p in parts[1:]):
+            v = None
+        else:
+            raise ThemeError(f"unknown token: {parts[0]}")
+    for p in parts[1:]:
+        m = re.fullmatch(r"(\w+)(?:\((.*)\))?", p)
+        if not m or m.group(1) not in FILTERS:
+            raise ThemeError(f"unknown filter: {p}")
+        args = [parse_arg(ctx, a) for a in m.group(2).split(",")] if m.group(2) else []
+        v = FILTERS[m.group(1)](v, *args)
+    if isinstance(v, Color):
+        return FILTERS["hexa" if v.a < 1 else "hex"](v)
+    if isinstance(v, (dict, list)):
+        return json.dumps(v)
+    return fmt_num(v) if isinstance(v, (int, float)) else str(v)
+
+
+def render_str(ctx, text, where="<string>"):
+    def sub(m):
+        try:
+            return evaluate(ctx, m.group(1))
+        except (ThemeError, ValueError, TypeError) as e:
+            line = text.count("\n", 0, m.start()) + 1
+            raise ThemeError(f"{where}:{line}: {{{{ {m.group(1)} }}}}: {e}")
+    return re.sub(r"\{\{\s*(.*?)\s*\}\}", sub, text)
+
+
+def render_obj(ctx, o, where):
+    if isinstance(o, str):
+        return render_str(ctx, o, where)
+    if isinstance(o, list):
+        return [render_obj(ctx, x, where) for x in o]
+    if isinstance(o, dict):
+        return {k: render_obj(ctx, v, where) for k, v in o.items()}
+    return o
+
+
+def expand(p):
+    return os.path.expanduser(os.path.expandvars(p))
+
+
+def load_targets(only=None):
+    tl = load_json(os.path.join(CONF, "targets.json"))["targets"]
+    names = [t["name"] for t in tl]
+    if only:
+        bad = set(only) - set(names)
+        if bad:
+            raise ThemeError("unknown target(s): " + ", ".join(sorted(bad)))
+        return [t for t in tl if t["name"] in only]
+    return [t for t in tl if t.get("enabled", True)]
+
+
+def target_ctx(tokens, preset, t):
+    out = expand(t["output"]) if t.get("output") else ""
+    if out and not os.path.isabs(out):
+        out = os.path.normpath(os.path.join(OUT, out))
+    ctx = dict(tokens)
+    ctx["_"] = {"output": out, "out": OUT, "state": STATE, "home": HOME,
+                "preset": preset or "default", "name": t["name"]}
+    return ctx, out
+
+
+def render(tokens, preset, targets, quiet=False):
+    """Render every target's template; return {name: (ctx, output_path)}."""
+    result = {}
+    for t in targets:
+        ctx, out = target_ctx(tokens, preset, t)
+        if t.get("template"):
+            src = os.path.join(CONF, "templates", t["template"])
+            with open(src) as f:
+                text = render_str(ctx, f.read(), t["template"])
+            old = open(out).read() if os.path.exists(out) else None
+            if old != text:
+                os.makedirs(os.path.dirname(out), exist_ok=True)
+                tmp = out + ".tmp"
+                with open(tmp, "w") as f:
+                    f.write(text)
+                os.replace(tmp, out)
+            if not quiet:
+                print(f"{'updated ' if old != text else 'same    '} {t['name']:<14} {out}")
+        result[t["name"]] = (ctx, out)
+    return result
+
+
+# ---------------------------------------------------------------- validation
+def check_output(kind, path):
+    text = open(path).read()
+    if kind == "json":
+        json.loads(text)
+    elif kind == "lua":
+        luac = shutil.which("luac") or shutil.which("luac5.4")
+        if not luac:
+            return "skipped (no luac)"
+        r = subprocess.run([luac, "-p", path], capture_output=True, text=True)
+        if r.returncode:
+            raise ThemeError(r.stderr.strip())
+    elif kind == "css":
+        body = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+        if body.count("{") != body.count("}"):
+            raise ThemeError("unbalanced braces")
+        for ln in body.splitlines():
+            s = ln.strip()
+            if s.startswith("@define-color") and not re.fullmatch(r"@define-color [a-z_]+ [^;]+;", s):
+                raise ThemeError(f"bad line: {s}")
+    elif kind == "ini":
+        for n, ln in enumerate(text.splitlines(), 1):
+            s = ln.strip()
+            if s and not s.startswith(("#", ";", "[")) and "=" not in s:
+                raise ThemeError(f"line {n}: no '=': {s}")
+    elif kind == "keyvalue":
+        for n, ln in enumerate(text.splitlines(), 1):
+            s = ln.strip()
+            if s and not s.startswith("#") and not re.match(r"[\w\[\]$.-]+\s*=?\s*\S", s):
+                raise ThemeError(f"line {n}: {s}")
+    if "{{" in text:
+        raise ThemeError("unrendered '{{' left in output")
+    return "ok"
+
+
+# ---------------------------------------------------------------- apply hooks
+def ini_merge(text, sections, exclude=()):
+    """Merge {section_header: {key: value}} into INI text, preserving everything else.
+    Section headers are the literal bracketed line, e.g. '[Colors:Header][Inactive]'."""
+    lines = text.splitlines()
+    pending = {s: dict(kv) for s, kv in sections.items() if s.strip("[]") not in exclude}
+    out, cur = [], None
+
+    def flush(sec):
+        rest = pending.pop(sec, None)
+        if rest:
+            while out and out[-1].strip() == "":
+                out.pop()
+            out.extend(f"{k}={v}" for k, v in rest.items())
+            out.append("")
+
+    for ln in lines:
+        s = ln.strip()
+        if s.startswith("[") and s.endswith("]"):
+            if cur is not None:
+                flush(cur)
+            cur = s
+            out.append(ln)
+            continue
+        if cur in pending and "=" in s and not s.startswith(("#", ";")):
+            k = s.split("=", 1)[0].strip()
+            if k in pending[cur]:
+                out.append(f"{k}={pending[cur].pop(k)}")
+                continue
+        out.append(ln)
+    if cur is not None:
+        flush(cur)
+    for sec, kv in pending.items():
+        if kv:
+            if out and out[-1].strip():
+                out.append("")
+            out.append(sec)
+            out.extend(f"{k}={v}" for k, v in kv.items())
+    return "\n".join(out).rstrip("\n") + "\n"
+
+
+def ini_parse(text):
+    secs, cur = {}, None
+    for ln in text.splitlines():
+        s = ln.strip()
+        if s.startswith("[") and s.endswith("]"):
+            cur = s
+            secs.setdefault(cur, {})
+        elif cur and "=" in s and not s.startswith(("#", ";")):
+            k, v = s.split("=", 1)
+            secs[cur][k.strip()] = v.strip()
+    return secs
+
+
+def gsettings_get(schema, key):
+    try:
+        r = subprocess.run(["gsettings", "get", schema, key], capture_output=True, text=True)
+        return r.stdout.strip() if r.returncode == 0 else None
+    except FileNotFoundError:
+        return None
+
+
+def plan(targets, rendered):
+    """Compute the end state of every hook without touching anything.
+    Returns (files, links, gsets, warnings):
+      files: {realpath: new_text}, links: {path: target}, gsets: [(schema,key,value)]"""
+    files, links, gsets, warns = {}, {}, [], []
+
+    def current(p):
+        if p in files:
+            return files[p]
+        return open(p).read() if os.path.isfile(p) else ""
+
+    for t in targets:
+        ctx, out = rendered[t["name"]]
+        for i, h in enumerate(t.get("apply", [])):
+            h = render_obj(ctx, h, f"targets.json:{t['name']}.apply[{i}]")
+            missing = [r for r in h.get("requires", []) if not os.path.exists(expand(r))]
+            if missing:
+                warns.append(f"{t['name']}: skipped {h['type']} hook, missing {', '.join(missing)}")
+                continue
+            typ = h["type"]
+            if typ == "gsettings":
+                gsets.append((h["schema"], h["key"], h["value"]))
+                continue
+            path = expand(h["path"])
+            if typ == "symlink":
+                links[os.path.abspath(path)] = expand(h.get("to") or out)
+                continue
+            rp = os.path.realpath(path)
+            if typ == "write":
+                files[rp] = h["content"]
+            elif typ == "copy":
+                files[rp] = open(expand(h.get("from") or out)).read()
+            elif typ == "line":
+                text = current(rp)
+                lines = text.splitlines()
+                rx = re.compile(h["match"])
+                hit = next((n for n, ln in enumerate(lines) if rx.search(ln)), None)
+                if hit is None:
+                    lines += ([""] if lines and lines[-1].strip() else []) + [h["line"]]
+                else:
+                    lines[hit] = h["line"]
+                files[rp] = "\n".join(lines) + "\n"
+            elif typ == "ini":
+                secs = h.get("values") or {}
+                secs = {("[" + s + "]" if not s.startswith("[") else s): kv for s, kv in secs.items()}
+                if h.get("from_output"):
+                    secs = {**ini_parse(open(out).read()), **secs}
+                files[rp] = ini_merge(current(rp), secs, h.get("exclude_sections", []))
+            else:
+                raise ThemeError(f"{t['name']}: unknown hook type '{typ}'")
+    return files, links, gsets, warns
+
+
+def changes(files, links, gsets):
+    """Filter the plan down to what actually differs from the live system."""
+    f = {p: t for p, t in files.items() if not (os.path.isfile(p) and open(p).read() == t)}
+    l = {p: d for p, d in links.items() if not (os.path.islink(p) and os.readlink(p) == d)}
+    g = [(s, k, v, gsettings_get(s, k)) for s, k, v in gsets]
+    g = [x for x in g if x[3] != x[2]]
+    return f, l, g
+
+
+def cmd_diff(targets, rendered):
+    files, links, gsets, warns = plan(targets, rendered)
+    f, l, g = changes(files, links, gsets)
+    for w in warns:
+        print("warning:", w)
+    for p, new in f.items():
+        old = open(p).read() if os.path.isfile(p) else ""
+        sys.stdout.writelines(difflib.unified_diff(
+            old.splitlines(True), new.splitlines(True), p + (" (live)" if old else " (new)"), p + " (apply)"))
+    for p, d in l.items():
+        cur = ("symlink -> " + os.readlink(p)) if os.path.islink(p) else ("file" if os.path.exists(p) else "absent")
+        print(f"symlink {p}\n    now: {cur}\n    new: -> {d}")
+    for s, k, v, old in g:
+        print(f"gsettings {s} {k}: {old} -> {v}")
+    if not (f or l or g):
+        print("nothing to change: live configs already match")
+    return 0
+
+
+def cmd_apply(targets, rendered):
+    files, links, gsets, warns = plan(targets, rendered)
+    f, l, g = changes(files, links, gsets)
+    for w in warns:
+        print("warning:", w)
+    if not (f or l or g):
+        print("already applied: nothing to change")
+        return 0
+    ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    bdir = os.path.join(BACKUP, ts)
+    os.makedirs(bdir)
+    manifest = []
+    for n, p in enumerate(list(f) + list(l)):
+        e = {"kind": "file", "path": p, "existed": os.path.lexists(p), "symlink": None, "backup": None}
+        if os.path.islink(p):
+            e["symlink"] = os.readlink(p)
+        elif os.path.isfile(p):
+            e["backup"] = f"{n:03d}-{os.path.basename(p)}"
+            shutil.copy2(p, os.path.join(bdir, e["backup"]))
+        manifest.append(e)
+    manifest += [{"kind": "gsettings", "schema": s, "key": k, "old": old} for s, k, _, old in g]
+    with open(os.path.join(bdir, "manifest.json"), "w") as fh:
+        json.dump(manifest, fh, indent=2)
+    for p, text in f.items():
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        mode = os.stat(p).st_mode & 0o7777 if os.path.exists(p) else None
+        tmp = p + ".graphite-tmp"
+        with open(tmp, "w") as fh:
+            fh.write(text)
+        if mode is not None:
+            os.chmod(tmp, mode)
+        os.replace(tmp, p)
+        print("wrote  ", p)
+    for p, d in l.items():
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        if os.path.lexists(p):
+            os.remove(p)
+        os.symlink(d, p)
+        print("linked ", p, "->", d)
+    for s, k, v, _ in g:
+        subprocess.run(["gsettings", "set", s, k, v], check=True)
+        print("gsettings", s, k, v)
+    print(f"backup: {bdir}\nrevert with: graphite-theme revert")
+    return 0
+
+
+def cmd_revert(which=None):
+    if not os.path.isdir(BACKUP):
+        raise ThemeError("no backups")
+    live = sorted(d for d in os.listdir(BACKUP) if not d.endswith(".reverted"))
+    if which:
+        live = [d for d in live if d == which]
+    if not live:
+        raise ThemeError("no un-reverted backup found" + (f" named {which}" if which else ""))
+    bdir = os.path.join(BACKUP, live[-1])
+    manifest = load_json(os.path.join(bdir, "manifest.json"))
+    for e in reversed(manifest):
+        if e["kind"] == "gsettings":
+            args = ["set", e["schema"], e["key"], e["old"]] if e["old"] is not None else ["reset", e["schema"], e["key"]]
+            subprocess.run(["gsettings"] + args, check=False)
+            print("gsettings", *args)
+            continue
+        p = e["path"]
+        if os.path.lexists(p):
+            os.remove(p)
+        if e["symlink"]:
+            os.symlink(e["symlink"], p)
+        elif e["backup"]:
+            shutil.copy2(os.path.join(bdir, e["backup"]), p)
+        print("restored" if e["existed"] else "removed ", p)
+    os.rename(bdir, bdir + ".reverted")
+    print("reverted", live[-1])
+    return 0
+
+
+# ---------------------------------------------------------------- CLI
+def main():
+    ap = argparse.ArgumentParser(prog="graphite-theme", description=__doc__.split("\n")[0])
+    ap.add_argument("--preset", help="overlay presets/<NAME>.json (default: $GRAPHITE_PRESET or local.json _preset)")
+    ap.add_argument("--only", help="comma-separated target names (also selects disabled targets)")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("render", help="render templates into " + OUT)
+    sub.add_parser("check", help="render, then validate every output")
+    sub.add_parser("diff", help="show what apply would change in live configs")
+    sub.add_parser("apply", help="hook outputs into app configs (with backup)")
+    rv = sub.add_parser("revert", help="restore the latest (or named) backup")
+    rv.add_argument("backup", nargs="?")
+    sub.add_parser("targets", help="list targets")
+    g = sub.add_parser("get", help="print one token, e.g. get color.accent | hex")
+    g.add_argument("expr", nargs="+")
+    a = ap.parse_args()
+    try:
+        if a.cmd == "revert":
+            return cmd_revert(a.backup)
+        tokens, preset = load_tokens(a.preset)
+        if a.cmd == "get":
+            print(evaluate(tokens, " ".join(a.expr)))
+            return 0
+        only = a.only.split(",") if a.only else None
+        if a.cmd == "targets":
+            for t in load_json(os.path.join(CONF, "targets.json"))["targets"]:
+                hooks = ",".join(h["type"] for h in t.get("apply", [])) or "-"
+                print(f"{'on ' if t.get('enabled', True) else 'off'} {t['name']:<14} {t.get('template') or '-':<28} hooks={hooks}")
+            return 0
+        targets = load_targets(only)
+        rendered = render(tokens, preset, targets, quiet=a.cmd != "render")
+        if a.cmd == "render":
+            print(f"preset: {preset or 'default'}")
+            return 0
+        if a.cmd == "check":
+            bad = 0
+            for t in targets:
+                if t.get("template"):
+                    out = rendered[t["name"]][1]
+                    try:
+                        res = check_output(t.get("check", "text"), out)
+                    except (ThemeError, ValueError) as e:
+                        res, bad = f"FAIL {e}", bad + 1
+                    print(f"{t['name']:<14} {t.get('check', 'text'):<9} {res}")
+            return 1 if bad else 0
+        if a.cmd == "diff":
+            return cmd_diff(targets, rendered)
+        if a.cmd == "apply":
+            return cmd_apply(targets, rendered)
+    except ThemeError as e:
+        print("graphite-theme:", e, file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,175 @@
+#!/usr/bin/env bash
+# graphite-hypr - switch Hyprland between the old hyprland.conf and the Graphite Lua config.
+#
+#   graphite-hypr status          what is running, what the next login will load
+#   graphite-hypr check           Hyprland --verify-config on the Lua entry (no side effects)
+#   graphite-hypr binds           offline bind diff: live conf binds vs Lua binds (Markdown)
+#   graphite-hypr on [--live]     verify, then symlink hyprland.lua -> graphite.lua
+#   graphite-hypr off [--live]    remove that symlink (exact revert of `on`)
+#
+# Precedence (Hyprland 0.55.4, src/config/supplementary/jeremy/Jeremy.cpp):
+#   --safe-mode > -c/--config > $HYPRLAND_CONFIG > hyprland.lua > hyprland.conf
+# (first match in $XDG_CONFIG_HOME/hypr, then $XDG_CONFIG_DIRS). The path is
+# cached for the session: creating/removing hyprland.lua changes nothing until
+# Hyprland restarts or `hyprctl reload full-reset` (what --live runs).
+#
+# `on` only creates ONE thing: the symlink <hypr>/hyprland.lua -> graphite.lua.
+# `off` only removes that symlink (refuses to touch anything else).
+# --live = `hyprctl reload full-reset` (swap config manager in the running
+# session). Experimental: prefer logging out and back in.
+
+set -euo pipefail
+
+HYPR_DIR="${GRAPHITE_HYPR_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/hypr}"
+ENTRY_NAME="graphite.lua"
+ENTRY="$HYPR_DIR/$ENTRY_NAME"
+LINK="$HYPR_DIR/hyprland.lua"
+CONF="$HYPR_DIR/hyprland.conf"
+TOOLS="$HYPR_DIR/graphite/tools"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/graphite"
+LOG="$STATE_DIR/hypr-switch.log"
+
+say() { printf '%s\n' "$*"; }
+die() { printf 'graphite-hypr: %s\n' "$*" >&2; exit 1; }
+
+log() {
+    mkdir -p "$STATE_DIR"
+    printf '%s %s\n' "$(date -Is)" "$*" >>"$LOG"
+}
+
+# 0 = hyprland.lua is our symlink, 1 = absent, 2 = something else (foreign)
+link_state() {
+    if [[ -L "$LINK" ]]; then
+        [[ "$(readlink "$LINK")" == "$ENTRY_NAME" ]] && return 0
+        return 2
+    fi
+    [[ -e "$LINK" ]] && return 2
+    return 1
+}
+
+running_provider() {
+    command -v hyprctl >/dev/null || { echo "n/a"; return; }
+    [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]] || { echo "n/a (not inside Hyprland)"; return; }
+    hyprctl -j status 2>/dev/null | sed -n 's/.*"configProvider": *"\([^"]*\)".*/\1/p' | head -1
+}
+
+# config overrides on the running compositor that would bypass hyprland.lua
+running_overrides() {
+    local pid
+    pid="$(pgrep -x Hyprland | head -1 || true)"
+    [[ -n "$pid" ]] || return 0
+    if tr '\0' '\n' <"/proc/$pid/cmdline" | grep -qxE -- '-c|--config'; then
+        echo "running Hyprland was started with -c/--config (overrides hyprland.lua)"
+    fi
+    if tr '\0' '\n' <"/proc/$pid/environ" 2>/dev/null | grep -q '^HYPRLAND_CONFIG='; then
+        echo "running Hyprland has \$HYPRLAND_CONFIG set (overrides hyprland.lua)"
+    fi
+}
+
+do_check() {
+    [[ -f "$ENTRY" ]] || die "entry not found: $ENTRY"
+    command -v Hyprland >/dev/null || die "Hyprland binary not found"
+    local out rc tmp
+    tmp="$(mktemp -d)"
+    # run from an empty dir; verify-config never starts the compositor and
+    # the Lua entry has no top-level side effects (execs live in hyprland.start)
+    set +e
+    out="$(cd "$tmp" && timeout 60 Hyprland --verify-config -c "$ENTRY" 2>&1)"
+    rc=$?
+    set -e
+    rmdir "$tmp" 2>/dev/null || true
+    printf '%s\n' "$out" | sed -n '/======== Config parsing result:/,$p'
+    if [[ $rc -ne 0 ]]; then
+        say "verify-config FAILED (exit $rc)"
+        return 1
+    fi
+    say "verify-config OK: $ENTRY"
+}
+
+do_status() {
+    say "hypr dir:          $HYPR_DIR -> $(readlink -f "$HYPR_DIR")"
+    say "running provider:  $(running_provider)"
+    local st=0
+    link_state || st=$?
+    case $st in
+        0) say "hyprland.lua:      symlink -> $ENTRY_NAME  (Graphite ON for next start)";;
+        1) say "hyprland.lua:      absent  (next start loads hyprland.conf)";;
+        2) say "hyprland.lua:      FOREIGN file/link, not managed by graphite-hypr: $(ls -l "$LINK")";;
+    esac
+    local ov
+    ov="$(running_overrides)"
+    [[ -n "$ov" ]] && say "WARNING:           $ov"
+    local tok="${XDG_STATE_HOME:-$HOME/.local/state}/graphite/tokens.lua"
+    if [[ -f "$tok" ]]; then say "tokens:            $tok"; else say "tokens:            (none) -> built-in defaults (graphite/defaults.lua)"; fi
+    [[ -f "$HYPR_DIR/graphite/local.lua" ]] && say "local overrides:   $HYPR_DIR/graphite/local.lua"
+    [[ -f "$LOG" ]] && say "last switch:       $(tail -1 "$LOG")"
+    return 0
+}
+
+do_binds() {
+    command -v lua >/dev/null || die "lua (5.5) not found"
+    [[ "$(running_provider)" == "hyprlang" ]] || die "needs the running session to be on hyprland.conf (hyprctl -j binds is the reference)"
+    local tmp
+    tmp="$(mktemp -d)"
+    hyprctl -j binds >"$tmp/live.json"
+    lua "$TOOLS/binddump.lua" "$ENTRY" >"$tmp/lua.jsonl"
+    python3 "$TOOLS/binddiff.py" "$tmp/live.json" "$tmp/lua.jsonl" "$HYPR_DIR"
+    local rc=$?
+    rm -rf "$tmp"
+    return $rc
+}
+
+live_reload() {
+    [[ "$(running_provider)" != n/a* ]] || die "--live needs to run inside the Hyprland session"
+    say "running: hyprctl reload full-reset"
+    hyprctl reload full-reset
+    sleep 1
+    say "running provider now: $(running_provider)"
+}
+
+do_on() {
+    local live="${1:-}"
+    local st=0
+    link_state || st=$?
+    [[ $st -eq 2 ]] && die "$LINK exists and is not our symlink - refusing to touch it"
+    local ov
+    ov="$(running_overrides)"
+    [[ -n "$ov" ]] && say "WARNING: $ov"
+    do_check || die "not switching: fix the errors above first"
+    if [[ $st -eq 0 ]]; then
+        say "already on ($LINK -> $ENTRY_NAME)"
+    else
+        ln -s "$ENTRY_NAME" "$LINK"
+        log "on: created $LINK -> $ENTRY_NAME"
+        say "ON: $LINK -> $ENTRY_NAME"
+    fi
+    if [[ "$live" == "--live" ]]; then
+        live_reload
+    else
+        say "Takes effect at the next Hyprland start (log out/in). Rollback: graphite-hypr off"
+    fi
+}
+
+do_off() {
+    local live="${1:-}"
+    local st=0
+    link_state || st=$?
+    case $st in
+        2) die "$LINK is not our symlink - refusing to remove it (inspect it by hand)";;
+        1) say "already off (no $LINK)";;
+        0) rm -- "$LINK"; log "off: removed $LINK"; say "OFF: removed $LINK (next start loads $CONF)";;
+    esac
+    if [[ "$live" == "--live" ]]; then
+        live_reload
+    fi
+}
+
+case "${1:-status}" in
+    status) do_status ;;
+    check) do_check ;;
+    binds) do_binds ;;
+    on) do_on "${2:-}" ;;
+    off) do_off "${2:-}" ;;
+    -h|--help|help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//' ;;
+    *) die "usage: graphite-hypr status|check|binds|on [--live]|off [--live]" ;;
+esac
