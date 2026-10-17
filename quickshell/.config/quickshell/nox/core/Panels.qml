@@ -8,7 +8,8 @@ Singleton {
 
     property string popup: ""          // id of the open GPopup, "" = none
     property bool dockVisible: true
-    property bool caffeine: false      // idle inhibitor (owned by the bar window)
+    // idle inhibitor (owned by the bar window); starts as shell.json caffeine.default (true)
+    property bool caffeine: Config.opt.caffeine?.default ?? true
     property var barWindows: []        // registered by each bar; popups include them in their focus grab
     property bool launcherOpen: false
     property string launcherQuery: ""  // text to start the next launcher session with

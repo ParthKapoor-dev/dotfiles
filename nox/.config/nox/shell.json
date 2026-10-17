@@ -51,6 +51,7 @@
     "ignoredAppIds": [],
     "pinned": ["zen", "slack", "dev.zed.Zed", "stably-orca", "netsoft-com.netsoft.hubstaff", "chromium", "helium", "com.mitchellh.ghostty"]
   },
+  "caffeine": { "default": true },
   "controlCenter": {
     "sections": ["connectivity", "performance", "display", "sound", "media", "tiles"],
     "tiles": ["screenshot", "record", "look", "lock"],
