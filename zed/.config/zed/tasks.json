@@ -1,0 +1,29 @@
+[
+  {
+    "label": "AD: diff method versions",
+    "command": "belz",
+    "args": ["ad", "diff"],
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "on_success"
+  },
+  {
+    "label": "AD: diff selected UUID",
+    "command": "belz",
+    "args": ["ad", "diff", "$ZED_SELECTED_TEXT"],
+    "use_new_terminal": true,
+    "allow_concurrent_runs": true,
+    "reveal": "always",
+    "hide": "on_success"
+  },
+  {
+    "label": "AD: diff method across envs",
+    "command": "belz",
+    "args": ["ad", "diff", "--cross-env"],
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "on_success"
+  }
+]
