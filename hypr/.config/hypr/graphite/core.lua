@@ -176,6 +176,15 @@ local BIND_OPTS = {
 -- or a submap block:
 --   { submap = "name", binds = { ...entries... } }
 -- Entries with enabled = false are skipped (keep them as documentation).
+--
+-- desc -> hl.bind description -> `hyprctl -j binds` "description", read by the
+-- shell's shortcuts sheet (Super+/). Every bind carries one. Conventions:
+--   * sentence case, plain label, no group prefix: the sheet groups by keywords
+--     in the label (Cheatsheet.qml groupFor), so word it to land in its group
+--   * aliases share the exact same desc (sheet merges them into one row)
+--   * numbered families end in " <n>" ("Go to desktop 3"): code:N keys come back
+--     from hyprctl as key "" / keycode 0, so the number is only in the desc
+--   * plumbing binds the sheet must hide start with "Internal: "
 function C.apply_binds(list, ctx, in_submap)
     for _, b in ipairs(list or {}) do
         if b.enabled == false then
