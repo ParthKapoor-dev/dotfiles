@@ -78,6 +78,9 @@ P.execs = {
     -- polkit: graphite's polkit module is the agent. If it is not there yet,
     -- uncomment the KDE agent (polkit-kde-agent is installed):
     -- "/usr/lib/polkit-kde-authentication-agent-1",
+    -- lock right after login (ii had lock.launchOnStartup = true). Not needed
+    -- while greetd/tuigreet asks for the password; uncomment for autologin:
+    -- "hyprlock",
 }
 
 -- 4-finger swipe up / down = overview (as with ii)
