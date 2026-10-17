@@ -34,11 +34,24 @@ Variants {
         readonly property bool menuOpen: Panels.popup === menu.popupId
         readonly property bool hovering: hover.hovered
         // shown = on screen; with autohide only while revealed
-        readonly property bool shown: Panels.dockVisible && (!autohide || revealed || menuOpen)
+        // autohide stays revealed on an empty desktop (no windows on this screen's workspace;
+        // minimized windows live in special:minimized and don't count)
+        readonly property bool shown: Panels.dockVisible && (!autohide || revealed || menuOpen || (emptyDesktop && !fullscreen))
         property bool revealed: false
         // this screen's workspace, not the focused one: a fullscreen window on another monitor
         // must not disable this dock's hot strip
-        readonly property bool fullscreen: Hyprland.monitorFor(win.screen)?.activeWorkspace?.hasFullscreen ?? false
+        readonly property var monWs: Hyprland.monitorFor(win.screen)?.activeWorkspace ?? null
+        readonly property bool fullscreen: monWs?.hasFullscreen ?? false
+        readonly property bool wsEmpty: !!monWs && monWs.toplevels.values.length === 0
+        // settled a beat (a window closing while the next one maps, workspace switch events
+        // arriving in pieces) so the dock doesn't bob
+        property bool emptyDesktop: false
+        onWsEmptyChanged: emptyTimer.restart()
+        Component.onCompleted: emptyDesktop = wsEmpty
+        Timer { id: emptyTimer; interval: 120; onTriggered: win.emptyDesktop = win.wsEmpty }
+        // a window appeared while the pointer is on the dock (launched from it): keep it up until
+        // the pointer leaves, like a normal reveal
+        onEmptyDesktopChanged: if (!emptyDesktop && autohide && hovering) revealed = true
 
         // reveal / conceal timing (autohide)
         Timer { id: revealTimer; interval: Config.opt.dock?.revealDelay ?? 150; onTriggered: win.revealed = true }
