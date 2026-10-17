@@ -163,7 +163,7 @@ Scope {
             id: kt
             anchors.centerIn: parent
             font.family: Theme.labelsMono ? Theme.fontLabel : Theme.fontUi
-            font.pixelSize: Theme.labelsMono ? 10.5 : 11
+            font.pixelSize: Theme.labelsMono ? 10 : 11
             font.weight: Font.Medium
         }
     }

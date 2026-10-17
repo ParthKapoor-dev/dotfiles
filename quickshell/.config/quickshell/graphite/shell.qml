@@ -18,6 +18,7 @@ import qs.modules.corners
 import qs.modules.overview
 import qs.modules.session
 import qs.modules.polkit
+import qs.modules.cheatsheet
 
 ShellRoot {
     LazyLoader { active: Config.loaded && Config.moduleEnabled("bar"); component: Bar {} }
@@ -31,6 +32,8 @@ ShellRoot {
     LazyLoader { active: Config.loaded && Config.moduleEnabled("corners"); component: Corners {} }
     LazyLoader { active: Config.loaded && Config.moduleEnabled("overview"); component: Overview {} }
     LazyLoader { active: Config.loaded && Config.moduleEnabled("session"); component: Session {} }
+    // keyboard shortcuts sheet (on unless modules.cheatsheet is false)
+    LazyLoader { active: Config.loaded && Config.opt.modules?.cheatsheet !== false; component: Cheatsheet {} }
     // the polkit agent registers on load (only one agent per session; see modules/polkit)
     LazyLoader { active: Config.loaded && Config.moduleEnabled("polkit"); component: Polkit {} }
 
@@ -65,6 +68,13 @@ ShellRoot {
         function toggle(): void { Panels.overviewOpen = !Panels.overviewOpen; }
         function open(): void { Panels.overviewOpen = true; }
         function close(): void { Panels.overviewOpen = false; }
+    }
+    // qs -c graphite ipc call cheatsheet toggle | open | close
+    IpcHandler {
+        target: "cheatsheet"
+        function toggle(): void { Panels.cheatsheetOpen = !Panels.cheatsheetOpen; }
+        function open(): void { Panels.cheatsheetOpen = true; }
+        function close(): void { Panels.cheatsheetOpen = false; }
     }
     // qs -c graphite ipc call session toggle | open | close
     IpcHandler {
@@ -163,6 +173,10 @@ ShellRoot {
         GlobalShortcut {
             appid: "graphite"; name: "overviewToggle"; description: "Toggle Mission Control"
             onPressed: Panels.overviewOpen = !Panels.overviewOpen
+        }
+        GlobalShortcut {
+            appid: "graphite"; name: "cheatsheetToggle"; description: "Keyboard shortcuts sheet"
+            onPressed: Panels.cheatsheetOpen = !Panels.cheatsheetOpen
         }
         GlobalShortcut {
             appid: "graphite"; name: "sessionToggle"; description: "Toggle the power menu"

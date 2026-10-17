@@ -14,6 +14,7 @@ Singleton {
     property string launcherQuery: ""  // text to start the next launcher session with
     property bool overviewOpen: false
     property bool sessionOpen: false
+    property bool cheatsheetOpen: false
     property bool dockRevealed: false  // autohide: pointer at the bottom edge / dock hovered / IPC
     property var popupIds: []          // ids of GPopups that currently exist (registered by GPopup)
 
