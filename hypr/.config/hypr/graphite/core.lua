@@ -145,13 +145,6 @@ function C.zoom_fn(delta)
     end)
 end
 
--- same, as a shell command (for `a || b` fallbacks inside exec strings)
-function C.zoom_eval_cmd(delta)
-    return string.format(
-        [[hyprctl eval 'hl.config({cursor={zoom_factor=math.max(1,math.min(3,hl.get_config("cursor.zoom_factor")%+.2f))}})']],
-        delta)
-end
-
 -- workspace N within the current group of 10 (was the ii-era workspace_action.sh helper):
 -- target = floor((current-1)/10)*10 + n.  mode "workspace" focuses it on the monitor
 -- under focus (focusworkspaceoncurrentmonitor); "movetoworkspace" moves the window.

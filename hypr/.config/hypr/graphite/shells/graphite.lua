@@ -2,9 +2,9 @@
 --
 -- With settings.shell = "graphite" this file is the WHOLE shell side of the
 -- compositor: env, autostart, gestures, the "shell" bind group and layer rules.
--- It replaces shells/ii.lua bind for bind (mapping + dropped binds listed above
--- P.binds and in lnx/reports/hypr-v2.md). Layer rules are also applied while ii
--- is the shell (settings.layer_rule_shells), so graphite can run as a companion.
+-- It replaced the old shells/ii.lua (end-4 illogical-impulse, removed 2026-10-17)
+-- bind for bind (mapping + dropped binds listed above P.binds and in
+-- lnx/reports/hypr-v2.md).
 --
 -- Shell-independent binds (volume, media, Print, lock, apps, windows, layout
 -- cycling) live in graphite/binds/*.lua and are the same for every shell.
@@ -64,9 +64,9 @@ local HS = "~/.config/hypr/graphite/scripts"
 P.env = {}
 
 -- Started first (exec-once order as with ii). The shell draws wallpaper, bar,
--- dock, notifications (org.freedesktop.Notifications) and is the polkit agent,
--- so `qs -c ii` must NOT run at the same time: both claim the notification
--- D-Bus name and the polkit agent slot, and the first one wins.
+-- dock, notifications (org.freedesktop.Notifications) and is the polkit agent:
+-- no other notification daemon / polkit agent may run next to it (the first
+-- one to claim the D-Bus name / agent slot wins).
 P.execs_early = {
     P.QS,
 }
@@ -90,7 +90,7 @@ P.gestures = {
 }
 
 ---------------------------------------------------------------------------
--- "shell" bind group. Every ii bind (shells/ii.lua) is mapped or dropped:
+-- "shell" bind group. Every ii bind (former shells/ii.lua) is mapped or dropped:
 --
 -- ii                                 graphite
 -- Super tap (release) search         global launcherToggleRelease + interrupts; fuzzel if shell dead

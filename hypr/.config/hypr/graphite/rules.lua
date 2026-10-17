@@ -32,7 +32,6 @@ local window_rules = {
     { match = { class = "kcm_.*" }, float = true },
     { match = { class = ".*bluedevilwizard" }, float = true },
     { match = { title = ".*Welcome" }, float = true },
-    { match = { title = "^(illogical-impulse Settings)$" }, float = true },
     { match = { title = ".*Shell conflicts.*" }, float = true },
     { match = { class = "org.freedesktop.impl.portal.desktop.kde" }, float = true, size = SIZE_60 },
     { match = { class = "^(Zotero)$" }, float = true, size = SIZE_45 },
