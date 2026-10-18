@@ -247,6 +247,14 @@ Scope {
             else if (Panels.launcherOpen) { root.text = "."; root.search(); }
             else { root.initialText = "."; Panels.launcherOpen = true; }
         }
+        // command palette (Ctrl+Super+Space): its prefix from shell.json (launcher.provider.palette.prefix,
+        // default ">"); a second press while it is showing closes the launcher
+        function palette(): void {
+            const p = Config.launcherProvider("palette").prefix ?? ">";
+            if (Panels.launcherOpen && root.text.startsWith(p)) Panels.launcherOpen = false;
+            else if (Panels.launcherOpen) { root.text = p; root.search(); }
+            else { root.initialText = p; Panels.launcherOpen = true; }
+        }
         function search(query: string): void {
             if (Panels.launcherOpen) { root.text = query; root.search(); }
             else { root.initialText = query; Panels.launcherOpen = true; }
@@ -789,7 +797,7 @@ Scope {
             }
             Row {
                 anchors.left: ico.right; anchors.leftMargin: 11
-                anchors.right: ty.left; anchors.rightMargin: 12
+                anchors.right: kc.left; anchors.rightMargin: 12
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 11
                 GText {
@@ -806,6 +814,18 @@ Scope {
                     color: r.fg2
                     font.pixelSize: Theme.fontSize - 1
                     anchors.baseline: title.baseline
+                }
+            }
+            // result.keys: keycaps of the result's shortcut (command palette), left of the type tag
+            Row {
+                id: kc
+                anchors.right: ty.left; anchors.rightMargin: (r.it.keys ?? []).length && (r.it.type ?? "") !== "" ? 10 : 0
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 3
+                visible: !r.asking
+                Repeater {
+                    model: r.asking ? [] : (r.it.keys ?? [])
+                    Keycap { required property string modelData; text: modelData }
                 }
             }
             GText {

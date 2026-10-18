@@ -222,7 +222,28 @@ Singleton {
             ],
             "commands": {}
         },
-        "screenshot": {},
+        "screenshot": {
+            "card": {
+                "enabled": true,
+                "timeout": 6000,
+                "position": "bottom-right",
+                "width": 300,
+                "actions": [
+                    "copy",
+                    "annotate",
+                    "phone",
+                    "pin",
+                    "upload",
+                    "folder",
+                    "delete"
+                ]
+            },
+            "upload": {
+                "service": "0x0",
+                "expires": 24,
+                "confirm": true
+            }
+        },
         "recorder": {
             "directory": "~/Videos",
             "args": []
@@ -251,6 +272,32 @@ Singleton {
         },
         "corners": {
             "hideOnFullscreen": true
+        },
+        "desktopWidgets": {
+            "enabled": true,
+            "side": "auto",
+            "screens": [],
+            "show": [
+                "date",
+                "clock",
+                "media",
+                "quote"
+            ],
+            "timeFormat": "HH:mm",
+            "dateFormat": "dddd d MMMM",
+            "clockSize": 132,
+            "width": 440,
+            "marginX": 96,
+            "offsetY": -24,
+            "quoteWidth": 360,
+            "alwaysShow": false,
+            "quotes": [
+                "Less, but better. — Dieter Rams",
+                "Simplicity is prerequisite for reliability. — Edsger Dijkstra",
+                "Make it work, make it right, make it fast. — Kent Beck",
+                "The details are not the details. They make the design. — Charles Eames",
+                "Stay hungry. Stay foolish."
+            ]
         },
         "cheatsheet": {
             "labels": {},
@@ -384,6 +431,20 @@ Singleton {
                             ]
                         },
                         {
+                            "label": "Battery Protection (80% / Full Charge)",
+                            "icon": "leaf",
+                            "action": "chargeLimit",
+                            "keywords": [
+                                "battery",
+                                "charge",
+                                "limit",
+                                "80",
+                                "100",
+                                "travel",
+                                "health"
+                            ]
+                        },
+                        {
                             "label": "Take Screenshot",
                             "icon": "shot",
                             "action": "screenshot",
@@ -471,6 +532,48 @@ Singleton {
                             "label": "Toggle Dock",
                             "icon": "grid",
                             "action": "dock"
+                        },
+                        {
+                            "label": "Desktop Widgets: On / Off",
+                            "icon": "desktop",
+                            "action": "desktopWidgets",
+                            "keywords": [
+                                "widgets",
+                                "clock",
+                                "desktop",
+                                "quote"
+                            ]
+                        },
+                        {
+                            "label": "Widgets: Left",
+                            "icon": "desktop",
+                            "action": "widgetsLeft",
+                            "keywords": [
+                                "widgets",
+                                "side",
+                                "clock"
+                            ]
+                        },
+                        {
+                            "label": "Widgets: Right",
+                            "icon": "desktop",
+                            "action": "widgetsRight",
+                            "keywords": [
+                                "widgets",
+                                "side",
+                                "clock"
+                            ]
+                        },
+                        {
+                            "label": "Widgets: Auto Side",
+                            "icon": "desktop",
+                            "action": "widgetsAuto",
+                            "keywords": [
+                                "widgets",
+                                "side",
+                                "clock",
+                                "wallpaper"
+                            ]
                         }
                     ]
                 },
@@ -550,6 +653,26 @@ Singleton {
         const r = JSON.parse(JSON.stringify(raw));
         r.dock = r.dock || {};
         r.dock.pinned = list;
+        file.setText(JSON.stringify(r, null, 2) + "\n");
+    }
+    // one dock option (the command palette's "Dock auto-hide" toggle). A scalar that is already in
+    // the file's "dock" object is replaced in place, so the hand formatting survives; otherwise the
+    // same rewrite as above
+    function setDockOption(key, value) {
+        const t = file.text();
+        const at = t.search(/\n\s*"dock"\s*:\s*\{/);
+        if (at >= 0 && typeof value !== "object") {
+            const end = t.indexOf("\n  }", at + 1);
+            const body = t.slice(at, end < 0 ? t.length : end);
+            const re = new RegExp('("' + key + '"\\s*:\\s*)(true|false|-?[\\d.]+|"[^"]*")');
+            if (re.test(body)) {
+                file.setText(t.slice(0, at) + body.replace(re, "$1" + JSON.stringify(value)) + t.slice(at + body.length));
+                return;
+            }
+        }
+        const r = JSON.parse(JSON.stringify(raw));
+        r.dock = r.dock || {};
+        r.dock[key] = value;
         file.setText(JSON.stringify(r, null, 2) + "\n");
     }
 

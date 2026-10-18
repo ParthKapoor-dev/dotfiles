@@ -5,7 +5,7 @@
 set -euo pipefail
 LIB="${NOX_LIB:-$(cd "$(dirname "$(readlink -f "$0")")/../lib/nox" && pwd)}"
 QS=(qs -c nox)
-MODULES="theme shell layout shot record wallpaper dpms hypr greeter"
+MODULES="theme shell layout shot record wallpaper dpms battery phone hypr greeter workspaces"
 
 usage() {
     cat <<'EOF'
@@ -13,15 +13,19 @@ usage: nox <command> [args]
   theme  [render|check|diff|apply|switch <look>|revert [ts]|targets|get <path>|<look>]
   shell  start|stop|restart|status|log [-f]     (qs -c nox)
   ipc    <target> <function> [args]             (qs -c nox ipc call ...)
-  toggle launcher|cc|nc|dnd|overview|session|dock|cheatsheet|clipboard
+  toggle launcher|cc|nc|dnd|overview|session|dock|cheatsheet|clipboard|widgets
+  widgets [status|on|off|toggle|left|right|auto|reset]   (desktop clock column; shell.json desktopWidgets)
   layout next|prev|set <name>|get
-  shot   region|copy|screen|window|ocr
+  shot   region|copy|screen|window|ocr|pin <file>
   record [--fullscreen] [--sound]
   wallpaper pick|random|list [--all]|set <path>|prep <image|dir>...
             slideshow start|stop|next|prev|status|list|clear|add <path>...|remove <path>...
   dpms   on|off|toggle [monitor]
+  battery [status|protect|full|toggle|limit <60-100>|reapply]   (charge limit, 80% by default)
+  phone  status|send [file...]|clip|ring|pair|on|off|logs   (KDE Connect phone link)
   hypr   status|check|on [--live]|off
   greeter sync|test|nested|install|on|off|status  (login screen on greetd)
+  workspaces save [name]|restore [name]|pick|list|show [name]|rm <name>  (session: apps + window layout; alias ws)
   status                                        (hypr + shell + theme + idle at a glance)
   help [command]
 EOF
@@ -37,7 +41,8 @@ module_help() {
 cmd="${1:-help}"
 [ $# -gt 0 ] && shift
 case "$cmd" in
-    theme | shell | layout | shot | record | wallpaper | dpms | hypr | greeter) exec "$LIB/$cmd" "$@" ;;
+    theme | shell | layout | shot | record | wallpaper | dpms | battery | phone | hypr | greeter | workspaces) exec "$LIB/$cmd" "$@" ;;
+    ws) exec "$LIB/workspaces" "$@" ;;
     ipc)
         [ $# -ge 2 ] || { echo "usage: nox ipc <target> <function> [args]   (targets: qs -c nox ipc show)" >&2; exit 2; }
         exec "${QS[@]}" ipc call "$@" ;;
@@ -48,8 +53,15 @@ case "$cmd" in
             nc) exec "${QS[@]}" ipc call notifications toggle ;;
             dnd) exec "${QS[@]}" ipc call notifications toggleDnd ;;
             clipboard) exec "${QS[@]}" ipc call launcher clipboard ;;
-            overview | session | dock | cheatsheet) exec "${QS[@]}" ipc call "$1" toggle ;;
-            *) echo "nox toggle: unknown panel '${1:-}' (launcher|cc|nc|dnd|overview|session|dock|cheatsheet|clipboard)" >&2; exit 2 ;;
+            overview | session | dock | cheatsheet | widgets) exec "${QS[@]}" ipc call "$1" toggle ;;
+            *) echo "nox toggle: unknown panel '${1:-}' (launcher|cc|nc|dnd|overview|session|dock|cheatsheet|clipboard|widgets)" >&2; exit 2 ;;
+        esac ;;
+    widgets)
+        # on/off + side are runtime picks (~/.local/state/nox/widgets.json); reset = back to shell.json
+        case "${1:-status}" in
+            status | toggle | on | off | reset) exec "${QS[@]}" ipc call widgets "${1:-status}" ;;
+            left | right | auto) "${QS[@]}" ipc call widgets side "$1" >/dev/null && exec "${QS[@]}" ipc call widgets status ;;
+            *) echo "nox widgets: unknown '${1:-}' (status|on|off|toggle|left|right|auto|reset)" >&2; exit 2 ;;
         esac ;;
     status)
         rc=0

@@ -7,7 +7,8 @@ import qs.services
 
 // Battery (UPower display device). Mock glyph; percentage on hover by default
 // (widgets.battery.showPercent: "hover" | "always" | "never"). tokens ui.meter = "dot-matrix":
-// 5 bars + "87%" in the label font (Telemetry). Popover: %, power source, time, power mode.
+// 5 bars + "87%" in the label font (Telemetry). Popover: %, power source, time, power mode,
+// battery protection (80% charge cap <-> full charge).
 BarButton {
     id: root
     property string widgetId: "battery"
@@ -102,6 +103,19 @@ BarButton {
                     current: Power.profile
                     onPicked: id => Power.set(id)
                 }
+            }
+            // charge limit (services/ChargeLimit): click = 80% cap <-> full charge for travel
+            ListRow {
+                visible: ChargeLimit.supported
+                width: parent.width
+                icon: "leaf"
+                on: ChargeLimit.on
+                busy: ChargeLimit.busy
+                title: "Battery Protection"
+                subtitle: ChargeLimit.ok ? ChargeLimit.label : "Not applied (firmware " + ChargeLimit.applied + "%)"
+                subtitleColor: ChargeLimit.ok ? Theme.label2 : Theme.red
+                trailing: ChargeLimit.on ? ChargeLimit.cap + "%" : "100%"
+                onClicked: ChargeLimit.toggle()
             }
             Item { width: 1; height: 4 }
         }

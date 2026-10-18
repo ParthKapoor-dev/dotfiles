@@ -23,6 +23,7 @@ P.IPC = {
     launcher       = "launcher toggle",         -- live
     clipboard      = "launcher clipboard",      -- live
     emoji          = "launcher emoji",          -- live
+    palette        = "launcher palette",        -- live (command palette, prefix ">")
     overview       = "overview toggle",         -- planned
     overview_close = "overview close",          -- planned (assumed: every target has open/close/toggle)
     session        = "session toggle",          -- planned
@@ -119,7 +120,8 @@ P.gestures = {
 -- Super+Shift+R, Super+Alt+R record  nox record (region, toggle)
 -- Ctrl+Alt+R, Super+Shift+Alt+R      nox record --fullscreen [--sound]
 -- Super+keypad -/+ zoom (ii ipc)     in-process cursor zoom (same 1..3 clamp)
--- New: Super+Alt+D Do Not Disturb, Alt+Print window shot, Shift+Print monitor shot.
+-- New: Super+Alt+D Do Not Disturb, Alt+Print window shot, Shift+Print monitor shot,
+-- Ctrl+Super+Space command palette (launcher ">": actions, toggles, binds with their keys).
 -- (Super+Space launcher and Super+Alt+N Control Center live in binds/custom.lua.)
 ---------------------------------------------------------------------------
 function P.binds(ctx)
@@ -144,6 +146,7 @@ function P.binds(ctx)
         { "SUPER + Tab", X(ipc("overview")), desc = "Open overview" },
         { "SUPER + V", X(ipc("clipboard") .. " || pkill fuzzel || cliphist list | fuzzel --match-mode fzf --dmenu | cliphist decode | wl-copy"), desc = "Open clipboard history" },
         { "SUPER + Period", X(ipc("emoji") .. " || pkill fuzzel || " .. HS .. "/fuzzel-emoji.sh copy"), desc = "Emoji picker (launcher, .)" },
+        { "CTRL + SUPER + Space", X(ipc("palette") .. " || pkill fuzzel || fuzzel"), desc = "Command palette (launcher, >)" },
         { "SUPER + N", G("notification_center"), desc = "Open notification center" },
         { "SUPER + ALT + D", G("dnd"), desc = "Toggle Do Not Disturb" },
         { "SUPER + M", X(ipc("control_center")), desc = "Open Control Center (Now Playing)" },
@@ -204,8 +207,8 @@ function P.layer_rules(ctx)
         { match = { namespace = "^nox:notifications$" }, animation = "fade" },
         -- 0.5: lower values blur the soft card shadows (orange halo on Ember wallpaper)
         -- full-screen / static surfaces: no blur, no compositor animation (they animate themselves)
-        { match = { namespace = "^nox:(wallpaper|corners|overview)$" }, blur = false },
-        { match = { namespace = "^nox:(corners|overview|session|polkit)$" }, no_anim = true },
+        { match = { namespace = "^nox:(wallpaper|corners|overview|widgets)$" }, blur = false },
+        { match = { namespace = "^nox:(corners|overview|session|polkit|widgets)$" }, no_anim = true },
     }
 end
 

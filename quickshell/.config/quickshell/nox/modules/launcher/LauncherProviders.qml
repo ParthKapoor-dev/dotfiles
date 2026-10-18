@@ -25,6 +25,7 @@ import Quickshell
 //            alt? (function, Shift+Enter: secondary action, closes the launcher; altLabel? = footer hint, default "Alternate"),
 //            mark? (function, Ctrl+Enter: toggle membership, the launcher stays open; markLabel? = footer hint, default "Mark"),
 //            badge? (short string, e.g. "3" = small numbered pill on the icon/thumbnail),
+//            keys? (["Super", "⇧", "S"] = keycaps of the result's shortcut, shown left of the type tag),
 //            move? (function(delta) -> false if it couldn't, Alt+Up = -1 / Alt+Down = +1: reorder; the launcher
 //                   re-runs the search and keeps the moved row selected, found by key? (stable id) ?? title) }
 // Footer hints for alt / mark / move show only while the selected result has them.
@@ -46,7 +47,8 @@ Singleton {
         "emoji": "Emoji.qml",
         "phone": "Phone.qml",
         "web": "WebSearch.qml",
-        "files": "Files.qml"
+        "files": "Files.qml",
+        "palette": "Palette.qml"
     })
     function url(id) {
         const f = registry[id];

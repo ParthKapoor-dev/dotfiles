@@ -9,7 +9,7 @@
     "screens": [],
     "left": ["logo", "appName", "menus", "workspaces", "layout"],
     "center": [],
-    "right": ["recording", "dnd", "tray", "stats", "network", "bluetooth", "battery", "search", "controlCenter", "clock"]
+    "right": ["recording", "dnd", "tray", "stats", "phone", "network", "bluetooth", "battery", "search", "controlCenter", "clock"]
   },
   "widgets": {
     "logo": {
@@ -60,9 +60,17 @@
   "session": {
     "items": ["lock", "logout", "sleep", "restart", "poweroff"],
     "confirm": ["logout", "restart", "poweroff"],
-    "commands": {}
+    "_comment": "restart/poweroff first snapshot the open windows as session 'last' (nox workspaces; 4 s cap, never blocks the action)",
+    "commands": {
+      "restart": ["sh", "-c", "timeout 4 nox workspaces save last --quiet; exec systemctl reboot"],
+      "poweroff": ["sh", "-c", "timeout 4 nox workspaces save last --quiet; exec systemctl poweroff"]
+    }
   },
-  "screenshot": {},
+  "screenshot": {
+    "_comment": "Card after nox shot screen|window and the screenshot action (modules/shot). card.actions: copy | annotate | phone | pin | upload | folder | delete (phone shows only while the phone link is up). annotate: argv with {file} (default satty, else swappy; both write back to the file). upload.service: 0x0 (public, secret URL, deleted after `expires` hours) | none (hides the button) | any name with upload.command = argv using {file} / {expires}, first URL on stdout is copied. Upload always asks first unless upload.confirm is false.",
+    "card": { "enabled": true, "timeout": 6000, "position": "bottom-right", "width": 300, "actions": ["copy", "annotate", "phone", "pin", "upload", "folder", "delete"] },
+    "upload": { "service": "0x0", "expires": 24, "confirm": true }
+  },
   "recorder": { "directory": "~/Videos", "args": [] },
   "nightLight": { "temperature": 4500 },
   "stats": { "_comment": "bar widget 'stats' (widgets.stats.show: cpu | mem | temp | net). Sampled from /proc + /sys every interval ms; thermalZone: auto or a /sys/class/thermal zone number.", "interval": 2000, "thermalZone": "auto" },
@@ -70,13 +78,35 @@
   "wallpaper": { "path": "", "fill": "cover", "color": "#000000", "transition": 500, "slideshowMinutes": 15 },
   "overview": { "minWorkspaces": 5, "live": true },
   "corners": { "hideOnFullscreen": true },
+  "desktopWidgets": {
+    "_comment": "Clock / date / now playing / quote column on the empty desktop (bottom layer, shown only while the workspace has no windows). side: left | right | auto (auto = the darker side of the wallpaper). show: any of date, clock, media, quote, in order. timeFormat/dateFormat: Qt formats (seconds in timeFormat tick every second). marginX: px from the screen edge; offsetY: px from vertical centre (+ = down). screens: [] = all. Runtime on/off and side (`nox widgets on|off|toggle|left|right|auto|reset`) are kept in ~/.local/state/nox/widgets.json over these.",
+    "enabled": true,
+    "side": "auto",
+    "screens": [],
+    "show": ["date", "clock", "media", "quote"],
+    "timeFormat": "HH:mm",
+    "dateFormat": "dddd d MMMM",
+    "clockSize": 132,
+    "width": 440,
+    "marginX": 96,
+    "offsetY": -24,
+    "quoteWidth": 360,
+    "alwaysShow": false,
+    "quotes": [
+      "Less, but better. — Dieter Rams",
+      "Simplicity is prerequisite for reliability. — Edsger Dijkstra",
+      "Make it work, make it right, make it fast. — Kent Beck",
+      "The details are not the details. They make the design. — Charles Eames",
+      "Stay hungry. Stay foolish."
+    ]
+  },
   "cheatsheet": { "labels": {}, "groups": {}, "showUnlabeled": false },
   "launcher": {
     "width": 680,
     "top": 0.18,
     "maxHeight": 404,
     "placeholder": "Search apps, files, commands…",
-    "providers": ["calculator", "apps", "windows", "clipboard", "emoji", "wallpapers", "slideshow", "defaults", "commands", "run"],
+    "providers": ["calculator", "apps", "windows", "files", "clipboard", "emoji", "wallpapers", "slideshow", "defaults", "phone", "commands", "palette", "web", "run"],
     "provider": {
       "apps": { "limit": 8, "showRecent": true, "recentLimit": 6, "frecencyWeight": 0.35, "terminal": ["ghostty", "-e"] },
       "calculator": { "prefix": "=" },
@@ -86,6 +116,8 @@
       "wallpapers": { "prefix": "#", "prefixOnly": true, "limit": 0, "directory": "~/Pictures/Wallpapers/prepped", "skipScreenshots": true },
       "slideshow": { "prefix": "%", "prefixOnly": true, "limit": 0 },
       "defaults": { "prefix": "!", "prefixOnly": true, "limit": 0 },
+      "files": { "prefix": "~", "prefixOnly": true, "limit": 30, "roots": ["~"], "exclude": ["node_modules", ".git", ".cache", "target", "build", "dist", "__pycache__", ".venv", "venv"], "hidden": false, "maxResults": 300, "debounce": 120, "recent": 8 },
+      "web": { "prefix": "?", "limit": 0, "default": "g", "fallbackBelow": 3, "engines": {}, "_comment": "default: engine key (g Google, d DuckDuckGo, yt, gh, aw Arch Wiki, aur, ap Arch packages, r Reddit, w Wikipedia, npm, mdn); engines: { \"key\": { \"name\": \"…\", \"url\": \"https://…?q=%s\" } } adds/overrides, null removes; fallbackBelow: 0 = no unprefixed web row" },
       "commands": {
         "prefix": "/",
         "limit": 6,
@@ -98,6 +130,7 @@
           { "label": "Toggle Do Not Disturb", "icon": "moonF", "action": "dnd", "keywords": ["dnd", "focus", "notifications"] },
           { "label": "Toggle Night Light", "icon": "sunset", "action": "nightLight", "keywords": ["night", "warm", "hyprsunset"] },
           { "label": "Toggle Caffeine", "icon": "coffee", "action": "caffeine", "keywords": ["awake", "idle", "inhibit"] },
+          { "label": "Battery Protection (80% / Full Charge)", "icon": "leaf", "action": "chargeLimit", "keywords": ["battery", "charge", "limit", "80", "100", "travel", "health"] },
           { "label": "Take Screenshot", "icon": "shot", "action": "screenshot", "keywords": ["screenshot", "capture", "grim"] },
           { "label": "Record Screen", "icon": "record", "action": "record", "keywords": ["record", "video", "wf-recorder"] },
           { "label": "Mission Control", "icon": "grid", "action": "overview", "keywords": ["overview", "expose", "workspaces"] },
@@ -109,10 +142,18 @@
           { "label": "Control Center", "icon": "cc", "action": "controlCenter", "keywords": ["settings"] },
           { "label": "Notification Center", "icon": "bell", "action": "notifications" },
           { "label": "Power Menu", "icon": "power", "action": "session", "keywords": ["session", "logout", "shutdown"] },
-          { "label": "Toggle Dock", "icon": "grid", "action": "dock" }
+          { "label": "Save Session", "icon": "download", "command": ["nox", "workspaces", "save", "--notify"], "keywords": ["session", "save", "layout", "workspaces", "windows", "snapshot"] },
+          { "label": "Restore Last Session", "icon": "reload", "command": ["nox", "workspaces", "restore", "--notify"], "keywords": ["session", "restore", "layout", "workspaces", "windows", "reopen"] },
+          { "label": "Restore Session…", "icon": "layout", "command": ["nox", "workspaces", "pick", "--notify"], "keywords": ["session", "restore", "layout", "workspaces", "windows", "pick"] },
+          { "label": "Toggle Dock", "icon": "grid", "action": "dock" },
+          { "label": "Desktop Widgets: On / Off", "icon": "desktop", "action": "desktopWidgets", "keywords": ["widgets", "clock", "desktop", "quote"] },
+          { "label": "Widgets: Left", "icon": "desktop", "action": "widgetsLeft", "keywords": ["widgets", "side", "clock"] },
+          { "label": "Widgets: Right", "icon": "desktop", "action": "widgetsRight", "keywords": ["widgets", "side", "clock"] },
+          { "label": "Widgets: Auto Side", "icon": "desktop", "action": "widgetsAuto", "keywords": ["widgets", "side", "clock", "wallpaper"] }
         ]
       },
-      "run": { "prefix": ">", "prefixOnly": true, "shell": ["sh", "-c"], "terminal": ["ghostty", "-e"] }
+      "palette": { "prefix": ">", "prefixOnly": true, "limit": 0, "recent": 8, "_comment": "command palette (Ctrl+Super+Space): nox actions, toggles with state, looks, nox CLI, phone, commands.items, every Hyprland bind with its keys" },
+      "run": { "prefix": "$", "prefixOnly": true, "shell": ["sh", "-c"], "terminal": ["ghostty", "-e"] }
     }
   },
   "osd": {

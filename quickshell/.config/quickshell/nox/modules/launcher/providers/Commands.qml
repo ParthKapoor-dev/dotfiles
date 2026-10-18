@@ -35,7 +35,11 @@ Item {
     // on/off state for toggles, shown next to the title
     function status(a) {
         const v = a === "dnd" ? Notifs.dnd : a === "nightLight" ? NightLight.on : a === "caffeine" ? Panels.caffeine
-                : a === "record" ? Recorder.recording : null;
+                : a === "chargeLimit" ? ChargeLimit.on
+                : a === "record" ? Recorder.recording
+                : a === "desktopWidgets" ? DesktopWidgets.enabled : null;
+        if (a === "widgetsLeft" || a === "widgetsRight" || a === "widgetsAuto")
+            return a.slice(7).toLowerCase() === DesktopWidgets.side ? "Current" : "";
         return v === null ? "" : v ? "Currently on" : "Currently off";
     }
 

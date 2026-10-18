@@ -19,6 +19,8 @@ import qs.modules.overview
 import qs.modules.session
 import qs.modules.polkit
 import qs.modules.cheatsheet
+import qs.modules.shot
+import qs.modules.desktop
 
 ShellRoot {
     LazyLoader { active: Config.loaded && Config.moduleEnabled("bar"); component: Bar {} }
@@ -34,8 +36,17 @@ ShellRoot {
     LazyLoader { active: Config.loaded && Config.moduleEnabled("session"); component: Session {} }
     // keyboard shortcuts sheet (on unless modules.cheatsheet is false)
     LazyLoader { active: Config.loaded && Config.opt.modules?.cheatsheet !== false; component: Cheatsheet {} }
+    // post-screenshot card + pinned screenshots (IPC target shot; on unless modules.shot is false;
+    // screenshot.card.enabled: false keeps pins but sends plain notifications instead of the card)
+    LazyLoader { active: Config.loaded && Config.opt.modules?.shot !== false; component: Shot {} }
+    // clock / date / now playing on the empty side of the wallpaper (desktopWidgets.enabled,
+    // `nox widgets on|off`; services/DesktopWidgets)
+    LazyLoader { active: Config.loaded && DesktopWidgets.ready && DesktopWidgets.enabled; component: Widgets {} }
     // the polkit agent registers on load (only one agent per session; see modules/polkit)
     LazyLoader { active: Config.loaded && Config.moduleEnabled("polkit"); component: Polkit {} }
+    // battery charge cap: singletons load on first use; start it now so the cap is re-checked at
+    // login and IPC target chargeLimit exists (services/ChargeLimit)
+    readonly property bool chargeLimitOn: ChargeLimit.on
 
     // qs -c nox ipc call controlCenter toggle
     IpcHandler {
@@ -110,6 +121,16 @@ ShellRoot {
         target: "action"
         function run(name: string): bool { return Actions.run(name); }
         function list(): string { return Object.keys(Actions.table).join(" "); }
+    }
+    // qs -c nox ipc call widgets toggle | on | off | side <left|right|auto> | reset | status
+    IpcHandler {
+        target: "widgets"
+        function toggle(): void { DesktopWidgets.toggle(); }
+        function on(): void { DesktopWidgets.setEnabled(true); }
+        function off(): void { DesktopWidgets.setEnabled(false); }
+        function side(s: string): bool { return DesktopWidgets.setSide(s); }
+        function reset(): void { DesktopWidgets.reset(); }
+        function status(): string { return DesktopWidgets.status(); }
     }
     // qs -c nox ipc call hud show "<text>"
     IpcHandler {

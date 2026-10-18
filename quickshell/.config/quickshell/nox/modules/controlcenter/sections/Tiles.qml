@@ -6,7 +6,8 @@ import qs.components
 import qs.services
 
 // Bottom row of square tiles (mock: Screenshot, Record, Dark Mode, Lock).
-// controlCenter.tiles picks them in order: screenshot | record | look | lock | nightLight | caffeine
+// controlCenter.tiles picks them in order: screenshot | record | look | lock | nightLight | caffeine |
+// chargeLimit (battery protection: 80% cap <-> full charge)
 // ("darkMode" = old id of "look").
 // Look replaces the mock's "Dark Mode (locked)": the shell is dark-only, so a tile that can never
 // change was dead weight. It shows the current look and switches to the next one in
@@ -38,7 +39,8 @@ Item {
         look: { icon: "sparkle", name: "Look", sub: () => root.title(root.currentLook), on: () => false, act: () => root.switchLook() },
         lock: { icon: "lock", name: "Lock", on: () => false, act: () => { Panels.close(); Actions.run("lock"); } },
         nightLight: { icon: "sunset", name: "Night Light", on: () => NightLight.on, act: () => NightLight.toggle() },
-        caffeine: { icon: "coffee", name: "Caffeine", on: () => Panels.caffeine, act: () => { Panels.caffeine = !Panels.caffeine; } }
+        caffeine: { icon: "coffee", name: "Caffeine", on: () => Panels.caffeine, act: () => { Panels.caffeine = !Panels.caffeine; } },
+        chargeLimit: { icon: "leaf", name: "Battery", sub: () => ChargeLimit.on ? ChargeLimit.cap + "% cap" : "Full 100%", on: () => ChargeLimit.on, act: () => ChargeLimit.toggle() }
     })
     Row {
         spacing: 10
