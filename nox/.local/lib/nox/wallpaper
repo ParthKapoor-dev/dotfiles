@@ -11,6 +11,8 @@
 #   nox wallpaper slideshow start|stop|next|prev|status|list|clear|add <path>...|remove <path>...
 #                                  cycle an ordered list every shell.json wallpaper.slideshowMinutes
 #                                  (default 15); launcher: "%" lists it, Ctrl+Enter in "#" adds/removes
+#   nox wallpaper lock [<path>|follow]
+#                                  lock screen image: a fixed one, or follow the desktop (default)
 #   nox wallpaper prep [--out DIR] [--force] <image|dir>...
 #                                  make images into nox wallpapers (screen shape, subject on a third,
 #                                  dark top strip, grain) -> ~/Pictures/Wallpapers/prepped; see wallpaper-prep
@@ -64,6 +66,31 @@ slideshow() {
     esac
 }
 
+# ---- lock screen image ----
+# hyprlock shows ~/.local/state/nox/lock-wallpaper (a link). `lock-link` points it at the pinned
+# lock image if there is one (`nox wallpaper lock <path>`), else at the current desktop wallpaper,
+# and runs from hypridle's lock_cmd right before hyprlock starts.
+state="${XDG_STATE_HOME:-$HOME/.local/state}/nox"
+lock_link() {
+    local p
+    p=$(readlink -e -- "$state/lock-wallpaper-pinned" 2>/dev/null) ||
+        p=$(jq -r '.path // empty' "$state/wallpaper.json" 2>/dev/null)
+    # no explicit pick: the look's own wallpaper (tokens desktop.wallpaperPath)
+    [ -n "$p" ] || p=$(jq -r '.desktop.wallpaperPath // empty' "$state/tokens.json" 2>/dev/null)
+    p="${p/#\~/$HOME}"
+    [ -f "$p" ] || { rm -f -- "$state/lock-wallpaper"; return 0; }   # hyprlock falls back to the page colour
+    ln -sfn -- "$p" "$state/lock-wallpaper"
+}
+lock_cmd() {
+    case "${1:-}" in
+        "") if [ -L "$state/lock-wallpaper-pinned" ]; then echo "pinned: $(readlink -- "$state/lock-wallpaper-pinned")"
+            else echo "follows the desktop wallpaper"; fi ;;
+        follow) rm -f -- "$state/lock-wallpaper-pinned"; lock_link; echo "lock screen follows the desktop wallpaper" ;;
+        *) local p; p=$(realpath -e -- "$1" 2>/dev/null) || { echo "nox wallpaper: no such file: $1" >&2; exit 1; }
+           ln -sfn -- "$p" "$state/lock-wallpaper-pinned"; lock_link; echo "lock screen: $p" ;;
+    esac
+}
+
 case "${1:-pick}" in
     pick)
         pkill -x fuzzel && exit 0
@@ -78,6 +105,8 @@ case "${1:-pick}" in
         ;;
     set) set_wp "${2:?usage: nox wallpaper set <path>}" ;;
     slideshow) shift; slideshow "$@" ;;
+    lock) shift; lock_cmd "$@" ;;
+    lock-link) lock_link ;;
     prep) shift; exec "$(dirname "$(realpath "$0")")/wallpaper-prep" "$@" ;;
-    *) echo "usage: nox wallpaper pick|random|list [--all] | set <path> | slideshow <cmd> | prep <image|dir>..." >&2; exit 2 ;;
+    *) echo "usage: nox wallpaper pick|random|list [--all] | set <path> | lock [<path>|follow] | slideshow <cmd> | prep <image|dir>..." >&2; exit 2 ;;
 esac
