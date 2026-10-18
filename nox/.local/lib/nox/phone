@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# nox phone - phone link over kdeconnect-rs (lightweight KDE Connect daemon, user unit
+# kdeconnect-rs.service; works with the official KDE Connect phone app).
+#
+#   nox phone status        daemon + devices (battery comes from the shell: nox ipc phone status)
+#   nox phone send [file…]  send files; no args = pick one with fuzzel (files in ~ changed in the last 30 days)
+#   nox phone clip          send the clipboard text
+#   nox phone ring          make the phone ring (find my phone)
+#   nox phone pair          pairing instructions + ask reachable unpaired phones to pair
+#   nox phone on|off        start/stop the daemon for this session (does not enable it at login)
+#   nox phone logs [-f]     daemon journal
+# Device: shell.json phone.device (name or id), else the first paired, reachable one.
+# Build/install the daemon: cargo build --release -p kdeconnect-service in a clone of
+# github.com/cosmic-utils/kdeconnect, then install -Dm755 target/release/kdeconnect-service ~/.local/bin/
+
+set -uo pipefail
+BUS=io.github.hepp3n.kdeconnect
+OBJ=/io/github/hepp3n/kdeconnect/Daemon
+IFACE=io.github.hepp3n.kdeconnect.Daemon
+UNIT=kdeconnect-rs.service
+NOTIFY=0
+
+say() {   # message to the terminal, or a notification when run from the shell (--notify)
+    if [ "$NOTIFY" = 1 ]; then notify-send -a Phone -i phone "$1" "${2:-}" >/dev/null 2>&1 || true
+    elif [[ "${2:-}" == *$'\n'* ]]; then printf '%s\n%s\n' "$1" "$2"
+    else printf '%s\n' "$1${2:+: $2}"; fi
+}
+die() { say "$1" "${2:-}"; exit 1; }
+call() { busctl --user call "$BUS" "$OBJ" "$IFACE" "$@"; }
+up() { busctl --user status "$BUS" >/dev/null 2>&1; }
+
+# devices as TSV: id name type paired reachable
+devices() {
+    call ListDevices --json=short 2>/dev/null |
+        jq -r '.data[0][] | [.[0], .[1], .[2], (.[3]|tostring), (.[4]|tostring)] | @tsv'
+}
+# preferred device id + name (paired; reachable first)
+pick() {
+    local want
+    want=$(jq -r '.phone.device // ""' "${XDG_CONFIG_HOME:-$HOME/.config}/nox/shell.json" 2>/dev/null)
+    devices | awk -F'\t' -v w="$want" '$4=="true" && (w=="" || $1==w || $2==w) { print $5 "\t" $1 "\t" $2 }' |
+        sort -r | head -1 | cut -f2,3
+}
+need() {
+    up || die "Phone link is off" "start it: nox phone on"
+    local d; d=$(pick)
+    [ -n "$d" ] || die "No paired phone" "run: nox phone pair"
+    ID=${d%%$'\t'*}; NAME=${d#*$'\t'}
+    devices | awk -F'\t' -v i="$ID" '$1==i && $5=="true" { f=1 } END { exit !f }' ||
+        die "$NAME is not reachable" "open KDE Connect on the phone (same Wi-Fi)"
+}
+
+[ "${1:-}" = "--notify" ] && { NOTIFY=1; shift; }
+cmd="${1:-status}"; [ $# -gt 0 ] && shift
+[ "${1:-}" = "--notify" ] && { NOTIFY=1; shift; }
+
+case "$cmd" in
+    status)
+        if ! up; then
+            echo "phone:    daemon not running ($UNIT: $(systemctl --user is-enabled $UNIT 2>/dev/null; true), $(systemctl --user is-active $UNIT 2>/dev/null; true))"
+            exit 1
+        fi
+        echo "phone:    daemon running ($UNIT $(systemctl --user is-active $UNIT 2>/dev/null))"
+        n=0
+        while IFS=$'\t' read -r id name type paired reach; do
+            n=$((n + 1))
+            printf '  %-24s %-8s %-10s %s  %s\n' "$name" "$type" "$([ "$paired" = true ] && echo paired || echo unpaired)" \
+                "$([ "$reach" = true ] && echo reachable || echo offline)" "$id"
+        done < <(devices)
+        [ $n -gt 0 ] || echo "  no devices seen yet (nox phone pair)"
+        b=$(qs -c nox ipc call phone status 2>/dev/null) && [ -n "$b" ] && echo "  shell: $b"
+        exit 0 ;;
+    send)
+        need
+        files=()
+        if [ $# -eq 0 ]; then
+            f=$( (cd "$HOME" && fd -t f --changed-within 30d -E .cache -E node_modules . 2>/dev/null ||
+                    find . -type f -mtime -30 -not -path '*/.*' 2>/dev/null) | head -5000 |
+                fuzzel --dmenu --prompt "send to $NAME › " 2>/dev/null) || exit 0
+            [ -n "$f" ] || exit 0
+            files=("$HOME/${f#./}")
+        else
+            for f in "$@"; do files+=("$(readlink -f -- "$f")"); done
+        fi
+        for f in "${files[@]}"; do [ -f "$f" ] || die "Not a file" "$f"; done
+        call SendFiles sas "$ID" "${#files[@]}" "${files[@]}" || die "Send failed"
+        say "Sending to $NAME" "$(printf '%s\n' "${files[@]##*/}" | head -3 | paste -sd ' ')" ;;
+    clip)
+        need
+        t=$(wl-paste --no-newline --type text 2>/dev/null) || die "Clipboard is empty"
+        [ -n "$t" ] || die "Clipboard is empty"
+        call SendClipboard ss "$ID" "$t" || die "Send failed"
+        say "Clipboard sent to $NAME" "${t:0:80}" ;;
+    ring)
+        need
+        call RingDevice s "$ID" || die "Ring failed"
+        say "Ringing $NAME" ;;
+    ping)
+        need
+        call SendPing ss "$ID" "Ping from $(hostname)" && say "Pinged $NAME" ;;
+    pair)
+        up || systemctl --user start "$UNIT" || die "Could not start $UNIT" "nox phone logs"
+        for _ in 1 2 3 4 5 6 7 8 9 10; do up && break; sleep 0.3; done
+        call BroadcastIdentity >/dev/null 2>&1
+        ip=$(ip -4 -o route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p')
+        steps="1. Install KDE Connect on the phone (Play Store / F-Droid), same Wi-Fi as this laptop.
+2. In the app, tap \"$(hostname)\" under Available devices, then Request pairing.
+   Not listed? ⋮ / + → Add devices by IP → ${ip:-<laptop IP>}
+3. Accept the pairing notification here (check that the key matches).
+A stale \"$(hostname)\" left from the old KDE Connect daemon can be unpaired in the app."
+        asked=""
+        while IFS=$'\t' read -r id name _ paired reach; do
+            [ "$paired" = false ] && [ "$reach" = true ] && call PairDevice s "$id" >/dev/null 2>&1 && asked+="$name "
+        done < <(devices)
+        if [ -n "$asked" ]; then say "Pair request sent to ${asked% }" "Accept it on the phone."
+        else say "Pair a phone" "$steps"; fi ;;
+    on)
+        systemctl --user start "$UNIT" && say "Phone link on" "$UNIT started (not enabled at login)" ;;
+    off)
+        systemctl --user stop "$UNIT" && say "Phone link off" ;;
+    logs)
+        exec journalctl --user -u "$UNIT" -o cat "$@" ;;
+    help | -h | --help)
+        sed -n '2,/^[^#]/{/^[^#]/d;s/^# \{0,1\}//;p}' "$0" ;;
+    *) echo "nox phone: unknown command '$cmd' (status|send|clip|ring|ping|pair|on|off|logs)" >&2; exit 2 ;;
+esac

@@ -1,0 +1,23 @@
+[Unit]
+Description=Phone link: lightweight KDE Connect daemon (kdeconnect-rs, cosmic-utils/kdeconnect)
+Documentation=https://github.com/cosmic-utils/kdeconnect
+# talks to the official KDE Connect phone app; same port (1716) as the official kdeconnectd,
+# so the two never run together. Binary: ~/.local/bin/kdeconnect-service (built from source,
+# see `nox phone help`). nox (bar icon, launcher "phone" entries, `nox phone`) talks to it on D-Bus.
+Conflicts=kdeconnectd.service
+PartOf=graphical-session.target
+After=graphical-session.target
+ConditionPathExists=%h/.local/bin/kdeconnect-service
+
+[Service]
+# not Type=dbus: its single-instance guard takes the bus name, drops it and takes it again,
+# and systemd stops a Type=dbus service the moment its name is released
+Type=simple
+ExecStart=%h/.local/bin/kdeconnect-service
+Environment=RUST_LOG=info NO_COLOR=1
+Restart=on-failure
+RestartSec=5
+Slice=app.slice
+
+[Install]
+WantedBy=graphical-session.target
