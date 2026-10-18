@@ -1,7 +1,12 @@
 [Unit]
 Description=Sync theme + wallpaper to the nox login screen (/var/lib/nox-greeter)
 ConditionPathIsDirectory=/var/lib/nox-greeter
+# a slideshow or a burst of wallpaper picks must never trip systemd's start limit: that
+# failed the .path unit and froze the login screen on an old wallpaper until reboot
+StartLimitIntervalSec=0
 
 [Service]
 Type=oneshot
+# coalesce bursts (several changes within 2 s = one sync)
+ExecStartPre=/bin/sleep 2
 ExecStart=%h/.local/bin/nox greeter sync
