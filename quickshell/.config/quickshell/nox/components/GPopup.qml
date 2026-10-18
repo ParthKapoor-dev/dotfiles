@@ -21,6 +21,7 @@ import qs.core
 //   (OnDemand) once the pointer is over it. Hyprland moves pointer focus to a layer surface that
 //   maps with keyboard interactivity, so a second click on the same bar button without moving
 //   the mouse went nowhere ("two clicks to close"). Opened by shortcut/IPC = OnDemand at once (Esc).
+//   After the first hover it stays OnDemand until closed (see bodyHover).
 Scope {
     id: root
     required property string popupId
@@ -169,7 +170,10 @@ Scope {
                     y: root.fromBottom ? root.shadowPad : root.gap
                     width: root.popupWidth
                     height: win.bodyH
-                    HoverHandler { id: bodyHover }
+                    // once hovered, keep keyboard focus until closed: dropping it when the pointer
+                    // left made Hyprland clear the focus grab on an empty workspace (nothing else
+                    // to focus), which closed the popover
+                    HoverHandler { id: bodyHover; onHoveredChanged: if (hovered && root.open) root.keyboardNow = true }
 
                     Item {
                         anchors.fill: parent

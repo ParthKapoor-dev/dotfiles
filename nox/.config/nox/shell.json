@@ -76,7 +76,7 @@
     "top": 0.18,
     "maxHeight": 404,
     "placeholder": "Search apps, files, commands…",
-    "providers": ["calculator", "apps", "windows", "clipboard", "emoji", "wallpapers", "slideshow", "commands", "run"],
+    "providers": ["calculator", "apps", "windows", "clipboard", "emoji", "wallpapers", "slideshow", "defaults", "commands", "run"],
     "provider": {
       "apps": { "limit": 8, "showRecent": true, "recentLimit": 6, "frecencyWeight": 0.35, "terminal": ["ghostty", "-e"] },
       "calculator": { "prefix": "=" },
@@ -85,6 +85,7 @@
       "emoji": { "prefix": ".", "prefixOnly": true, "limit": 80, "recent": 16 },
       "wallpapers": { "prefix": "#", "prefixOnly": true, "limit": 0, "directory": "~/Pictures/Wallpapers/prepped", "skipScreenshots": true },
       "slideshow": { "prefix": "%", "prefixOnly": true, "limit": 0 },
+      "defaults": { "prefix": "!", "prefixOnly": true, "limit": 0 },
       "commands": {
         "prefix": "/",
         "limit": 6,
@@ -103,6 +104,7 @@
           { "label": "Clipboard History", "icon": "clip", "action": "clipboard", "keywords": ["clipboard", "paste", "cliphist"] },
           { "label": "Choose Wallpaper", "icon": "image", "action": "wallpapers", "keywords": ["wallpaper", "background", "picture"] },
           { "label": "Wallpaper Slideshow", "icon": "play", "action": "wallpaperSlideshow", "keywords": ["wallpaper", "slideshow", "cycle", "rotate"] },
+          { "label": "Default Apps", "icon": "settings", "action": "defaultApps", "keywords": ["default", "browser", "file manager", "mime", "open with", "xdg"] },
           { "label": "Next Layout", "icon": "layout", "action": "layoutNext", "keywords": ["layout", "tiling", "scrolling", "master"] },
           { "label": "Control Center", "icon": "cc", "action": "controlCenter", "keywords": ["settings"] },
           { "label": "Notification Center", "icon": "bell", "action": "notifications" },

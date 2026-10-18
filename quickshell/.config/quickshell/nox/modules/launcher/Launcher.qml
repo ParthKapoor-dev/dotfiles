@@ -15,6 +15,7 @@ import qs.services
 // launcher.providers + launcher.provider.<id>). Typing a provider's prefix ("=", "@", "/", ">")
 // queries only that provider. Keys: Up/Down, Tab/Shift+Tab, Ctrl+N/Ctrl+P, Enter, Esc; for results
 // that support them, Shift+Delete (remove), Ctrl+Enter (mark) and Alt+Up/Alt+Down (reorder).
+// A prefixed provider showing a sub-level (nested) takes Esc / Backspace-on-empty as "back".
 // Layer surface namespace nox:launcher; it only exists while open.
 Scope {
     id: root
@@ -28,6 +29,8 @@ Scope {
     property int sel: 0
     property bool confirming: false
     property var footerHints: []   // [[prefix, provider name]]
+    property var prefixed: null    // { p, prefix, q }: the provider whose prefix is typed, if any
+    readonly property bool nested: !!prefixed?.p.nested
 
     // large preview beside the list for results that carry one (wallpapers)
     readonly property string previewUrl: open ? (selectable[sel]?.item?.preview ?? "") : ""
@@ -94,6 +97,7 @@ Scope {
             if (x.prefix && text.startsWith(x.prefix) && (!excl || x.prefix.length > excl.prefix.length)) excl = x;
         const runs = excl ? [{ x: excl, q: text.slice(excl.prefix.length).replace(/^\s+/, ""), prefixed: true }]
                           : all.filter(x => !x.prefixOnly).map(x => ({ x, q: text.trim(), prefixed: false }));
+        prefixed = excl ? { p: excl.p, prefix: excl.prefix, q: runs[0].q } : null;
         const r = [], s = [];
         for (const run of runs) {
             let res;
@@ -146,10 +150,26 @@ Scope {
         if (i >= 0) sel = i;
         return true;
     }
+    // nested provider (a sub-level is open): back() returns to its top level, the filter is cleared
+    function goBack() {
+        if (!nested || !prefixed.p.back) return false;
+        try { prefixed.p.back(); } catch (e) { console.warn("nox: launcher back failed:", e); }
+        text = prefixed.prefix;
+        search();
+        return true;
+    }
     function runSelected() {
         const cur = selectable[sel]?.item;
         if (!cur) return;
         if (cur.confirm && !confirming) { confirming = true; return; }
+        // result.stay: the launcher stays open (drill into / out of a provider's sub-level); the
+        // input goes back to the typed prefix and the search re-runs
+        if (cur.stay) {
+            try { cur.run(); } catch (e) { console.warn("nox: launcher action failed:", e); }
+            if (prefixed) text = prefixed.prefix;
+            search();
+            return;
+        }
         Panels.launcherOpen = false;
         try { cur.run(); } catch (e) { console.warn("nox: launcher action failed:", e); }
     }
@@ -324,9 +344,12 @@ Scope {
                                     const it = root.selectable[root.sel]?.item;
                                     if (it?.remove) { it.remove(); e.accepted = true; }
                                 }
+                                else if (e.key === Qt.Key_Backspace && root.nested && root.prefixed.q === "" && !(e.modifiers & ~Qt.KeypadModifier)) {
+                                    root.goBack(); e.accepted = true;
+                                }
                                 else if (e.key === Qt.Key_Escape) {
                                     if (root.confirming) root.confirming = false;
-                                    else Panels.launcherOpen = false;
+                                    else if (!root.goBack()) Panels.launcherOpen = false;
                                     e.accepted = true;
                                 }
                             }
@@ -457,7 +480,7 @@ Scope {
                                 keys: ["alt", "↑", "↓"]
                             }
                             Hint { label: "Navigate"; keys: ["↑", "↓"] }
-                            Hint { label: "Close"; keys: ["esc"] }
+                            Hint { label: root.nested ? "Back" : "Close"; keys: ["esc"] }
                         }
                     }
                 }

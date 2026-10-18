@@ -30,6 +30,7 @@ Singleton {
         clipboard: () => Panels.openLauncher(":"),
         wallpapers: () => Panels.openLauncher("# "),
         wallpaperSlideshow: () => Panels.openLauncher("% "),
+        defaultApps: () => Panels.openLauncher("! "),
         overview: () => { Panels.overviewOpen = !Panels.overviewOpen; },
         session: () => { Panels.sessionOpen = !Panels.sessionOpen; },
         screenshot: () => Quickshell.execDetached(Config.opt.screenshot?.command ?? root.screenshotCmd),

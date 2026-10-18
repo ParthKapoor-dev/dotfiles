@@ -92,7 +92,12 @@ Singleton {
     readonly property string home: Quickshell.env("HOME")
     function openStack(s) {
         const c = Config.opt.dock?.stackCommands ?? {};
-        const cmd = c[s] ?? (s === "downloads" ? ["xdg-open", home + "/Downloads"] : ["dolphin", "trash:/"]);
+        // both stacks open in the default file manager (inode/directory); trash:/// only where the
+        // file manager understands it (gio hands it to that same default), else the Trash folder
+        const trash = ["sh", "-c", "case \"$(xdg-mime query default inode/directory)\" in"
+            + " *dolphin*|*nautilus*|*nemo*|*thunar*|*caja*|*pcmanfm*) exec gio open trash:/// ;; esac;"
+            + " exec xdg-open \"$HOME/.local/share/Trash/files\""];
+        const cmd = c[s] ?? (s === "downloads" ? ["xdg-open", home + "/Downloads"] : trash);
         Quickshell.execDetached(cmd.map(a => String(a).replace(/^~/, home)));
     }
     function emptyTrash() { Quickshell.execDetached(["gio", "trash", "--empty"]); }

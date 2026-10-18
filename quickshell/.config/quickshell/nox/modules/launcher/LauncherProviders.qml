@@ -16,12 +16,15 @@ import Quickshell
 //            score? (sort within the group), actLabel? ("Open"), confirm? ("Restart now?" = ask before running),
 //            big? ([left, leftLabel, right, rightLabel] = large calculator style row), thumb? (image url = tall row with a preview), thumbSlot? (true = tall row even while thumb is still ""), preview? (image url = large preview beside the list while selected),
 //            remove? (function, Shift+Delete), run: function(),
+//            stay? (true = Enter runs it and keeps the launcher open: the input resets to the typed prefix and the search re-runs),
 //            mark? (function, Ctrl+Enter: toggle membership, the launcher stays open; markLabel? = footer hint, default "Mark"),
 //            badge? (short string, e.g. "3" = small numbered pill on the icon/thumbnail),
 //            move? (function(delta) -> false if it couldn't, Alt+Up = -1 / Alt+Down = +1: reorder; the launcher
 //                   re-runs the search and keeps the moved row selected, found by key? (stable id) ?? title) }
 // Footer hints for mark / move show only while the selected result has them.
 // A provider may declare `signal resultsChanged()` (async sources): the launcher re-runs the search.
+// Two-level providers: `property bool nested` (true while a sub-level is shown) + `function back()`;
+// while its prefix is typed and nested, Esc and Backspace on an empty query call back() (footer: "Back").
 // Per-provider shell.json options understood by the launcher itself: enabled, prefix, prefixOnly, limit (0 = all), title.
 Singleton {
     readonly property var registry: ({
@@ -33,6 +36,7 @@ Singleton {
         "clipboard": "Clipboard.qml",
         "wallpapers": "Wallpapers.qml",
         "slideshow": "Slideshow.qml",
+        "defaults": "DefaultApps.qml",
         "emoji": "Emoji.qml"
     })
     function url(id) {
