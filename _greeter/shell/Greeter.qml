@@ -181,6 +181,7 @@ Item {
         function state(): string { return g.phase + "\t" + g.message; }
         function menu(): void { g.menuOpen = !g.menuOpen; }
         function ask(what: string): void { g.confirm = what; }
+        function intro(): string { return g.introMode + "\t" + (g.introOn ? "on" : "off") + "\t" + (g.entered ? "entered" : "waiting"); }
     }
 
     // fonts that live in the user's home (e.g. Doto) are copied to dataDir/fonts by the sync
@@ -199,7 +200,7 @@ Item {
         fillMode: Image.PreserveAspectCrop
         asynchronous: false
         cache: false
-        scale: enterAnim.running ? 1.04 : 1
+        scale: enterAnim.running || g.introOn ? 1.04 : 1
         Behavior on scale { NumberAnimation { duration: 900; easing.type: g.easeType; easing.bezierCurve: g.curve } }
     }
     Rectangle {      // greeter sits a bit darker than the lock screen (no session behind it)
@@ -217,8 +218,7 @@ Item {
         opacity: 0
         transform: Translate { id: contentShift; y: -14 }
         ParallelAnimation {
-            id: enterAnim
-            running: true
+            id: enterAnim     // started by enter(), after the intro (or right away without one)
             NumberAnimation { target: content; property: "opacity"; to: 1; duration: 420 }
             NumberAnimation { target: contentShift; property: "y"; to: 0; duration: 520; easing.type: g.easeType; easing.bezierCurve: g.curve }
         }
@@ -429,6 +429,131 @@ Item {
         }
     }
 
+    // ---- intro: a short boot readout before the UI ----
+    // greeter.json "intro": true (default) | false. telemetry: typed readout; ember: one accent
+    // sweep; sequoia: none. Never in the way: the password field has the focus all along, so any
+    // key goes to it and also skips the intro; a click skips it; introCap ends it whatever happens.
+    Item {
+        id: intro
+        anchors.fill: parent
+        visible: g.introOn || introFade.running
+        Rectangle { anchors.fill: parent; color: "black"; opacity: g.tele ? 0.5 : 0.3 }
+        MouseArea { anchors.fill: parent; onPressed: { g.enter(); g.field.forceActiveFocus(); } }
+
+        // telemetry
+        Column {
+            visible: g.introMode === "tele"
+            anchors.centerIn: parent
+            width: 300
+            spacing: 7
+            Text {
+                text: g.introType("NOX // " + g.host.toUpperCase(), 0, 0.16)
+                color: "white"
+                font { family: g.fNum; pixelSize: 30; weight: Font.Bold; variableAxes: g.numAxes; letterSpacing: 1 }
+                bottomPadding: 8
+            }
+            Repeater {
+                model: g.introMode === "tele" ? g.introLines : []
+                Row {
+                    id: il
+                    required property var modelData
+                    required property int index
+                    readonly property real t0: 0.18 + index * 0.14
+                    readonly property string head: modelData.k + " " + ".".repeat(Math.max(1, 11 - modelData.k.length)) + " "
+                    readonly property bool done: g.introT >= t0 + 0.12
+                    Text {
+                        text: g.introType(il.head, il.t0, 0.12)
+                        color: g.white(0.62)
+                        font { family: g.fLabel; pixelSize: 13; weight: Font.Medium; letterSpacing: 1.2 }
+                    }
+                    Text {
+                        visible: il.done
+                        text: String(il.modelData.v).toUpperCase()
+                        color: il.modelData.ok ? g.accent : "white"
+                        font { family: g.fLabel; pixelSize: 13; weight: Font.DemiBold; letterSpacing: 1.2 }
+                    }
+                    Rectangle {     // block cursor on the line being typed
+                        visible: g.introT >= il.t0 && !il.done
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 7; height: 13; color: g.accent
+                    }
+                }
+            }
+            Item { width: 1; height: 6 }
+            Rectangle {     // boot progress
+                width: parent.width; height: 2; color: g.white(0.12)
+                Rectangle { width: parent.width * Math.min(1, g.introT / 0.86); height: 2; color: g.accent }
+            }
+        }
+
+        // ember: one accent line sweeping out from the centre, the name fading in above it
+        Item {
+            visible: g.introMode === "ember"
+            anchors.centerIn: parent
+            width: 320; height: 40
+            readonly property real e: 1 - Math.pow(1 - Math.min(1, g.introT / 0.8), 3)
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: 4
+                text: "NOX"
+                color: "white"
+                opacity: 0.7 * parent.e
+                font { family: g.fLabel; pixelSize: 11; weight: Font.Medium; letterSpacing: 0.4 * 11 + 4 * (1 - parent.e) }
+            }
+            Rectangle {
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: 28
+                width: parent.width * parent.e; height: 1.5
+                color: g.accent
+                opacity: 1 - 0.6 * Math.max(0, (g.introT - 0.7) / 0.3)
+            }
+        }
+        NumberAnimation { id: introFade; target: intro; property: "opacity"; to: 0; duration: 180 }
+    }
+    readonly property string introKind: {
+        if (!showUi || conf.intro === false || conf.intro === "off") return "";
+        return tele ? "tele" : seq ? "" : "ember";
+    }
+    readonly property var introLines: [
+        { k: "SYS", v: "OK", ok: true },
+        { k: "NET", v: ssid !== "" ? ssid : Networking.devices.values.some(d => d.type === DeviceType.Wired && d.connected) ? "WIRED" : "OFFLINE", ok: false },
+        { k: "PWR", v: hasBat ? batPct + "%" + (charging ? " AC" : "") : "AC", ok: false },
+        { k: "USER", v: user, ok: false }
+    ]
+    property string introMode: ""      // introKind, latched when the intro starts
+    property bool introStarted: false
+    property bool introOn: false
+    property bool entered: false
+    // theme.json / greeter.json land a moment after this item is created: start once both are
+    // in, or after dataWait without them (the UI then comes in as before, no intro)
+    readonly property bool dataReady: Object.keys(tokens).length > 0 && Object.keys(conf).length > 0
+    onDataReadyChanged: startIntro(false)
+    Timer { id: dataWait; interval: 250; running: true; onTriggered: g.startIntro(true) }
+    property real introT: 0
+    function introType(s, t0, len) { return s.substring(0, Math.ceil(s.length * Math.max(0, Math.min(1, (introT - t0) / len)))); }
+    NumberAnimation { id: introAnim; target: g; property: "introT"; from: 0; to: 1; duration: g.introMode === "tele" ? 900 : 560; onFinished: g.enter() }
+    Timer { id: introCap; interval: 1200; onTriggered: g.enter() }
+    function startIntro(force) {
+        if (introStarted || entered || (!dataReady && !force)) return;
+        introStarted = true;
+        dataWait.stop();
+        try {
+            introMode = dataReady ? introKind : "";
+            if (introMode === "") { enter(); return; }
+            introOn = true;
+            introAnim.start();
+            introCap.start();
+        } catch (e) { console.warn("greeter: intro failed", e); enter(); }
+    }
+    // the normal UI comes in (once): after the intro, on a key / click, or right away
+    function enter() {
+        if (entered) return;
+        entered = true;
+        introAnim.stop(); introCap.stop();
+        if (introOn) { introOn = false; introFade.start(); }
+        enterAnim.start();
+    }
+
     // black veil for the hand-off to the session
     Rectangle { id: fadeOut; anchors.fill: parent; color: "black"; opacity: 0 }
 
@@ -625,12 +750,13 @@ Item {
         font.letterSpacing: g.reveal ? 0 : (g.tele ? 3 : 2)
         cursorDelegate: Rectangle { width: 1.5; color: g.accent; visible: field.activeFocus
             SequentialAnimation on opacity { loops: Animation.Infinite; NumberAnimation { to: 0; duration: 530 } NumberAnimation { to: 1; duration: 530 } } }
-        onTextChanged: if (g.phase === "wrong" || g.phase === "error") { g.phase = "idle"; g.message = ""; }
+        onTextChanged: { if (!g.entered) g.enter(); if (g.phase === "wrong" || g.phase === "error") { g.phase = "idle"; g.message = ""; } }
         Keys.onPressed: e => {
+            if (!g.entered) g.enter();      // skip the intro; the key itself still goes to the field
             g.checkCaps();
             if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) { g.submit(); e.accepted = true; }
             else if (e.key === Qt.Key_Escape) { if (g.menuOpen || g.confirm !== "") { g.menuOpen = false; g.confirm = ""; } else text = ""; e.accepted = true; }
         }
     }
-    Component.onCompleted: { checkCaps(); field.forceActiveFocus(); }
+    Component.onCompleted: { checkCaps(); field.forceActiveFocus(); startIntro(false); }
 }

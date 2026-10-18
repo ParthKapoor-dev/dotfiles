@@ -3,11 +3,13 @@
 #   nox greeter sync [--to DIR]   theme, wallpaper (cropped + blurred for the look), fonts, user -> DIR
 #                                  (default /var/lib/nox-greeter; also run by `nox theme switch` and
 #                                  `nox wallpaper set` once the greeter is installed)
-#   nox greeter test [--fake|--demo] [--look NAME] [stop]
+#   nox greeter test [--fake|--demo] [--look NAME] [--intro on|off] [stop]
 #                                  preview in this session (a full-screen layer; Esc clears, type
 #                                  `wrong...` to fail). --fake = against a fake greetd socket (default),
-#                                  --demo = no greetd at all
-#   nox greeter nested [stop]      the boot setup (greeter Hyprland + greeter) nested in a window,
+#                                  --demo = no greetd at all, --intro = force the boot intro on/off
+#                                  (normally: shell.json "greeter": {"intro": false} turns it off)
+#   nox greeter nested [--look NAME] [--intro on|off] [stop]
+#                                     the boot setup (greeter Hyprland + greeter) nested in a window,
 #                                  against the fake greetd
 #   nox greeter install            (sudo) copy to /etc/nox-greeter, create the data/cache dirs, sync,
 #                                  check every file as the greeter user. Does not switch the login.
@@ -91,11 +93,15 @@ try: name = subprocess.run(["getent", "passwd", user], capture_output=True, text
 except Exception: pass
 if not name:
     name = subprocess.run(["git", "config", "--global", "user.name"], capture_output=True, text=True).stdout.strip() or user
-conf = {"user": user, "name": name, "keyboard": "EN", "keyboardLong": "EN · US", "fonts": sorted(set(fonts))}
+# intro: the short boot readout before the UI (telemetry: typed lines, ember: an accent sweep,
+# sequoia: none); any key skips it. shell.json "greeter": {"intro": false} turns it off.
+conf = {"user": user, "name": name, "keyboard": "EN", "keyboardLong": "EN · US", "fonts": sorted(set(fonts)), "intro": True}
 try:
     sj = json.load(open(os.path.join(home, ".config/nox/shell.json"))).get("greeter", {})
     conf.update({k: v for k, v in sj.items() if not k.startswith("_")})
 except Exception: pass
+if os.environ.get("NOX_GREETER_INTRO") in ("on", "off"):   # test override (--intro)
+    conf["intro"] = os.environ["NOX_GREETER_INTRO"] == "on"
 for name_, data in (("theme.json", t), ("greeter.json", conf)):
     tmp = os.path.join(out, "." + name_)
     with open(tmp, "w") as f: json.dump(data, f, indent=1)
@@ -136,7 +142,8 @@ do_test() {
             --demo) mode=demo ;;
             --fake) ;;
             --look) export NOX_GREETER_LOOK="${2:?--look NAME}"; shift ;;
-            *) die "usage: nox greeter test [--fake|--demo] [--look NAME] [stop]" ;;
+            --intro) export NOX_GREETER_INTRO="${2:?--intro on|off}"; shift ;;
+            *) die "usage: nox greeter test [--fake|--demo] [--look NAME] [--intro on|off] [stop]" ;;
         esac
         shift
     done
@@ -158,7 +165,14 @@ do_nested() {
     fi
     test_stop >/dev/null
     mkdir -p "$RUN/data" "$RUN/cache" "$RUN/home"
-    [ "${1:-}" = "--look" ] && export NOX_GREETER_LOOK="${2:?--look NAME}"
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --look) export NOX_GREETER_LOOK="${2:?--look NAME}"; shift ;;
+            --intro) export NOX_GREETER_INTRO="${2:?--intro on|off}"; shift ;;
+            *) die "usage: nox greeter nested [--look NAME] [--intro on|off] [stop]" ;;
+        esac
+        shift
+    done
     do_sync --to "$RUN/data"
     fake_start
     rm -f "$RUN/launch.rc"
