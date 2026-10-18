@@ -1,0 +1,790 @@
+#!/usr/bin/env python3
+"""nox workspaces: save and restore the open windows (apps, workspaces, geometry).
+
+  nox workspaces save [name] [-w 1,2] [-n]    snapshot open windows (default name: default)
+  nox workspaces restore [name] [options]     relaunch apps, put each window back (default: newest session)
+  nox workspaces list                          saved sessions, newest first
+  nox workspaces show [name]                   what a session holds and how each app is launched (default: newest)
+  nox workspaces rm <name>...                  delete sessions
+  nox workspaces pick [-n]                     choose a session with fuzzel, then restore it
+
+Sessions are JSON in ~/.local/state/nox/sessions/<name>.json. `last` is written by
+the power menu just before restart / shut down (shell.json session.commands).
+
+save   reads `hyprctl -j clients` and maps every window to a launch command:
+       terminals (ghostty, kitty, foot, alacritty, wezterm) -> the binary + their
+       working directory (window title when it is a path, else the cwd of the
+       window's only shell); otherwise the .desktop entry (StartupWMClass, desktop
+       id, or same executable); else flatpak run / $APPIMAGE / /proc/<pid>/cmdline.
+restore
+       windows already open (same class on the same workspace) are kept, not
+       duplicated. The rest are launched through Hyprland with one-shot exec rules
+       (hyprctl eval 'hl.exec_cmd(cmd, { workspace = "N silent", float, move, size })'),
+       one at a time per workspace in saved left-to-right order (so tiled layouts
+       rebuild in roughly the same arrangement), all workspaces in parallel. Each
+       new window is matched (NOX_RESTORE_TAG in its environment, else class) and
+       then corrected by address: workspace, float/tile, size + position (monitor
+       relative), fullscreen / maximized, pin. Apps that open extra windows by
+       themselves (browser session restore) fill the remaining slots instead of
+       being launched again. Never moves or closes windows it did not launch.
+Python 3 stdlib only.
+"""
+import argparse, configparser, datetime, glob, json, os, re, shlex, shutil, subprocess, sys, time
+
+HOME = os.path.expanduser("~")
+STATE = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.join(HOME, ".local/state")), "nox")
+SESSIONS = os.path.join(STATE, "sessions")
+DEFAULT = "default"
+NAME_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+
+# windows never worth saving (portals, pickers, the shell's own helpers)
+SKIP_CLASSES = re.compile(
+    r"^(|xdg-desktop-portal.*|org\.freedesktop\.impl\.portal\..*|hyprland-share-picker|hyprpolkitagent|"
+    r"polkit-.*|org\.kde\.polkit-kde-authentication-agent-1|org\.quickshell|quickshell|plasma-changeicons|"
+    r"hyprland-dialog|hyprland-update-screen|xwaylandvideobridge|swappy|satty|hyprpicker)$", re.I)
+
+# terminal binaries -> how to pass a working directory
+TERMINALS = {
+    "ghostty": lambda exe, d: [exe, f"--working-directory={d}"],
+    "kitty": lambda exe, d: [exe, "--directory", d],
+    "foot": lambda exe, d: [exe, f"--working-directory={d}"],
+    "alacritty": lambda exe, d: [exe, "--working-directory", d],
+    "wezterm-gui": lambda exe, d: [shutil.which("wezterm") or "wezterm", "start", "--cwd", d],
+    "wezterm": lambda exe, d: [exe, "start", "--cwd", d],
+}
+SHELLS = {"sh", "bash", "zsh", "fish", "nu", "dash", "ksh", "tcsh", "xonsh", "elvish"}
+
+
+class WsError(Exception):
+    pass
+
+
+def say(msg):
+    print(f"nox workspaces: {msg}", file=sys.stderr)
+
+
+def notify(title, body=""):
+    try:
+        subprocess.Popen(["notify-send", "-a", "Nox", "-i", "view-grid", title, body],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError:
+        pass
+
+
+# ---------------------------------------------------------------- hyprland
+def hypr_json(what):
+    try:
+        out = subprocess.run(["hyprctl", "-j", what], capture_output=True, text=True, timeout=5).stdout
+        return json.loads(out)
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as e:
+        raise WsError(f"hyprctl -j {what} failed: {e}")
+
+
+def lua_str(s):
+    """Lua long-bracket string literal that cannot be broken by its content."""
+    s = str(s)
+    n = 0
+    while f"]{'=' * n}]" in s:
+        n += 1
+    return f"[{'=' * n}[{s}]{'=' * n}]"
+
+
+def lua_val(v):
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, (int, float)):
+        return str(int(v))
+    return lua_str(v)
+
+
+def lua_table(d):
+    return "{ " + ", ".join(f"{k} = {lua_val(v)}" for k, v in d.items()) + " }"
+
+
+def hypr_lua(kind, code):
+    """kind: eval | dispatch. Returns True when Hyprland answered ok."""
+    try:
+        r = subprocess.run(["hyprctl", kind, code], capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        say(f"hyprctl {kind} failed: {e}")
+        return False
+    out = (r.stdout + r.stderr).strip()
+    if out.startswith(("error", "warning")) or r.returncode != 0:
+        say(f"hyprctl {kind} {code!r}: {out}")
+        return False
+    return True
+
+
+def dispatch(expr):
+    return hypr_lua("dispatch", expr)
+
+
+def ws_selector(ws):
+    """workspace {id,name} -> selector string for hl.dsp / exec rules"""
+    wid, name = ws.get("id"), ws.get("name") or ""
+    if name.startswith("special"):
+        return name if ":" in name else "special:special"
+    if isinstance(wid, int) and wid > 0 and name == str(wid):
+        return str(wid)
+    return f"name:{name}" if name else str(wid)
+
+
+# ---------------------------------------------------------------- .desktop entries
+def app_dirs():
+    data_home = os.environ.get("XDG_DATA_HOME", os.path.join(HOME, ".local/share"))
+    dirs = [data_home] + (os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share").split(":")
+    dirs += [os.path.join(data_home, "flatpak/exports/share"), "/var/lib/flatpak/exports/share"]
+    out, seen = [], set()
+    for d in dirs:
+        p = os.path.realpath(os.path.join(d, "applications")) if d else ""
+        if p and p not in seen and os.path.isdir(p):
+            seen.add(p)
+            out.append(p)
+    return out
+
+
+def parse_desktop(path):
+    entry, in_main = {}, False
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("["):
+                    in_main = line == "[Desktop Entry]"
+                    continue
+                if in_main and "=" in line and not line.startswith("#"):
+                    k, v = line.split("=", 1)
+                    entry.setdefault(k.strip(), v.strip())
+    except OSError:
+        return None
+    if entry.get("Type", "Application") != "Application" or not entry.get("Exec"):
+        return None
+    if entry.get("Hidden", "").lower() == "true":
+        return None
+    return entry
+
+
+_DESKTOP = None
+
+
+def desktop_index():
+    """{desktop id: entry} - earlier dirs (user) win, like XDG lookup."""
+    global _DESKTOP
+    if _DESKTOP is None:
+        _DESKTOP = {}
+        for d in app_dirs():
+            for path in glob.glob(os.path.join(d, "**/*.desktop"), recursive=True):
+                did = os.path.relpath(path, d)[:-8].replace("/", "-")
+                if did in _DESKTOP:
+                    continue
+                e = parse_desktop(path)
+                if e:
+                    e["_id"], e["_path"] = did, path
+                    _DESKTOP[did] = e
+    return _DESKTOP
+
+
+FIELD_CODES = re.compile(r"%[fFuUdDnNickvm]")
+
+
+def exec_string(entry):
+    cmd = FIELD_CODES.sub("", entry["Exec"]).replace("%%", "%")
+    cmd = re.sub(r"\s+", " ", cmd).strip()
+    if entry.get("Terminal", "").lower() == "true":
+        cmd = "ghostty -e " + cmd
+    return cmd
+
+
+def exec_binary(entry):
+    try:
+        argv = shlex.split(FIELD_CODES.sub("", entry["Exec"]))
+    except ValueError:
+        return None
+    while argv and (argv[0] == "env" or "=" in argv[0] and not argv[0].startswith("/")):
+        argv = argv[1:]
+    if not argv:
+        return None
+    b = argv[0] if argv[0].startswith("/") else shutil.which(argv[0])
+    return os.path.realpath(b) if b else None
+
+
+def find_desktop(cls, icls, exe):
+    idx = desktop_index()
+    names = {n.lower() for n in (cls, icls) if n}
+    if not names:
+        return None
+    # visible entries before NoDisplay ones; main entry before actions
+    entries = sorted(idx.values(), key=lambda e: e.get("NoDisplay", "").lower() == "true")
+    for e in entries:
+        if e.get("StartupWMClass", "").lower() in names:
+            return e
+    for e in entries:
+        if e["_id"].lower() in names:
+            return e
+    for e in entries:
+        if e["_id"].lower().rsplit(".", 1)[-1] in names:
+            return e
+    if exe:
+        real = os.path.realpath(exe)
+        for e in entries:
+            if exec_binary(e) == real:
+                return e
+    for e in entries:
+        b = exec_binary(e)
+        if b and os.path.basename(b).lower() in names:
+            return e
+    return None
+
+
+# ---------------------------------------------------------------- /proc
+def proc_read(pid, what):
+    try:
+        with open(f"/proc/{pid}/{what}", "rb") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def proc_argv(pid):
+    raw = proc_read(pid, "cmdline")
+    return [a.decode(errors="replace") for a in raw.split(b"\0") if a] if raw else []
+
+
+def proc_exe(pid):
+    try:
+        return os.readlink(f"/proc/{pid}/exe")
+    except OSError:
+        return None
+
+
+def proc_cwd(pid):
+    try:
+        return os.readlink(f"/proc/{pid}/cwd")
+    except OSError:
+        return None
+
+
+def proc_env(pid):
+    raw = proc_read(pid, "environ")
+    if not raw:
+        return {}
+    env = {}
+    for kv in raw.split(b"\0"):
+        k, _, v = kv.decode(errors="replace").partition("=")
+        if k:
+            env[k] = v
+    return env
+
+
+def proc_children(pid):
+    out = []
+    for t in glob.glob(f"/proc/{pid}/task/*/children"):
+        try:
+            out += [int(x) for x in open(t).read().split()]
+        except (OSError, ValueError):
+            pass
+    return out
+
+
+def flatpak_app(pid):
+    raw = proc_read(pid, "root/.flatpak-info")
+    if not raw:
+        return None
+    cp = configparser.ConfigParser(interpolation=None)
+    try:
+        cp.read_string(raw.decode(errors="replace"))
+        return cp.get("Application", "name", fallback=None)
+    except configparser.Error:
+        return None
+
+
+def terminal_cwd(win, wins_same_pid):
+    """best-effort working directory of a terminal window"""
+    t = (win.get("title") or "").strip()
+    cand = os.path.expanduser(t) if t.startswith(("~", "/")) else None
+    if cand and os.path.isdir(cand):
+        return cand
+    if wins_same_pid == 1:
+        shells = [c for c in proc_children(win["pid"])
+                  if os.path.basename(proc_exe(c) or "") in SHELLS or
+                  os.path.basename((proc_argv(c) or [""])[0]).lstrip("-") in SHELLS]
+        if len(shells) >= 1:
+            d = proc_cwd(shells[0])
+            if d and os.path.isdir(d):
+                return d
+    return None
+
+
+def launch_for(win, wins_same_pid):
+    """-> (command string, source, cwd) or (None, reason, None)"""
+    pid = win.get("pid") or 0
+    cls, icls = win.get("class") or "", win.get("initialClass") or ""
+    exe = proc_exe(pid) if pid > 0 else None
+    base = os.path.basename(exe or "")
+
+    if base in TERMINALS:
+        d = terminal_cwd(win, wins_same_pid) or HOME
+        return shlex.join(TERMINALS[base](exe, d)), "terminal", d
+
+    app = flatpak_app(pid) if pid > 0 else None
+    if app:
+        return shlex.join(["flatpak", "run", app]), "flatpak", None
+
+    env = proc_env(pid) if pid > 0 else {}
+    if env.get("APPIMAGE"):
+        return shlex.join([env["APPIMAGE"]]), "appimage", None
+
+    e = find_desktop(cls, icls, exe)
+    if e:
+        cmd = exec_string(e)
+        if e.get("Path"):
+            cmd = f"cd {shlex.quote(e['Path'])} && {cmd}"
+        return cmd, "desktop:" + e["_id"], None
+
+    argv = proc_argv(pid) if pid > 0 else []
+    if argv:
+        return shlex.join(argv), "cmdline", None
+    return None, "no command found", None
+
+
+# ---------------------------------------------------------------- sessions
+def session_path(name):
+    if not NAME_RE.match(name or ""):
+        raise WsError(f"bad session name {name!r} (letters, digits, . _ -)")
+    return os.path.join(SESSIONS, name + ".json")
+
+
+def load_session(name):
+    p = session_path(name)
+    try:
+        with open(p) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        raise WsError(f"no session '{name}' (nox workspaces list)")
+    except (OSError, json.JSONDecodeError) as e:
+        raise WsError(f"{p}: {e}")
+
+
+def all_sessions():
+    out = []
+    for p in glob.glob(os.path.join(SESSIONS, "*.json")):
+        name = os.path.basename(p)[:-5]
+        try:
+            with open(p) as f:
+                s = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            s = {}
+        out.append((os.path.getmtime(p), name, s))
+    out.sort(reverse=True)
+    return out
+
+
+def newest():
+    rows = all_sessions()
+    if not rows:
+        raise WsError("no saved sessions (nox workspaces save)")
+    return rows[0][1]
+
+
+def parse_ws_filter(arg):
+    return {w.strip() for w in arg.split(",") if w.strip()} if arg else None
+
+
+def ws_matches(filt, ws):
+    return filt is None or str(ws.get("id")) in filt or (ws.get("name") or "") in filt
+
+
+def snapshot(ws_filter=None):
+    clients = hypr_json("clients")
+    monitors = {m["id"]: m for m in hypr_json("monitors")}
+    active = hypr_json("activeworkspace")
+    pid_count = {}
+    for c in clients:
+        pid_count[c.get("pid")] = pid_count.get(c.get("pid"), 0) + 1
+
+    windows, skipped = [], []
+    for c in clients:
+        ws = c.get("workspace") or {}
+        if not c.get("mapped", True) or (ws.get("id") or 0) == -1 and not (ws.get("name") or "").startswith("special"):
+            continue
+        if not ws_matches(ws_filter, ws):
+            continue
+        cls = c.get("class") or c.get("initialClass") or ""
+        if SKIP_CLASSES.match(cls):
+            continue
+        cmd, source, cwd = launch_for(c, pid_count.get(c.get("pid"), 1))
+        if not cmd:
+            skipped.append(f"{cls} ({source})")
+            continue
+        mon = monitors.get(c.get("monitor"), {})
+        mx, my = mon.get("x", 0), mon.get("y", 0)
+        windows.append({
+            "class": c.get("class") or "",
+            "initialClass": c.get("initialClass") or "",
+            "title": c.get("title") or "",
+            "workspace": {"id": ws.get("id"), "name": ws.get("name")},
+            "monitor": mon.get("name"),
+            "floating": bool(c.get("floating")),
+            "pinned": bool(c.get("pinned")),
+            "fullscreen": int(c.get("fullscreen") or 0),
+            "at": [c["at"][0] - mx, c["at"][1] - my],
+            "size": list(c.get("size") or [0, 0]),
+            "command": cmd,
+            "source": source,
+            "cwd": cwd,
+        })
+    # launch order: per workspace, left-to-right then top-to-bottom (tiled layouts
+    # rebuild in roughly the same arrangement); floating windows after tiled ones
+    windows.sort(key=lambda w: (w["floating"], w["at"][0], w["at"][1]))
+    return {
+        "version": 1,
+        "saved": datetime.datetime.now().isoformat(timespec="seconds"),
+        "activeWorkspace": {"id": active.get("id"), "name": active.get("name")},
+        "monitors": [{"name": m.get("name"), "x": m.get("x"), "y": m.get("y")} for m in monitors.values()],
+        "windows": windows,
+    }, skipped
+
+
+def cmd_save(a):
+    name = a.name or DEFAULT
+    path = session_path(name)
+    snap, skipped = snapshot(parse_ws_filter(a.workspace))
+    os.makedirs(SESSIONS, exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(snap, f, indent=2)
+        f.write("\n")
+    os.replace(tmp, path)
+    n = len(snap["windows"])
+    wss = sorted({w["workspace"]["name"] for w in snap["windows"]}, key=lambda s: (not s.isdigit(), int(s) if s.isdigit() else 0, s))
+    msg = f"saved '{name}': {n} window{'s' if n != 1 else ''} on {', '.join(wss) or 'no workspaces'}"
+    if skipped:
+        msg += f"; skipped {', '.join(skipped)}"
+    if not a.quiet:
+        print(msg)
+    if a.notify:
+        notify(f"Session '{name}' saved", msg.split(": ", 1)[1])
+    return 0
+
+
+def cmd_list(a):
+    rows = all_sessions()
+    if not rows:
+        print(f"no sessions in {SESSIONS}")
+        return 0
+    for mtime, name, s in rows:
+        wins = s.get("windows", [])
+        wss = sorted({str(w.get("workspace", {}).get("name")) for w in wins})
+        when = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M")
+        print(f"{name:<16} {when}  {len(wins):>2} windows  ws {','.join(wss)}")
+    return 0
+
+
+def cmd_show(a):
+    s = load_session(a.name or newest())
+    print(f"saved {s.get('saved')}  active ws {s.get('activeWorkspace', {}).get('name')}")
+    for w in s.get("windows", []):
+        geo = f"{w['size'][0]}x{w['size'][1]}+{w['at'][0]}+{w['at'][1]}" if w["floating"] else "tiled"
+        fs = {1: " maximized", 2: " fullscreen", 3: " fullscreen"}.get(w.get("fullscreen", 0), "")
+        print(f"ws {w['workspace']['name']:<10} {w['class']:<28} {geo}{fs}\n    {w['command']}   [{w['source']}]")
+    return 0
+
+
+def cmd_rm(a):
+    rc = 0
+    for n in a.names:
+        try:
+            os.remove(session_path(n))
+            print(f"removed '{n}'")
+        except FileNotFoundError:
+            say(f"no session '{n}'")
+            rc = 1
+    return rc
+
+
+# ---------------------------------------------------------------- restore
+def class_match(t, c):
+    want = {x.lower() for x in (t["class"], t["initialClass"]) if x}
+    have = {x.lower() for x in (c.get("class"), c.get("initialClass")) if x}
+    return bool(want & have)
+
+
+def monitor_rect(name, fallback_id, monitors):
+    m = next((m for m in monitors if m.get("name") == name), None) or \
+        next((m for m in monitors if m.get("id") == fallback_id), None) or (monitors[0] if monitors else {})
+    scale = m.get("scale") or 1
+    return m.get("x", 0), m.get("y", 0), int(m.get("width", 1920) / scale), int(m.get("height", 1080) / scale)
+
+
+def clamp_geom(t, rect):
+    _, _, mw, mh = rect
+    w, h = max(80, min(t["size"][0], mw)), max(60, min(t["size"][1], mh))
+    x, y = max(0, min(t["at"][0], mw - w)), max(0, min(t["at"][1], mh - h))
+    return x, y, w, h
+
+
+def exec_rules(t, monitors):
+    rules = {"workspace": ws_selector(t["workspace"]) + " silent"}
+    if t["floating"]:
+        x, y, w, h = clamp_geom(t, monitor_rect(t.get("monitor"), None, monitors))
+        rules.update(float=True, size=f"{w} {h}", move=f"{x} {y}")
+    else:
+        rules["tile"] = True
+    if t.get("fullscreen", 0) >= 2:
+        rules["fullscreen"] = True
+    return rules
+
+
+def place(t, c, monitors, log):
+    """correct window c (a hyprctl client) to match target t"""
+    addr = c["address"]
+    W = f"window = {lua_str('address:' + addr)}"
+    sel = ws_selector(t["workspace"])
+    if ws_selector(c.get("workspace") or {}) != sel:
+        dispatch(f"hl.dsp.window.move({{ workspace = {lua_str(sel)}, follow = false, {W} }})")
+    if bool(c.get("floating")) != t["floating"]:
+        dispatch(f"hl.dsp.window.float({{ action = '{'enable' if t['floating'] else 'disable'}', {W} }})")
+    want_fs = t.get("fullscreen", 0)
+    have_fs = int(c.get("fullscreen") or 0)
+    if want_fs == 0 and have_fs:
+        dispatch(f"hl.dsp.window.fullscreen({{ mode = '{'maximized' if have_fs == 1 else 'fullscreen'}', action = 'unset', {W} }})")
+    if t["floating"] and want_fs == 0:
+        x, y, w, h = clamp_geom(t, monitor_rect(t.get("monitor"), c.get("monitor"), monitors))
+        mx, my = monitor_rect(t.get("monitor"), c.get("monitor"), monitors)[:2]
+        cx, cy = c["at"][0] - mx, c["at"][1] - my
+        if abs(c["size"][0] - w) > 4 or abs(c["size"][1] - h) > 4 or bool(c.get("floating")) != t["floating"]:
+            dispatch(f"hl.dsp.window.resize({{ x = {w}, y = {h}, exact = true, {W} }})")
+        if abs(cx - x) > 4 or abs(cy - y) > 4 or abs(c["size"][0] - w) > 4 or abs(c["size"][1] - h) > 4:
+            dispatch(f"hl.dsp.window.move({{ x = {mx + x}, y = {my + y}, {W} }})")
+    if want_fs and want_fs != have_fs:
+        mode = "maximized" if want_fs == 1 else "fullscreen"
+        dispatch(f"hl.dsp.window.fullscreen({{ mode = '{mode}', action = 'set', {W} }})")
+    if t.get("pinned") and t["floating"] and not c.get("pinned"):
+        dispatch(f"hl.dsp.window.pin({{ {W} }})")
+
+
+def arrange(placed, monitors):
+    """Tiled windows land in the layout's slots in open order, but which side a new
+    window takes depends on the layout (and, for dwindle, the cursor). Swap restored
+    windows so each sits in the slot closest to its saved geometry. Only on workspaces
+    whose tiled windows are all ours - never touches the user's windows."""
+    time.sleep(0.3)
+    try:
+        clients = hypr_json("clients")
+    except WsError:
+        return
+    ours = {t["_addr"]: t for t in placed if not t["floating"] and not t.get("fullscreen")}
+    by_ws = {}
+    for c in clients:
+        if not c.get("floating"):
+            by_ws.setdefault(ws_selector(c.get("workspace") or {}), []).append(c)
+    for wins in by_ws.values():
+        if len(wins) < 2 or any(c["address"] not in ours or c.get("fullscreen") for c in wins):
+            continue
+        mx, my = monitor_rect(None, wins[0].get("monitor"), monitors)[:2]
+        # slot geometry is fixed; windows move between slots
+        slots = {c["address"]: (c["at"][0] - mx + c["size"][0] / 2, c["at"][1] - my + c["size"][1] / 2) for c in wins}
+        occupant = {a: a for a in slots}  # slot (named by its first window) -> window now in it
+        for addr in [c["address"] for c in wins]:
+            t = ours[addr]
+            cx, cy = t["at"][0] + t["size"][0] / 2, t["at"][1] + t["size"][1] / 2
+            best = min(slots, key=lambda s: (slots[s][0] - cx) ** 2 + (slots[s][1] - cy) ** 2)
+            here = next(s for s, w in occupant.items() if w == addr)
+            if best == here:
+                continue
+            other = occupant[best]
+            if dispatch(f"hl.dsp.window.swap({{ window = {lua_str('address:' + addr)}, target = {lua_str('address:' + other)} }})"):
+                occupant[best], occupant[here] = addr, other
+
+
+def cmd_restore(a):
+    name = a.name or newest()
+    s = load_session(name)
+    filt = parse_ws_filter(a.workspace)
+    targets = [dict(w) for w in s.get("windows", []) if ws_matches(filt, w["workspace"])]
+    if not targets:
+        print(f"'{name}': nothing to restore")
+        return 0
+    monitors = hypr_json("monitors")
+    clients = hypr_json("clients")
+    seen = {c["address"] for c in clients}
+    ws_before = {ws_selector(c.get("workspace") or {}) for c in clients}
+    run_id = f"{os.getpid()}-{int(time.time())}"
+
+    # already open: same class on the same workspace -> keep, don't duplicate
+    claimed = set()
+    for i, t in enumerate(targets):
+        t["_tag"] = f"{run_id}-{i}"
+        t["_state"] = "pending"
+        for c in clients:
+            if c["address"] not in claimed and class_match(t, c) and \
+                    ws_selector(c.get("workspace") or {}) == ws_selector(t["workspace"]):
+                claimed.add(c["address"])
+                t["_state"], t["_addr"] = "open", c["address"]
+                break
+
+    lanes = {}
+    for t in targets:
+        if t["_state"] == "pending":
+            lanes.setdefault(ws_selector(t["workspace"]), []).append(t)
+
+    if a.dry_run:
+        for t in targets:
+            what = "already open" if t["_state"] == "open" else "launch"
+            print(f"ws {ws_selector(t['workspace']):<16} {t['class']:<28} {what}: {t['command']}")
+            print(f"    rules {lua_table(exec_rules(t, monitors))}")
+        return 0
+
+    def launch(t):
+        cmd = f"NOX_RESTORE_TAG={t['_tag']} {t['command']}"
+        if t["command"].startswith("cd "):
+            d, _, rest = t["command"][3:].partition(" && ")
+            cmd = f"cd {d} && NOX_RESTORE_TAG={t['_tag']} {rest}"
+        ok = hypr_lua("eval", f"hl.exec_cmd({lua_str(cmd)}, {lua_table(exec_rules(t, monitors))})")
+        t["_state"], t["_launched"] = ("launched", time.monotonic()) if ok else ("failed", 0)
+        if not a.quiet:
+            print(f"launch  ws {ws_selector(t['workspace']):<10} {t['class']}")
+
+    placed = []
+    deadline_all = time.monotonic() + a.timeout * max(1, max((len(v) for v in lanes.values()), default=1))
+    while time.monotonic() < deadline_all:
+        now = time.monotonic()
+        busy = False
+        for lane in lanes.values():
+            cur = next((t for t in lane if t["_state"] == "launched"), None)
+            if cur and now - cur["_launched"] > a.timeout:
+                cur["_state"] = "timeout"
+                say(f"{cur['class']}: no window after {a.timeout}s")
+                cur = None
+            if cur is None:
+                nxt = next((t for t in lane if t["_state"] == "pending"), None)
+                if nxt:
+                    launch(nxt)
+            if any(t["_state"] in ("pending", "launched") for t in lane):
+                busy = True
+        if not busy:
+            break
+        time.sleep(0.25)
+        try:
+            clients = hypr_json("clients")
+        except WsError as e:
+            say(str(e))
+            continue
+        for c in clients:
+            if c["address"] in seen or not (c.get("class") or c.get("initialClass")):
+                continue  # known, or not identifiable yet (class set after map)
+            seen.add(c["address"])
+            tag = proc_env(c.get("pid") or 0).get("NOX_RESTORE_TAG", "")
+            inflight = [t for t in targets if t["_state"] == "launched"]
+            t = next((t for t in inflight if t["_tag"] == tag), None) or \
+                next((t for t in sorted(inflight, key=lambda t: t["_launched"]) if class_match(t, c)), None) or \
+                next((t for t in targets if t["_state"] == "pending" and class_match(t, c)), None)
+            if t is None:
+                continue  # not ours (or an extra window nobody asked for): leave it alone
+            t["_state"], t["_addr"] = "placed", c["address"]
+            placed.append(t)
+            place(t, c, monitors, say)
+
+    # second pass: apps often resize / re-float themselves right after mapping
+    time.sleep(0.6)
+    try:
+        by_addr = {c["address"]: c for c in hypr_json("clients")}
+    except WsError:
+        by_addr = {}
+    for t in placed:
+        c = by_addr.get(t["_addr"])
+        if c:
+            place(t, c, monitors, say)
+    arrange(placed, monitors)
+    # workspace -> saved monitor (multi-monitor only, and only workspaces this restore created)
+    if len(monitors) > 1:
+        names = {m.get("name") for m in monitors}
+        cur_ws = {w.get("name"): w for w in hypr_json("workspaces")}
+        done = set()
+        for t in placed:
+            sel = ws_selector(t["workspace"])
+            mon = t.get("monitor")
+            w = cur_ws.get(t["workspace"].get("name"))
+            if sel in done or sel in ws_before or mon not in names or not w or w.get("monitor") == mon:
+                continue
+            done.add(sel)
+            dispatch(f"hl.dsp.workspace.move({{ workspace = {lua_str(sel)}, monitor = {lua_str(mon)} }})")
+    if a.focus and s.get("activeWorkspace", {}).get("name") and filt is None:
+        sel = ws_selector(s["activeWorkspace"])
+        if not sel.startswith("special"):
+            dispatch(f"hl.dsp.focus({{ workspace = {lua_str(sel)} }})")
+
+    counts = {}
+    for t in targets:
+        counts[t["_state"]] = counts.get(t["_state"], 0) + 1
+    label = {"placed": "restored", "open": "already open", "timeout": "timed out", "failed": "failed", "pending": "not launched", "launched": "not seen"}
+    msg = ", ".join(f"{n} {label.get(k, k)}" for k, n in counts.items())
+    if not a.quiet:
+        print(f"'{name}': {msg}")
+    if a.notify:
+        notify(f"Session '{name}' restored", msg)
+    return 0 if not any(k in counts for k in ("timeout", "failed", "launched")) else 1
+
+
+def cmd_pick(a):
+    rows = all_sessions()
+    if not rows:
+        if a.notify:
+            notify("No saved sessions", "Save one with: nox workspaces save")
+        raise WsError("no saved sessions")
+    lines = []
+    for mtime, name, s in rows:
+        when = datetime.datetime.fromtimestamp(mtime).strftime("%b %d %H:%M")
+        lines.append(f"{name}\t{when} · {len(s.get('windows', []))} windows")
+    try:
+        r = subprocess.run(["fuzzel", "--dmenu", "--prompt", "Restore session › "],
+                           input="\n".join(l.replace("\t", "  ·  ", 1) for l in lines), capture_output=True, text=True)
+    except OSError as e:
+        raise WsError(f"fuzzel: {e}")
+    choice = r.stdout.strip().split("  ·  ", 1)[0].strip()
+    if r.returncode != 0 or not choice:
+        return 0
+    a.name = choice
+    return cmd_restore(a)
+
+
+def main():
+    sys.stdout.reconfigure(line_buffering=True)
+    ap = argparse.ArgumentParser(prog="nox workspaces", description=__doc__.split("\n")[0])
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sv = sub.add_parser("save", help="snapshot open windows")
+    sv.add_argument("name", nargs="?")
+    sv.add_argument("-w", "--workspace", help="only these workspaces (comma list of ids/names)")
+    sv.add_argument("-n", "--notify", action="store_true", help="desktop notification when done")
+    sv.add_argument("-q", "--quiet", action="store_true")
+    rs = sub.add_parser("restore", help="relaunch and place a saved session")
+    rs.add_argument("name", nargs="?")
+    pk = sub.add_parser("pick", help="choose a session with fuzzel and restore it")
+    for p in (rs, pk):
+        p.add_argument("-w", "--workspace", help="only these workspaces (comma list of ids/names)")
+        p.add_argument("-t", "--timeout", type=float, default=20, help="seconds to wait for each window (20)")
+        p.add_argument("--no-focus", dest="focus", action="store_false", help="don't focus the saved active workspace")
+        p.add_argument("--dry-run", action="store_true", help="print what would be launched")
+        p.add_argument("-n", "--notify", action="store_true", help="desktop notification when done")
+        p.add_argument("-q", "--quiet", action="store_true")
+    sub.add_parser("list", aliases=["ls"], help="saved sessions")
+    sh = sub.add_parser("show", help="windows and launch commands in a session")
+    sh.add_argument("name", nargs="?")
+    rm = sub.add_parser("rm", help="delete sessions")
+    rm.add_argument("names", nargs="+")
+    a = ap.parse_args()
+    if a.cmd == "pick":
+        a.name = None
+    fn = {"save": cmd_save, "restore": cmd_restore, "list": cmd_list, "ls": cmd_list,
+          "show": cmd_show, "rm": cmd_rm, "pick": cmd_pick}[a.cmd]
+    try:
+        return fn(a)
+    except WsError as e:
+        say(str(e))
+        if getattr(a, "notify", False):
+            notify("Session", str(e))
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
