@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# nox battery [status|protect|full|toggle|limit <60-100>|reapply] - battery charge limit.
+#   status [--json]   protection on/off + cap (UPower) and what the firmware has (sysfs)
+#   protect           stop charging at the cap (80%: UPower's CHARGE_LIMIT, see below)
+#   full              charge to 100% (travel); `nox battery protect` afterwards
+#   toggle            protect <-> full
+#   limit <60-100>    100 = full, the current cap = protect; any other cap needs root once
+#                     (sudo sh base0/_battery/root.sh install <N>, asked for when run in a terminal)
+#   reapply [-q]      re-send the setting if the firmware lost it (hypridle after_sleep_cmd, shell start)
+# No sudo per toggle: upowerd (>= 1.90) writes BAT1/charge_control_end_threshold over D-Bus
+# (EnableChargeThreshold, polkit org.freedesktop.UPower.enable-charging-limit = yes for the active
+# session) and keeps on/off in /var/lib/upower/charging-threshold-status, re-applied at boot.
+# The cap itself comes from udev CHARGE_LIMIT (upower's hwdb default 75,80; ASUS has no start
+# threshold, so only the 80 is used). NOX_BATTERY overrides BAT1.
+set -euo pipefail
+BAT="${NOX_BATTERY:-BAT1}"
+SYS="/sys/class/power_supply/$BAT"
+OBJ="/org/freedesktop/UPower/devices/battery_$BAT"
+IFACE=org.freedesktop.UPower.Device
+SRC="$(cd "$(dirname "$(readlink -f "$0")")/../../../.." && pwd)/_battery"
+say() { printf 'nox battery: %s\n' "$*"; }
+die() { printf 'nox battery: %s\n' "$*" >&2; exit 1; }
+
+prop() { busctl --timeout=5 get-property org.freedesktop.UPower "$OBJ" "$IFACE" "$1" 2>/dev/null | awk '{print $2}'; }
+enable() { busctl --timeout=10 call org.freedesktop.UPower "$OBJ" "$IFACE" EnableChargeThreshold b "$1" >/dev/null; }
+# the open shell re-reads (best effort; no shell = nothing to update)
+poke() { timeout 3 qs -c nox ipc call chargeLimit refresh >/dev/null 2>&1 || true; }
+
+read_state() {
+    supported=$(prop ChargeThresholdSupported); enabled=$(prop ChargeThresholdEnabled); cap=$(prop ChargeEndThreshold)
+    applied=$(cat "$SYS/charge_control_end_threshold" 2>/dev/null || echo "")
+    [ "$enabled" = true ] && want="$cap" || want=100
+}
+need() {
+    read_state
+    [ -e "$SYS/charge_control_end_threshold" ] || die "$SYS has no charge_control_end_threshold (asus-nb-wmi not loaded?)"
+    [ "$supported" = true ] || die "upowerd reports no charge threshold support for $BAT (UPower >= 1.90 running?)"
+}
+set_on() {   # $1 = true|false; verifies what reached the firmware
+    need
+    enable "$1" || die "UPower refused (polkit: only the active local session may change the limit)"
+    poke
+    read_state
+    [ "$applied" = "$want" ] || die "asked for $want%, firmware reports ${applied:-?}% (try: nox battery reapply)"
+    if [ "$enabled" = true ]; then say "protection on: charging stops at $applied%"; else say "full charge: charging to 100% (nox battery protect to cap again)"; fi
+}
+
+cmd="${1:-status}"
+[ $# -gt 0 ] && shift
+case "$cmd" in
+    status)
+        read_state
+        if [ "${1:-}" = --json ]; then
+            printf '{"battery":"%s","supported":%s,"enabled":%s,"cap":%s,"applied":%s,"ok":%s}\n' "$BAT" \
+                "${supported:-false}" "${enabled:-false}" "${cap:-0}" "${applied:-0}" \
+                "$([ -n "$applied" ] && [ "$applied" = "$want" ] && echo true || echo false)"
+            exit 0
+        fi
+        [ "$supported" = true ] || die "no charge threshold support reported by UPower for $BAT"
+        if [ "$enabled" = true ]; then echo "protection: on, charging stops at $cap%"; else echo "protection: off (full charge, 100%; cap would be $cap%)"; fi
+        if [ "$applied" = "$want" ]; then echo "firmware:   $applied% (applied)"; else echo "firmware:   ${applied:-?}% (NOT applied: nox battery reapply)"; exit 1; fi
+        echo "charge:     $(cat "$SYS/capacity" 2>/dev/null)% ($(cat "$SYS/status" 2>/dev/null))" ;;
+    protect) set_on true ;;
+    full) set_on false ;;
+    toggle) read_state; [ "$enabled" = true ] && set_on false || set_on true ;;
+    limit)
+        n="${1:-}"
+        [[ "$n" =~ ^[0-9]+$ ]] && [ "$n" -ge 60 ] && [ "$n" -le 100 ] || die "usage: nox battery limit <60-100>"
+        need
+        if [ "$n" = 100 ]; then set_on false
+        elif [ "$n" = "$cap" ]; then set_on true
+        else
+            # a new cap = udev CHARGE_LIMIT for this battery: root, once per value
+            [ -t 0 ] || die "a ${n}% cap needs root once: sudo sh $SRC/root.sh install $n   (current cap: $cap%)"
+            say "sudo: $SRC/root.sh install $n"
+            sudo sh "$SRC/root.sh" install "$n"
+            poke
+        fi ;;
+    reapply)
+        q="${1:-}"
+        read_state
+        [ "$supported" = true ] || exit 0
+        if [ "$applied" = "$want" ]; then [ "$q" = -q ] || say "already applied ($applied%)"; exit 0; fi
+        # same value again may be a no-op inside upowerd: flip off/on so the write really happens
+        if [ "$enabled" = true ]; then enable false || true; enable true; else enable true || true; enable false; fi
+        poke
+        read_state
+        [ "$applied" = "$want" ] || die "re-sent, firmware still reports ${applied:-?}% (want $want%)"
+        say "re-applied: $applied%" ;;
+    -h | --help | help) sed -n '2,/^[^#]/{/^[^#]/d;s/^# \{0,1\}//;p}' "$0" ;;
+    *) die "usage: nox battery [status [--json]|protect|full|toggle|limit <60-100>|reapply [-q]]" ;;
+esac

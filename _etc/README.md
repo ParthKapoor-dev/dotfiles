@@ -25,3 +25,15 @@ Refresh: re-copy from /etc and commit; `git diff` shows what changed on the syst
 **This machine's GRUB reads `/boot/efi/grub/grub.cfg`** (EFI/BOOT/BOOTX64.EFI, prefix `(,gpt1)/grub`),
 not `/boot/grub/grub.cfg`: regenerate with `grub-mkconfig -o /boot/efi/grub/grub.cfg` (or both).
 Boot went 24.5 s -> 16.1 s (`systemd-analyze`).
+
+### Battery charge limit (2026-10-18)
+No /etc file needed for the default: `nox battery` (CC tile `chargeLimit`, battery popover, launcher)
+asks upowerd (1.91) over D-Bus (`EnableChargeThreshold`, polkit `org.freedesktop.UPower.enable-charging-limit`
+= yes for the active session). upowerd writes `BAT1/charge_control_end_threshold` and keeps on/off in
+`/var/lib/upower/charging-threshold-status` (root-only, re-applied at boot). The cap is udev
+`CHARGE_LIMIT` (upower's `/usr/lib/udev/hwdb.d/60-upower-battery.hwdb`: `75,80`; ASUS has no start
+threshold, so 80%). Resume: hypridle `after_sleep_cmd` runs `nox battery reapply -q`.
+
+| File | Why it matters |
+|---|---|
+| /etc/udev/rules.d/61-nox-battery.rules | only for a cap other than 80%: written by `sudo sh _battery/root.sh install <N>` (`uninstall` removes it) |
