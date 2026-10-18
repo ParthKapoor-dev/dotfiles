@@ -14,7 +14,8 @@ import qs.services
 // Results come from pluggable providers (LauncherProviders registry; order/options in shell.json
 // launcher.providers + launcher.provider.<id>). Typing a provider's prefix ("=", "@", "/", ">")
 // queries only that provider. Keys: Up/Down, Tab/Shift+Tab, Ctrl+N/Ctrl+P, Enter, Esc; for results
-// that support them, Shift+Delete (remove), Ctrl+Enter (mark) and Alt+Up/Alt+Down (reorder).
+// that support them, Shift+Delete (remove), Ctrl+Enter (mark), Shift+Enter (alt action) and
+// Alt+Up/Alt+Down (reorder).
 // A prefixed provider showing a sub-level (nested) takes Esc / Backspace-on-empty as "back".
 // Layer surface namespace nox:launcher; it only exists while open.
 Scope {
@@ -32,9 +33,52 @@ Scope {
     property var prefixed: null    // { p, prefix, q }: the provider whose prefix is typed, if any
     readonly property bool nested: !!prefixed?.p.nested
 
-    // large preview beside the list for results that carry one (wallpapers)
-    readonly property string previewUrl: open ? (selectable[sel]?.item?.preview ?? "") : ""
-    readonly property bool previewOn: previewUrl !== ""
+    // large preview beside the list for results that carry one: an image (result.preview:
+    // wallpapers, image files, clipboard images) or text (result.previewText: clipboard text). Text
+    // that is just a colour ("#e5484d", "rgb(…)", "hsl(…)") shows a swatch, just a URL its domain.
+    readonly property var previewItem: open ? (selectable[sel]?.item ?? null) : null
+    readonly property string previewUrl: previewItem?.preview ?? ""
+    readonly property string previewText: previewUrl ? "" : (previewItem?.previewText ?? "")
+    readonly property bool previewOn: previewUrl !== "" || previewText !== ""
+    readonly property var previewColor: colorOf(previewText)
+    readonly property string previewHost: previewColor === null ? hostOf(previewText) : ""
+    readonly property bool previewMono: previewItem?.previewMono ?? codeish(previewText)
+
+    // "#rgb[a]" / "#rrggbb[aa]" (CSS order) / rgb[a](…) / hsl[a](…) -> color, else null
+    function colorOf(t) {
+        t = (t ?? "").trim();
+        if (t.length > 64) return null;
+        let m = t.match(/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
+        if (m) {
+            let h = m[1];
+            if (h.length <= 4) h = h.split("").map(c => c + c).join("");
+            const n = i => parseInt(h.slice(i, i + 2), 16) / 255;
+            return Qt.rgba(n(0), n(2), n(4), h.length === 8 ? n(6) : 1);
+        }
+        m = t.match(/^(rgba?|hsla?)\(\s*([\d.]+)(%?)[\s,]+([\d.]+)%?[\s,]+([\d.]+)%?(?:\s*[,\/]\s*([\d.]+)(%?))?\s*\)$/i);
+        if (!m) return null;
+        const a = m[6] === undefined ? 1 : Math.min(1, parseFloat(m[6]) / (m[7] ? 100 : 1));
+        const v = [parseFloat(m[2]), parseFloat(m[4]), parseFloat(m[5])];
+        if (m[1].toLowerCase().startsWith("rgb")) {
+            const k = m[3] ? 100 : 255;
+            return Qt.rgba(Math.min(1, v[0] / k), Math.min(1, v[1] / k), Math.min(1, v[2] / k), a);
+        }
+        return Qt.hsla((v[0] % 360) / 360, Math.min(1, v[1] / 100), Math.min(1, v[2] / 100), a);
+    }
+    // a lone http(s) URL -> its host, else ""
+    function hostOf(t) {
+        const m = (t ?? "").trim().match(/^https?:\/\/(?:[^@\/\s]*@)?([^\/\s:?#]+)[^\s]*$/i);
+        return m ? m[1].replace(/^www\./i, "") : "";
+    }
+    // looks like code / a shell line / structured data -> monospace preview
+    function codeish(t) {
+        if (!t) return false;
+        const lines = t.split("\n");
+        if (lines.filter(l => /^(\t| {2,})\S/.test(l)).length >= 2) return true;
+        if (/[{};]\s*$|=>|::|^\s*[$#>] \S|^\s*(import|from|def|class|fn|pub|const|let|var|function|return|if|for|#include|SELECT|sudo|git|cd|npm|pnpm|cargo|yay|pacman)\b/m.test(t)) return true;
+        const sym = (t.match(/[{}()\[\];=<>|&$\/\\_*`]/g) ?? []).length;
+        return sym / t.length > 0.12;
+    }
     readonly property int previewGap: 12
 
     property string initialText: ""   // set by IPC "search"
@@ -96,10 +140,16 @@ Scope {
         for (const x of all)
             if (x.prefix && text.startsWith(x.prefix) && (!excl || x.prefix.length > excl.prefix.length)) excl = x;
         const runs = excl ? [{ x: excl, q: text.slice(excl.prefix.length).replace(/^\s+/, ""), prefixed: true }]
-                          : all.filter(x => !x.prefixOnly).map(x => ({ x, q: text.trim(), prefixed: false }));
+                          : all.filter(x => !x.prefixOnly && !x.p.fallback).map(x => ({ x, q: text.trim(), prefixed: false }));
         prefixed = excl ? { p: excl.p, prefix: excl.prefix, q: runs[0].q } : null;
+        // fallback providers (web search): unprefixed, they run after all the others and only
+        // when those found fewer than options.fallbackBelow rows (default 3), so they stay last
+        if (!excl && text.trim())
+            for (const x of all.filter(x => !x.prefixOnly && x.p.fallback))
+                runs.push({ x, q: text.trim(), prefixed: false, fallback: x.p.options?.fallbackBelow ?? 3 });
         const r = [], s = [];
         for (const run of runs) {
+            if (run.fallback !== undefined && s.length >= run.fallback) continue;
             let res;
             try { res = run.x.p.query(run.q, run.prefixed) ?? []; }
             catch (e) { console.warn("nox: launcher provider failed:", run.x.p.providerId, e); continue; }
@@ -156,6 +206,14 @@ Scope {
         try { prefixed.p.back(); } catch (e) { console.warn("nox: launcher back failed:", e); }
         text = prefixed.prefix;
         search();
+        return true;
+    }
+    // Shift+Enter: result.alt() (e.g. reveal a file in its folder); closes the launcher like Enter
+    function altSelected() {
+        const cur = selectable[sel]?.item;
+        if (!cur?.alt) return false;
+        Panels.launcherOpen = false;
+        try { cur.alt(); } catch (e) { console.warn("nox: launcher alt action failed:", e); }
         return true;
     }
     function runSelected() {
@@ -258,7 +316,8 @@ Scope {
             readonly property int bodyWidth: root.opts.width ?? 680
             readonly property int previewWidth: root.opts.previewWidth ?? 560
             implicitWidth: bodyWidth + root.previewGap + previewWidth + shadowPad * 2
-            implicitHeight: body.height + shadowPad * 2
+            // tall enough for the preview card too when the list is short (one clipboard match)
+            implicitHeight: Math.max(body.height, root.previewOn ? preview.height : 0) + shadowPad * 2
             mask: Region { item: body; Region { item: preview } }
 
             HyprlandFocusGrab {
@@ -337,6 +396,7 @@ Scope {
                                 // modified keys first: they would otherwise fall into the plain branches
                                 if (alt && (e.key === Qt.Key_Up || e.key === Qt.Key_Down)) { root.reorderSelected(e.key === Qt.Key_Up ? -1 : 1); e.accepted = true; }
                                 else if (ctrl && (e.key === Qt.Key_Return || e.key === Qt.Key_Enter)) { root.markSelected(); e.accepted = true; }
+                                else if ((e.modifiers & Qt.ShiftModifier) && (e.key === Qt.Key_Return || e.key === Qt.Key_Enter)) { root.altSelected(); e.accepted = true; }
                                 else if (e.key === Qt.Key_Down || e.key === Qt.Key_Tab || (ctrl && e.key === Qt.Key_N)) { root.move(1); e.accepted = true; }
                                 else if (e.key === Qt.Key_Up || e.key === Qt.Key_Backtab || (ctrl && e.key === Qt.Key_P)) { root.move(-1); e.accepted = true; }
                                 else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) { root.runSelected(); e.accepted = true; }
@@ -475,6 +535,11 @@ Scope {
                                 keys: ["ctrl", "↵"]
                             }
                             Hint {
+                                visible: !!root.selectable[root.sel]?.item.alt
+                                label: root.selectable[root.sel]?.item.altLabel ?? "Alternate"
+                                keys: ["⇧", "↵"]
+                            }
+                            Hint {
                                 visible: !!root.selectable[root.sel]?.item.move
                                 label: "Reorder"
                                 keys: ["alt", "↑", "↓"]
@@ -486,9 +551,13 @@ Scope {
                 }
             }
 
-            // ---- preview of the selected result (wallpapers): screen-shaped, so a wallpaper is
-            // judged as it will be cropped. The shown image only changes once the next one is
-            // decoded, so moving the selection never blinks to empty. ----
+            // ---- preview of the selected result: screen-shaped, so a wallpaper is judged as it
+            // will be cropped (result.previewFit = letterbox instead: files, clipboard images).
+            // The shown image only changes once the next one is decoded, so moving the selection
+            // never blinks to empty. Text (result.previewText) fills the same frame: a colour as a
+            // swatch, a lone URL as its domain, anything else as wrapped text (monospace when it
+            // looks like code, or result.previewMono). Caption: result.previewTitle / previewTag,
+            // default = the title's last path segment and its folder. ----
             RectangularShadow {
                 anchors.fill: preview
                 radius: preview.radius
@@ -512,6 +581,7 @@ Scope {
 
                 readonly property real aspect: win.screen ? win.screen.width / win.screen.height : 16 / 9
                 readonly property real dpr: win.screen?.devicePixelRatio ?? 1
+                readonly property int fill: root.previewItem?.previewFit ? Image.PreserveAspectFit : Image.PreserveAspectCrop
                 property string cur: ""
                 Connections {
                     target: root
@@ -524,11 +594,12 @@ Scope {
                     width: parent.width - 2 * preview.pad
                     height: Math.round(width / preview.aspect)
                     radius: Math.max(0, preview.radius - preview.pad / 2)
-                    color: Theme.page
+                    color: root.previewColor ?? Theme.page
                     Image {
                         anchors.fill: parent
+                        visible: root.previewUrl !== ""
                         source: preview.cur
-                        fillMode: Image.PreserveAspectCrop
+                        fillMode: preview.fill
                         sourceSize: Qt.size(Math.round(shot.width * preview.dpr), Math.round(shot.height * preview.dpr))
                         asynchronous: true
                         cache: true
@@ -540,10 +611,73 @@ Scope {
                         visible: false
                         source: root.previewUrl
                         sourceSize: Qt.size(Math.round(shot.width * preview.dpr), Math.round(shot.height * preview.dpr))
-                        fillMode: Image.PreserveAspectCrop
+                        fillMode: preview.fill
                         asynchronous: true
                         cache: true
                         onStatusChanged: if (status === Image.Ready || status === Image.Error) preview.cur = source
+                    }
+
+                    // colour: the frame is the swatch; the value in a contrasting colour
+                    Column {
+                        visible: root.previewText !== "" && root.previewColor !== null
+                        anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 18
+                        spacing: 4
+                        readonly property color ink: root.previewColor && (0.299 * root.previewColor.r + 0.587 * root.previewColor.g + 0.114 * root.previewColor.b) * root.previewColor.a > 0.55 ? "#000000" : "#ffffff"
+                        GText {
+                            text: root.previewText.trim()
+                            color: parent.ink
+                            font.family: Theme.fontMono
+                            font.pixelSize: Theme.fontSizeLarge
+                        }
+                        GText {
+                            readonly property var c: root.previewColor
+                            text: c ? "rgb(" + Math.round(c.r * 255) + ", " + Math.round(c.g * 255) + ", " + Math.round(c.b * 255) + ")"
+                                      + (c.a < 1 ? " · " + Math.round(c.a * 100) + "%" : "") : ""
+                            color: parent.ink
+                            opacity: 0.7
+                            small: true
+                            font.family: Theme.fontMono
+                        }
+                    }
+                    // URL: the domain large, the full address under it
+                    Column {
+                        visible: root.previewText !== "" && root.previewHost !== ""
+                        anchors.centerIn: parent
+                        width: parent.width - 48
+                        spacing: 10
+                        Glyph { anchors.horizontalCenter: parent.horizontalCenter; name: "globe"; size: 30; color: Theme.label2 }
+                        GText {
+                            width: parent.width
+                            horizontalAlignment: Text.AlignHCenter
+                            elide: Text.ElideMiddle
+                            text: root.previewHost
+                            font.family: Theme.fontDisplay
+                            font.pixelSize: Theme.fontSizeHero
+                        }
+                        GText {
+                            width: parent.width
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.WrapAnywhere
+                            maximumLineCount: 3
+                            text: root.previewText.trim()
+                            small: true; secondary: true
+                        }
+                    }
+                    // plain text
+                    GText {
+                        visible: root.previewText !== "" && root.previewColor === null && root.previewHost === ""
+                        x: 16; y: 14
+                        width: parent.width - 32
+                        height: parent.height - 28
+                        verticalAlignment: Text.AlignTop
+                        textFormat: Text.PlainText
+                        wrapMode: root.previewMono ? Text.WrapAnywhere : Text.Wrap
+                        elide: Text.ElideRight
+                        // a huge entry: only what can show (the elide still marks the cut)
+                        text: (root.previewText.length > 6000 ? root.previewText.slice(0, 6000) : root.previewText).replace(/\t/g, "    ")
+                        font.family: root.previewMono ? Theme.fontMono : Theme.fontUi
+                        font.pixelSize: root.previewMono ? Theme.fontSize - 1 : Theme.fontSize
+                        lineHeight: root.previewMono ? 1.05 : 1.15
                     }
                 }
                 Item {
@@ -552,20 +686,20 @@ Scope {
                     y: shot.y + shot.height
                     width: parent.width - 2 * preview.pad - 8
                     height: 34
-                    readonly property var it: root.selectable[root.sel]?.item ?? null
+                    readonly property var it: root.previewItem
                     GText {
                         anchors.left: parent.left
                         anchors.right: tag.left; anchors.rightMargin: 10
                         anchors.verticalCenter: parent.verticalCenter
                         elide: Text.ElideMiddle
-                        text: (caption.it?.title ?? "").split("/").pop()
+                        text: caption.it?.previewTitle ?? (caption.it?.title ?? "").split("/").pop()
                     }
                     GText {
                         id: tag
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
                         small: true; secondary: true
-                        text: caption.it?.type === "Current" ? "Current" : (caption.it?.title ?? "").split("/").slice(-2, -1)[0] ?? ""
+                        text: caption.it?.previewTag ?? (caption.it?.type === "Current" ? "Current" : (caption.it?.title ?? "").split("/").slice(-2, -1)[0] ?? "")
                     }
                 }
             }
