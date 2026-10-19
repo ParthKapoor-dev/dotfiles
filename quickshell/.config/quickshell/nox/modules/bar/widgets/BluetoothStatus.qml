@@ -36,7 +36,8 @@ BarButton {
                     on: modelData.connected
                     title: Bt.nameOf(modelData)
                     subtitle: Bt.status(modelData)
-                    onClicked: modelData.connected ? modelData.disconnect() : modelData.connect()
+                    subtitleColor: Bt.needsRepair(modelData) ? Theme.accent : Theme.label2
+                    onClicked: { if (Bt.needsRepair(modelData)) Panels.close(); Bt.activate(modelData); }
                 }
             }
             MenuSep { width: parent.width; visible: settings.visible }

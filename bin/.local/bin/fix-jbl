@@ -4,7 +4,7 @@
 # multipoint causes when it evicts this machine's key after pairing to a phone.
 set -uo pipefail
 
-MAC="88:92:CC:C9:64:9D"        # classic BR/EDR address (A2DP). The *-LE address cannot carry audio.
+MAC="${1:-88:92:CC:C9:64:9D}"  # classic BR/EDR address (A2DP; arg overrides: the shell passes the clicked device). The *-LE address cannot carry audio.
 SINK="bluez_output.${MAC//:/_}.1"
 SCAN_SECS=20                   # how long to poll for the device to (re)appear
 SCAN_HOLD=90                   # how long the underlying scan actually runs -- must
