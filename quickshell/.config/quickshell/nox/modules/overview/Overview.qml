@@ -13,8 +13,13 @@ import qs.services
 // accent, "+" = next empty desktop). Below: the current desktop's windows spread out (mock
 // overviewRects: 1 / 2 / 3 columns, 44x52 gaps, scale <= 0.72) with live previews and labels.
 // Click a window = focus it; click a desktop = switch; drag a window onto a desktop = move it
-// there. Keys: Esc / Enter close, 1-9 switch desktop, arrows/Tab select, typing opens the
-// launcher with that text. `qs -c nox ipc call overview toggle`.
+// there. Keys (stay in Mission Control unless noted):
+//   Left / Right (or Ctrl+)  previous / next desktop       Home / End  first / last desktop
+//   Up / Down, Tab / Shift+Tab  select a window             1-9  go to that desktop and close
+//   Shift+Left / Right  move the selected window one desktop over (and follow it)
+//   Shift+1-9  send the selected window to that desktop     Delete / Ctrl+W  close the selected window
+//   Enter  focus the selected window (or just close)        Esc  close
+// Typing anything else opens the launcher with that text. `qs -c nox ipc call overview toggle`.
 //
 // Motion (mock: windows transform from their real geometry, strip slides down, wallpaper dims):
 // one progress value `p` (0 = desktop, 1 = overview) drives everything, eased on the sheet curve
@@ -89,6 +94,31 @@ Scope {
             readonly property real thumbW: Math.max(72, Math.min(176, (sw - 80 - 44 - wsCount * 22) / Math.max(1, wsCount)))
             function close() { Panels.overviewOpen = false; }
             function go(ws) { Hypr.workspace(ws); close(); }
+            // switch desktop behind Mission Control and stay open (arrow keys)
+            function browse(ws) {
+                ws = Math.max(1, Math.min(wsCount, ws));
+                if (ws === curWs) return;
+                root.sel = -1;
+                Hypr.workspace(ws);
+                Qt.callLater(Hyprland.refreshToplevels);
+            }
+            // move a window to desktop ws; follow = switch there too and keep it selected
+            property string reselect: ""
+            function send(t, ws, follow) {
+                Hypr.moveToWorkspace(t.address, ws);
+                if (follow) { reselect = t.address; Hypr.workspace(ws); }
+                else root.sel = -1;
+                Qt.callLater(Hyprland.refreshToplevels);
+            }
+            Connections {
+                target: Panels
+                function onOverviewStep(delta) { if (root.open) win.browse(win.curWs + delta); }
+            }
+            onCurrentChanged: {
+                if (reselect === "") { if (root.sel >= current.length) root.sel = current.length - 1; return; }
+                const i = current.findIndex(t => t.address === reselect);
+                if (i >= 0) { root.sel = i; reselect = ""; }
+            }
             function focus(t) { Hypr.focusWindow(t.address); close(); }
 
             // background: the wallpaper fades in over the desktop, dimmed (mock brightness .55).
@@ -120,15 +150,44 @@ Scope {
                 focus: true
                 Keys.onPressed: e => {
                     const n = win.current.length;
+                    const shift = e.modifiers & Qt.ShiftModifier, ctrl = e.modifiers & Qt.ControlModifier;
+                    const picked = root.sel >= 0 ? win.current[root.sel] ?? null : null;
+                    // Shift+digit arrives as its symbol (US layout); the native key code is layout-free
+                    const shiftDigit = shift ? "!@#$%^&*(".indexOf(e.text) + 1 : 0;
                     if (e.key === Qt.Key_Escape) win.close();
-                    else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) { if (root.sel >= 0 && win.current[root.sel]) win.focus(win.current[root.sel]); else win.close(); }
-                    else if (e.key >= Qt.Key_1 && e.key <= Qt.Key_9 && !(e.modifiers & Qt.ControlModifier)) win.go(e.key - Qt.Key_0);
-                    else if (e.key === Qt.Key_Right || e.key === Qt.Key_Down || e.key === Qt.Key_Tab) { if (n) root.sel = (root.sel + 1) % n; }
-                    else if (e.key === Qt.Key_Left || e.key === Qt.Key_Up || e.key === Qt.Key_Backtab) { if (n) root.sel = (root.sel - 1 + n) % n; }
+                    else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) { if (picked) win.focus(picked); else win.close(); }
+                    else if (shiftDigit > 0) { if (picked) win.send(picked, shiftDigit, false); }
+                    else if (e.key >= Qt.Key_1 && e.key <= Qt.Key_9 && !ctrl && !shift) win.go(e.key - Qt.Key_0);
+                    else if ((e.key === Qt.Key_Left || e.key === Qt.Key_Right) && shift) {
+                        const to = win.curWs + (e.key === Qt.Key_Right ? 1 : -1);
+                        if (picked && to >= 1) win.send(picked, to, true);
+                    }
+                    else if (e.key === Qt.Key_Left) win.browse(win.curWs - 1);
+                    else if (e.key === Qt.Key_Right) win.browse(win.curWs + 1);
+                    else if (e.key === Qt.Key_Home) win.browse(1);
+                    else if (e.key === Qt.Key_End) win.browse(win.wsCount);
+                    else if (e.key === Qt.Key_Down || e.key === Qt.Key_Tab) { if (n) root.sel = (root.sel + 1) % n; }
+                    else if (e.key === Qt.Key_Up || e.key === Qt.Key_Backtab) { if (n) root.sel = (root.sel - 1 + n) % n; }
+                    else if (e.key === Qt.Key_Delete || (ctrl && e.key === Qt.Key_W)) { if (picked) Hypr.closeWindow(picked.address); }
                     else if (e.text && e.text.trim() !== "" && !(e.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))) {
                         win.close(); Panels.openLauncher(e.text);
                     } else return;
                     e.accepted = true;
+                }
+
+                // key hints along the bottom edge
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 22
+                    opacity: 0.55 * root.p
+                    text: Theme.labelsMono
+                        ? "←→ DESKTOPS   ↑↓ WINDOWS   ⇧←→ MOVE WINDOW   ⇧1-9 SEND   DEL CLOSE   ↵ OPEN   ESC"
+                        : "←→ Desktops    ↑↓ Windows    ⇧←→ Move window    ⇧1–9 Send    Del Close    ↵ Open    Esc"
+                    color: Theme.label
+                    font.family: Theme.labelsMono ? Theme.fontLabel : Theme.fontUi
+                    font.pixelSize: Theme.labelsMono ? 10 : 11.5
+                    font.letterSpacing: Theme.labelsMono ? 1.6 : 0.2
                 }
 
                 // ---- desktop strip (mock #wsstrip: 156px, gradient, 176x99 thumbs, 22px gap) ----

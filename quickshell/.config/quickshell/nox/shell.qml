@@ -79,6 +79,9 @@ ShellRoot {
         function toggle(): void { Panels.overviewOpen = !Panels.overviewOpen; }
         function open(): void { Panels.overviewOpen = true; }
         function close(): void { Panels.overviewOpen = false; }
+        // while open: next / previous desktop without closing (the arrow keys)
+        function next(): void { Panels.overviewStep(1); }
+        function prev(): void { Panels.overviewStep(-1); }
     }
     // qs -c nox ipc call cheatsheet toggle | open | close
     IpcHandler {
