@@ -18,11 +18,9 @@ return function(ctx)
         { "XF86AudioMicMute", X("wpctl set-mute @DEFAULT_SOURCE@ toggle"), locked = true, desc = "Toggle microphone mute" },
         { "SUPER + ALT + M", X("wpctl set-mute @DEFAULT_SOURCE@ toggle"), locked = true, desc = "Toggle microphone mute" },
 
-        -- color picker + full-screen screenshots
+        -- color picker
         { "SUPER + SHIFT + C", X("hyprpicker -a"), desc = "Color picker" },
-        { "Print", X("grim - | wl-copy"), locked = true, desc = "Screenshot all screens to clipboard" },
-        { "CTRL + Print", X([[mkdir -p $(xdg-user-dir PICTURES)/Screenshots && grim $(xdg-user-dir PICTURES)/Screenshots/Screenshot_"$(date '+%Y-%m-%d_%H.%M.%S')".png]]), locked = true, non_consuming = true, desc = "Screenshot all screens to file and clipboard" },
-        { "CTRL + Print", X("grim - | wl-copy"), locked = true, non_consuming = true, desc = "Screenshot all screens to file and clipboard" },
+        -- screenshots (Print, Shift/Alt/Ctrl+Print): nox shot, bound in shells/nox.lua
 
         -- ##! Virtual machines: Super+Alt+F1 toggles a submap with no other binds
         { "SUPER + ALT + F1", C.fn("enter submap virtual-machine", function()

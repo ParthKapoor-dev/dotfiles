@@ -114,7 +114,7 @@ P.gestures = {
 -- Ctrl+Super+Alt+T random wallpaper  nox wallpaper random
 -- Ctrl+Super+R restart shell         nox shell restart (kills crash relaunches too)
 -- Ctrl+Super+P panel family cycle    DROPPED (ii only)
--- Super+Shift+S region screenshot    nox shot region (clipboard + swappy)
+-- Super+Shift+S region screenshot    nox shot region (clipboard + card; Print too)
 -- Super+Shift+A region search        snip_to_search.sh (Google Lens, unchanged)
 -- Super+Shift+X / T OCR              nox shot ocr
 -- Super+Shift+R, Super+Alt+R record  nox record (region, toggle)
@@ -163,9 +163,12 @@ function P.binds(ctx)
         { "CTRL + SUPER + R", X("nox shell restart"), desc = "Restart shell" },
 
         -- ##! Utilities: screenshot / OCR / record (nox shot, nox record)
-        { "SUPER + SHIFT + S", X("nox shot region"), desc = "Screenshot region to clipboard and edit" },
-        { "ALT + Print", X("nox shot window"), locked = true, desc = "Screenshot window to file and clipboard" },
-        { "SHIFT + Print", X("nox shot screen"), locked = true, desc = "Screenshot monitor to file and clipboard" },
+        -- every capture: clipboard + screenshot card (Save, Annotate, Copy, Pin, Send, Upload, Discard)
+        { "SUPER + SHIFT + S", X("nox shot region"), desc = "Screenshot region" },
+        { "Print", X("nox shot region"), desc = "Screenshot region" },
+        { "SHIFT + Print", X("nox shot screen"), locked = true, desc = "Screenshot monitor" },
+        { "ALT + Print", X("nox shot window"), locked = true, desc = "Screenshot window" },
+        { "CTRL + Print", X("nox shot all"), locked = true, desc = "Screenshot all monitors" },
         { "SUPER + SHIFT + A", X("pidof slurp || " .. HS .. "/snip_to_search.sh"), desc = "Search region with Google Lens" },
         { "SUPER + SHIFT + X", X("nox shot ocr"), desc = "OCR region to clipboard" },
         { "SUPER + SHIFT + T", X("nox shot ocr"), desc = "OCR region to clipboard" },

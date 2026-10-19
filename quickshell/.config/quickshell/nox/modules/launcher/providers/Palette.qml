@@ -143,7 +143,7 @@ Item {
         about: { t: "About this desktop", icon: "logo", cat: "Shell", kw: "version hyprland" },
         wallpapers: { t: "Choose wallpaper", icon: "image", cat: "Wallpaper", bind: ["Choose wallpaper"], kw: "background picture pick" },
         wallpaperSlideshow: { t: "Edit wallpaper slideshow", icon: "play", cat: "Wallpaper", kw: "cycle rotate list" },
-        screenshot: { t: "Screenshot region to file", icon: "shot", cat: "Capture", kw: "capture grim slurp" },
+        screenshot: { t: "Screenshot region", icon: "shot", cat: "Capture", kw: "capture grim slurp" },
         layoutNext: { t: "Next layout", icon: "layout", cat: "Window", bind: ["Next layout"], kw: "tiling scrolling master dwindle" },
         forceQuit: { t: "Force quit active window", icon: "x", cat: "Window", confirm: "Force quit the active window?", kw: "kill close" }
     })
@@ -395,10 +395,11 @@ Item {
 
         // capture (nox shot, nox record)
         const cli = (key, t, icon, args, kw, bind, sub) => out.push({ key: "nox:" + key, title: t, sub: sub ?? "", icon, cat: "Capture", kw: kw + " nox " + args.join(" "), bind, run: () => root.nox(args) });
-        cli("shotRegion", "Screenshot region and annotate", "shotRegion", ["shot", "region"], "screenshot capture swappy edit", ["Screenshot region to clipboard and edit"]);
-        cli("shotCopy", "Screenshot region to clipboard", "shotRegion", ["shot", "copy"], "screenshot capture copy");
-        cli("shotWindow", "Screenshot window", "shotWin", ["shot", "window"], "screenshot capture window", ["Screenshot window to file and clipboard"]);
-        cli("shotScreen", "Screenshot monitor", "shotScreen", ["shot", "screen"], "screenshot capture monitor display", ["Screenshot monitor to file and clipboard"]);
+        cli("shotRegion", "Screenshot region", "shotRegion", ["shot", "region"], "screenshot capture region annotate satty", ["Screenshot region"]);
+        cli("shotCopy", "Screenshot region to clipboard only", "shotRegion", ["shot", "copy"], "screenshot capture copy");
+        cli("shotWindow", "Screenshot window", "shotWin", ["shot", "window"], "screenshot capture window", ["Screenshot window"]);
+        cli("shotScreen", "Screenshot monitor", "shotScreen", ["shot", "screen"], "screenshot capture monitor display", ["Screenshot monitor"]);
+        cli("shotAll", "Screenshot all monitors", "shotScreen", ["shot", "all"], "screenshot capture all screens monitors", ["Screenshot all monitors"]);
         cli("ocr", "OCR region to clipboard", "doc", ["shot", "ocr"], "ocr text recognize tesseract copy", ["OCR region to clipboard"]);
         cli("record", "Record region", "recRegion", ["record"], "record video screencast", ["Record region (toggle)"], "Run again to stop");
         cli("recordFull", "Record screen", "record", ["record", "--fullscreen"], "record video screencast fullscreen monitor", ["Record screen (toggle)"], "Run again to stop");

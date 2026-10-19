@@ -6,6 +6,7 @@
 
 local SIZE_45 = "(monitor_w*.45) (monitor_h*.45)"
 local SIZE_60 = "(monitor_w*.60) (monitor_h*.65)"
+local SIZE_85 = "(monitor_w*.85) (monitor_h*.85)"
 local PIP = "^([Pp]icture[-\\s]?[Ii]n[-\\s]?[Pp]icture)(.*)$"
 
 local window_rules = {
@@ -26,6 +27,8 @@ local window_rules = {
     { match = { class = "^(blueberry\\.py)$" }, float = true },
     { match = { class = "^(guifetch)$" }, float = true },
     { match = { class = "^(pavucontrol)$" }, float = true, size = SIZE_45, center = true },
+    -- screenshot annotation (nox shot annotate): a floating sheet over the desktop
+    { match = { class = "^(org\\.satty\\.satty|swappy)$" }, float = true, size = SIZE_85, center = true },
     { match = { class = "^(org.pulseaudio.pavucontrol)$" }, float = true, size = SIZE_45, center = true },
     { match = { class = "^(nm-connection-editor)$" }, float = true, size = SIZE_45, center = true },
     { match = { class = ".*plasmawindowed.*" }, float = true },

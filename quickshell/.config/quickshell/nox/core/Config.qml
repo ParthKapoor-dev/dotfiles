@@ -225,16 +225,17 @@ Singleton {
         "screenshot": {
             "card": {
                 "enabled": true,
-                "timeout": 6000,
+                "timeout": 8000,
                 "position": "bottom-right",
                 "width": 300,
                 "actions": [
-                    "copy",
-                    "annotate",
-                    "phone",
-                    "pin",
-                    "upload",
+                    "save",
                     "folder",
+                    "annotate",
+                    "copy",
+                    "pin",
+                    "phone",
+                    "upload",
                     "delete"
                 ]
             },

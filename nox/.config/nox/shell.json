@@ -67,8 +67,8 @@
     }
   },
   "screenshot": {
-    "_comment": "Card after nox shot screen|window and the screenshot action (modules/shot). card.actions: copy | annotate | phone | pin | upload | folder | delete (phone shows only while the phone link is up). annotate: argv with {file} (default satty, else swappy; both write back to the file). upload.service: 0x0 (public, secret URL, deleted after `expires` hours) | none (hides the button) | any name with upload.command = argv using {file} / {expires}, first URL on stdout is copied. Upload always asks first unless upload.confirm is false.",
-    "card": { "enabled": true, "timeout": 6000, "position": "bottom-right", "width": 300, "actions": ["copy", "annotate", "phone", "pin", "upload", "folder", "delete"] },
+    "_comment": "Card after every capture (nox shot region|screen|window|all, modules/shot). The capture is only on the clipboard (and in $XDG_RUNTIME_DIR/nox-shot) until Save copies it to ~/Pictures/Screenshots. card.actions: save | folder (after save) | annotate | copy | pin | phone | upload | delete (discard, or Trash once saved); phone shows only while the phone link is up. annotate: argv with {file} (default nox shot annotate: satty, the card comes back with the result). upload.service: 0x0 (public, secret URL, deleted after `expires` hours) | none (hides the button) | any name with upload.command = argv using {file} / {expires}, first URL on stdout is copied. Upload always asks first unless upload.confirm is false.",
+    "card": { "enabled": true, "timeout": 8000, "position": "bottom-right", "width": 300, "actions": ["save", "folder", "annotate", "copy", "pin", "phone", "upload", "delete"] },
     "upload": { "service": "0x0", "expires": 24, "confirm": true }
   },
   "recorder": { "directory": "~/Videos", "args": [] },

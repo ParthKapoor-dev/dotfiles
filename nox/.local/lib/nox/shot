@@ -1,18 +1,23 @@
 #!/usr/bin/env bash
-# nox shot - screenshots for the Nox shell profile (replaces ii's
-# region screenshot / OCR). Tools: grim, slurp, hyprshot (freeze), swappy,
-# tesseract, wl-clipboard, libnotify.
+# nox shot - screenshots for the Nox shell profile. Tools: grim, slurp, hyprshot (freeze),
+# satty (annotate), tesseract, wl-clipboard, libnotify.
 #
-#   nox shot region    select a region (screen frozen) -> clipboard, then swappy to annotate
-#   nox shot copy      select a region -> clipboard only
-#   nox shot screen    focused monitor -> ~/Pictures/Screenshots + clipboard
-#   nox shot window    active window   -> ~/Pictures/Screenshots + clipboard
+# Every capture goes to the clipboard and then the shell's screenshot card (modules/shot):
+# Save (-> ~/Pictures/Screenshots), Annotate, Copy, Pin, Send to phone, Upload, Discard.
+# Nothing is written to ~/Pictures until Save; the capture itself lives in
+# $XDG_RUNTIME_DIR/nox-shot (tmpfs, gone at logout; older than a day is pruned here).
+#
+#   nox shot region    select a region (screen frozen)
+#   nox shot screen    focused monitor
+#   nox shot window    active window
+#   nox shot all       all monitors
+#   nox shot copy      select a region -> clipboard only, no card
 #   nox shot ocr       select a region -> text (tesseract, all installed langs) -> clipboard
+#   nox shot annotate FILE   open FILE in satty; the result goes back to the card
+#   nox shot save FILE       copy FILE to ~/Pictures/Screenshots, print the new path
 #   nox shot pin FILE  pin an image on screen (floating, always on top; Esc/right click closes)
 #
-# screen/window then show the shell's screenshot card (copy, annotate, send to phone, pin,
-# upload, open folder, delete: quickshell nox modules/shot); without the shell (or with
-# screenshot.card.enabled false) a plain notification instead.
+# Without the shell (or with screenshot.card.enabled false) a plain notification instead.
 # Only one selection at a time: a second press while slurp is open does nothing.
 
 set -uo pipefail
@@ -22,47 +27,48 @@ dir="$(xdg-user-dir PICTURES 2>/dev/null || echo "$HOME/Pictures")/Screenshots"
 tmp="${XDG_RUNTIME_DIR:-/tmp}/nox-shot"
 stamp="$(date '+%Y-%m-%d_%H.%M.%S')"
 mkdir -p "$tmp"
+find "$tmp" -maxdepth 1 -type f -mmin +1440 -delete 2>/dev/null
 
 note() { notify-send -a Screenshot -i "${3:-camera-photo}" "$1" "${2:-}" >/dev/null 2>&1 & }
 selecting() { pidof slurp >/dev/null 2>&1; }
-# saved file -> shell card, else a notification ($1 title)
-saved() { [ "$(qs -c nox ipc call shot open "$2" 2>/dev/null)" = true ] || note "$1" "$2" "$2"; }
+# capture on the clipboard -> shell card, else a notification
+card() {
+    wl-copy --type image/png <"$1"
+    [ "$(qs -c nox ipc call shot open "$1" 2>/dev/null)" = true ] || note "Screenshot copied" "nox shot save $1 keeps it" "$1"
+}
 
-# region capture with a frozen screen; prints nothing, writes $1; 1 = cancelled
+# region capture with a frozen screen; writes $1; 1 = cancelled
 grab_region() {
     hyprshot --mode region --freeze --silent --raw >"$1" 2>/dev/null
     [ -s "$1" ]
 }
 
+f="$tmp/Screenshot_$stamp.png"
 case "$mode" in
-    region | copy)
+    region)
         selecting && exit 0
-        f="$tmp/region_$stamp.png"
+        grab_region "$f" || { rm -f "$f"; exit 0; }
+        card "$f"
+        ;;
+    copy)
+        selecting && exit 0
         grab_region "$f" || { rm -f "$f"; exit 0; }
         wl-copy --type image/png <"$f"
-        if [ "$mode" = region ]; then
-            # swappy: Ctrl+C copies the annotated image, Ctrl+S saves (save_dir in ~/.config/swappy/config)
-            swappy -f "$f"
-        else
-            note "Region copied" "" "$f"
-        fi
-        rm -f "$f"
+        note "Region copied" "" "$f"
         ;;
     screen)
-        mkdir -p "$dir"
-        f="$dir/Screenshot_$stamp.png"
         mon=$(hyprctl -j monitors | jq -r '.[] | select(.focused) | .name')
         grim ${mon:+-o "$mon"} "$f" || exit 1
-        wl-copy --type image/png <"$f"
-        saved "Screenshot saved" "$f"
+        card "$f"
         ;;
     window)
-        mkdir -p "$dir"
-        f="$dir/Screenshot_$stamp.png"
         hyprshot --mode window --mode active --silent --raw >"$f" 2>/dev/null
         [ -s "$f" ] || { rm -f "$f"; exit 1; }
-        wl-copy --type image/png <"$f"
-        saved "Window saved" "$f"
+        card "$f"
+        ;;
+    all)
+        grim "$f" || exit 1
+        card "$f"
         ;;
     ocr)
         selecting && exit 0
@@ -78,9 +84,27 @@ case "$mode" in
             note "No text found" "" dialog-information
         fi
         ;;
+    annotate)
+        src="${2:-}"; [ -f "$src" ] || { echo "nox shot annotate: no such file '$src'" >&2; exit 1; }
+        # satty writes back over the file (Enter / Ctrl+S) and copies on Ctrl+C; the card comes
+        # back with the edited image either way so it can still be saved, pinned, sent
+        if command -v satty >/dev/null; then
+            satty --filename "$src" --output-filename "$src" --copy-command wl-copy --early-exit
+        else
+            swappy -f "$src" -o "$src"
+        fi
+        card "$src"
+        ;;
+    save)
+        src="${2:-}"; [ -f "$src" ] || { echo "nox shot save: no such file '$src'" >&2; exit 1; }
+        case "$src" in "$dir"/*) printf '%s\n' "$src"; exit 0 ;; esac
+        mkdir -p "$dir"
+        out="$dir/${src##*/}"
+        cp -- "$src" "$out" && printf '%s\n' "$out"
+        ;;
     pin)
         f=$(readlink -f -- "${2:-}" 2>/dev/null) && [ -f "$f" ] || { echo "nox shot pin: no such file '${2:-}'" >&2; exit 1; }
         [ "$(qs -c nox ipc call shot pin "$f" 2>/dev/null)" = true ] || { echo "nox shot pin: shell not running" >&2; exit 1; }
         ;;
-    *) echo "usage: nox shot region|copy|screen|window|ocr|pin <file>" >&2; exit 2 ;;
+    *) echo "usage: nox shot region|screen|window|all|copy|ocr|annotate <file>|save <file>|pin <file>" >&2; exit 2 ;;
 esac

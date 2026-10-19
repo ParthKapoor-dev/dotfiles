@@ -299,6 +299,32 @@
       ]
     },
     {
+      "name": "satty-config",
+      "_comment": "satty (screenshot card Annotate, nox shot annotate): theme font + palette",
+      "template": "satty/config.toml",
+      "output": "satty/config.toml",
+      "check": "text",
+      "apply": [
+        {
+          "type": "symlink",
+          "path": "~/.config/satty/config.toml"
+        }
+      ]
+    },
+    {
+      "name": "satty-css",
+      "_comment": "satty toolbars styled as the shell's glass cards",
+      "template": "satty/overrides.css",
+      "output": "satty/overrides.css",
+      "check": "css",
+      "apply": [
+        {
+          "type": "symlink",
+          "path": "~/.config/satty/overrides.css"
+        }
+      ]
+    },
+    {
       "name": "term-sequences",
       "_comment": "OSC palette for terminals without a theme file; read in place from ~/.local/state/nox/out/terminal/sequences.txt (fish config.fish cats it). No hook: the old ii copy target is gone.",
       "template": "terminal/sequences.txt",

@@ -52,13 +52,8 @@ Singleton {
         phonePair: () => Phone.pair(),
         about: () => { about.running = true; }
     })
-    // region screenshot -> ~/Pictures/Screenshots + clipboard + screenshot card (modules/shot;
-    // a notification when the card is off)
-    readonly property var screenshotCmd: ["sh", "-c",
-        "sleep 0.3; pidof slurp >/dev/null && exit 0; d=$(xdg-user-dir PICTURES 2>/dev/null || echo \"$HOME/Pictures\")/Screenshots; mkdir -p \"$d\"; " +
-        "f=\"$d/Screenshot_$(date +%Y-%m-%d_%H.%M.%S).png\"; g=$(slurp) || exit 0; grim -g \"$g\" \"$f\" && wl-copy < \"$f\" && " +
-        "{ [ \"$(qs -c nox ipc call shot open \"$f\" 2>/dev/null)\" = true ] || " +
-        "notify-send -a Screenshot -i \"$f\" 'Screenshot saved' \"$(basename \"$f\") · copied to clipboard\"; }"]
+    // region screenshot -> clipboard + screenshot card (nox shot; Save on the card keeps it)
+    readonly property var screenshotCmd: ["sh", "-c", "sleep 0.3; exec nox shot region"]
 
     Process {
         id: about

@@ -10,17 +10,20 @@ import qs.components
 import qs.services
 
 // Post-screenshot card (namespace nox:shot): thumbnail + one row of actions at a corner of the
-// focused monitor. `nox shot screen|window` and the screenshot action call
-// `qs -c nox ipc call shot open <file>` and fall back to a plain notification when it says false
-// (card disabled) or the shell is down. The file is already saved and on the clipboard by then.
+// focused monitor. Every `nox shot` capture (and the screenshot action) calls
+// `qs -c nox ipc call shot open <file>` and falls back to a plain notification when it says false
+// (card disabled) or the shell is down. The image is on the clipboard by then, but the file is a
+// capture in $XDG_RUNTIME_DIR/nox-shot: nothing lands in ~/Pictures until Save.
 // Actions (screenshot.card.actions, in order):
-//   copy      image -> clipboard again (e.g. after annotating)
-//   annotate  screenshot.annotate argv ({file}), default satty, else swappy; both write back to the file
-//   phone     nox phone send <file>; only while the phone link is up and the phone reachable
+//   save      copy into ~/Pictures/Screenshots (nox shot save); the card then shows that file
+//   folder    once saved: show the file in the file manager (FileManager1.ShowItems, else xdg-open)
+//   annotate  screenshot.annotate argv ({file}), default `nox shot annotate` (satty, writes back
+//             to the file and reopens this card with the result)
+//   copy      image -> clipboard again
 //   pin       floating always-on-top copy (ShotPin.qml); any number at once
+//   phone     nox phone send <file>; only while the phone link is up and the phone reachable
 //   upload    screenshot.upload (below); asks first, then copies the link. service "none" hides it
-//   folder    show the file in the file manager (FileManager1.ShowItems, else xdg-open the folder)
-//   delete    move the file to the Trash (gio trash)
+//   delete    unsaved: discard the capture; saved: move the file to the Trash (gio trash)
 // Upload: service "0x0" (default; public, but with a secret URL that expires after `expires`
 // hours) | "none" | anything else with `command` = argv where {file} and {expires} are replaced;
 // the first http(s) URL on stdout is the link. `confirm: false` skips the "Upload publicly?" step.
@@ -43,6 +46,9 @@ Scope {
     property string flash: ""             // status line ("Copied", "Link copied", errors)
     property string hint: ""              // hovered action's label
     property var pins: []                 // [{ id, path, screen, slot }]
+    readonly property string saveDir: (Quickshell.env("XDG_PICTURES_DIR") || Quickshell.env("HOME") + "/Pictures") + "/Screenshots"
+    // saved = the card's file lives outside the runtime capture dir
+    readonly property bool saved: file !== "" && file.indexOf("/nox-shot/") === -1
     property int pinSeq: 0
 
     // ---- upload ----
@@ -55,15 +61,16 @@ Scope {
     readonly property string upLabel: up.label ?? (up.command ? "your upload host" : services[upService]?.label ?? upService)
     readonly property bool canUpload: upService !== "none" && upCommand !== null
 
-    readonly property var actionIds: cardOpts.actions ?? ["copy", "annotate", "phone", "pin", "upload", "folder", "delete"]
+    readonly property var actionIds: cardOpts.actions ?? ["save", "folder", "annotate", "copy", "pin", "phone", "upload", "delete"]
     readonly property var actionDefs: ({
-        copy: { icon: "clip", label: "Copy", show: () => true },
+        save: { icon: "download", label: "Save to Screenshots", show: () => !root.saved },
+        folder: { icon: "folder", label: "Show in folder", show: () => root.saved },
         annotate: { icon: "edit", label: "Annotate", show: () => true },
-        phone: { icon: "phone", label: "Send to " + (Phone.device?.name ?? "phone"), show: () => Phone.available && Phone.connected },
+        copy: { icon: "clip", label: "Copy", show: () => true },
         pin: { icon: "push_pin", label: "Pin on screen", show: () => true },
+        phone: { icon: "phone", label: "Send to " + (Phone.device?.name ?? "phone"), show: () => Phone.available && Phone.connected },
         upload: { icon: "cloud_upload", label: "Upload to " + root.upLabel, show: () => root.canUpload },
-        folder: { icon: "folder", label: "Show in folder", show: () => true },
-        delete: { icon: "trash", label: "Move to Trash", show: () => true }
+        delete: { icon: "trash", label: root.saved ? "Move to Trash" : "Discard", show: () => true }
     })
     readonly property var actions: actionIds.filter(id => actionDefs[id] && actionDefs[id].show())
 
@@ -95,13 +102,18 @@ Scope {
     function act(id) {
         const f = file;
         switch (id) {
+        case "save":
+            if (saver.running) return;
+            saver.command = ["nox", "shot", "save", f];
+            saver.running = true;
+            break;
         case "copy":
             sh("wl-copy --type image/png < \"$1\"", f);
             flash = "Copied";
             break;
         case "annotate":
             if (opts.annotate) Quickshell.execDetached(fill(opts.annotate, f));
-            else sh("if command -v satty >/dev/null; then exec satty --filename \"$1\" --output-filename \"$1\" --copy-command wl-copy; else exec swappy -f \"$1\" -o \"$1\"; fi", f);
+            else Quickshell.execDetached(["nox", "shot", "annotate", f]);
             dismiss();
             break;
         case "phone":
@@ -123,8 +135,12 @@ Scope {
             dismiss();
             break;
         case "delete":
-            sh("gio trash -- \"$1\" 2>/dev/null || rm -f -- \"$1\"", f);
-            Panels.hud("Screenshot moved to Trash", "trash");
+            if (saved) {
+                sh("gio trash -- \"$1\" 2>/dev/null || rm -f -- \"$1\"", f);
+                Panels.hud("Screenshot moved to Trash", "trash");
+            } else if (!pins.some(p => p.path === f)) {
+                sh("rm -f -- \"$1\"", f);   // a pinned capture keeps its file until the next login
+            }
             dismiss();
             break;
         }
@@ -150,6 +166,17 @@ Scope {
             if (!shown) Panels.hud("Screenshot upload failed", "x");
         }
         life.restart();
+    }
+    Process {
+        id: saver
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const out = text.trim();
+                if (out) { root.file = out; root.flash = "Saved to Screenshots"; }
+                else root.flash = "Save failed";
+                life.restart();
+            }
+        }
     }
     Process {
         id: uploader
