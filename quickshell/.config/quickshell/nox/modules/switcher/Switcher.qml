@@ -14,7 +14,7 @@ import qs.services
 // preview of the selected window with its title above the strip; the rest of the screen dims.
 // Hold Alt, tap Tab to step (Shift+Tab back), release Alt = switch. A quick Alt+Tab tap switches
 // to the previous window without the UI ever showing (it only appears after switcher.showDelay ms,
-// 110). Also: arrows / Tab inside, Enter = switch, Esc = cancel, Q / W = close the selected
+// 110). Also: arrows inside, Enter = switch, Esc = cancel, Q / W = close the selected
 // window, hover selects, click switches.
 // Keys reach it as Hyprland global shortcuts (appid "nox", bound in hypr nox/shells/nox.lua):
 //   switcherNext (Alt+Tab), switcherPrev (Alt+Shift+Tab), switcherAlt (Alt_L, non-consuming: its
@@ -67,7 +67,9 @@ Scope {
             list = snapshot();
             if (list.length === 0) return;
             // the first entry is the focused window: Alt+Tab goes to the one before it
-            const focusedFirst = norm(list[0].address) === norm(activeAddr);
+            // (right after a shell start Hyprland.activeToplevel can still be unset: the hyprctl seed knows)
+            const first = norm(list[0].address);
+            const focusedFirst = first === norm(activeAddr) || (!activeAddr && first === mru[0]);
             sel = d > 0 ? (focusedFirst && list.length > 1 ? 1 : 0) : list.length - 1;
             open = true;
             showTimer.restart();
@@ -81,8 +83,13 @@ Scope {
         close();
         if (!t) return;
         touch(norm(t.address));
-        Hypr.focusWindow(t.address);
+        // focus once the surface has let go of the keyboard: focusing while the exclusive layer
+        // still holds it made Hyprland hand focus back to the old window when the layer unmapped
+        pendingFocus = t.address;
+        focusTimer.restart();
     }
+    property string pendingFocus: ""
+    Timer { id: focusTimer; interval: 40; onTriggered: { Hypr.focusWindow(root.pendingFocus); root.pendingFocus = ""; } }
     function close() { showTimer.stop(); open = false; shown = false; }
     function closeSelected() {
         const t = current;
@@ -97,6 +104,7 @@ Scope {
     Connections {
         target: Panels
         function onSwitcherCommand(cmd) {
+            console.info("nox switcher:", cmd, "open=" + root.open, "sel=" + root.sel);
             if (cmd === "next") root.step(1);
             else if (cmd === "prev") root.step(-1);
             else if (cmd === "commit") root.commit();
@@ -167,8 +175,9 @@ Scope {
                         const shift = e.modifiers & Qt.ShiftModifier;
                         if (e.key === Qt.Key_Escape) root.close();
                         else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter || e.key === Qt.Key_Space) root.commit();
-                        else if (e.key === Qt.Key_Right || (e.key === Qt.Key_Tab && !shift)) root.step(1);
-                        else if (e.key === Qt.Key_Left || e.key === Qt.Key_Backtab || (e.key === Qt.Key_Tab && shift)) root.step(-1);
+                        // Tab is not handled here: the Alt+Tab bind already steps (twice = skipped windows)
+                        else if (e.key === Qt.Key_Right) root.step(1);
+                        else if (e.key === Qt.Key_Left) root.step(-1);
                         else if (e.key === Qt.Key_Q || e.key === Qt.Key_W) root.closeSelected();
                         else return;
                         e.accepted = true;

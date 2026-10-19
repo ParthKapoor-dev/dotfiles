@@ -208,11 +208,12 @@ ShellRoot {
             // the catchall also fires on the Super press itself (Hyprland 0.55.3+): absorb that one
             onPressed: { if (superTap.pressGuard) { superTap.pressGuard = false; return; } superTap.mightTrigger = false; }
         }
-        // Alt+Tab: next / prev step the switcher; switcherAlt is bound to Alt_L (non-consuming) and
-        // its release commits the selection
+        // Alt+Tab: next / prev step the switcher; switcherAlt (Alt release) commits the selection
         GlobalShortcut { appid: "nox"; name: "switcherNext"; description: "Window switcher: next (Alt+Tab)"; onPressed: Panels.switcherCommand("next") }
         GlobalShortcut { appid: "nox"; name: "switcherPrev"; description: "Window switcher: previous (Alt+Shift+Tab)"; onPressed: Panels.switcherCommand("prev") }
-        GlobalShortcut { appid: "nox"; name: "switcherAlt"; description: "Window switcher: Alt released = switch"; onReleased: Panels.switcherCommand("commit") }
+        // bound as a release bind: Hyprland delivers it at the Alt release (as a press and/or release
+        // event depending on version), so both commit; the second one finds the switcher closed
+        GlobalShortcut { appid: "nox"; name: "switcherAlt"; description: "Window switcher: Alt released = switch"; onPressed: Panels.switcherCommand("commit"); onReleased: Panels.switcherCommand("commit") }
         GlobalShortcut {
             appid: "nox"; name: "notificationCenterToggle"; description: "Toggle the Notification Center"
             onPressed: Panels.toggle("notifications")

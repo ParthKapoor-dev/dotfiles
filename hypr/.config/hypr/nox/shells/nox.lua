@@ -147,11 +147,13 @@ function P.binds(ctx)
 
     local rest = {
         { "SUPER + Tab", X(ipc("overview")), desc = "Open overview" },
-        -- Alt+Tab window switcher (most recently used); releasing Alt switches. The Alt_L bind is
-        -- non-consuming so apps still see Alt (menus, Alt+key shortcuts)
+        -- Alt+Tab window switcher (most recently used); releasing Alt switches. The Alt release is a
+        -- release bind (fires when Alt_L / Alt_R comes up, whatever was pressed in between) and
+        -- non-consuming + transparent so apps still see Alt (menus, Alt+key shortcuts)
         { "ALT + Tab", G("switcher_next"), desc = "Switch to the previous window (hold Alt, Tab to step)" },
         { "ALT + SHIFT + Tab", G("switcher_prev"), desc = "Window switcher: step back" },
-        { "ALT + Alt_L", G("switcher_alt"), ignore_mods = true, non_consuming = true, desc = "Internal: window switcher, Alt release switches" },
+        { "ALT + Alt_L", G("switcher_alt"), release = true, ignore_mods = true, non_consuming = true, transparent = true, desc = "Internal: window switcher, Alt release switches" },
+        { "ALT + Alt_R", G("switcher_alt"), release = true, ignore_mods = true, non_consuming = true, transparent = true, desc = "Internal: window switcher, Alt release switches" },
         { "SUPER + V", X(ipc("clipboard") .. " || pkill fuzzel || cliphist list | fuzzel --match-mode fzf --dmenu | cliphist decode | wl-copy"), desc = "Open clipboard history" },
         { "SUPER + Period", X(ipc("emoji") .. " || pkill fuzzel || " .. HS .. "/fuzzel-emoji.sh copy"), desc = "Emoji picker (launcher, .)" },
         { "CTRL + SUPER + Space", X(ipc("palette") .. " || pkill fuzzel || fuzzel"), desc = "Command palette (launcher, >)" },
