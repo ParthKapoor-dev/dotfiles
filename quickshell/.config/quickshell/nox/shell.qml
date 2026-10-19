@@ -161,6 +161,7 @@ ShellRoot {
         function setDnd(on: bool): void { Notifs.setDnd(on); }
         function dnd(): bool { return Notifs.dnd; }
         function clear(): void { Notifs.clearAll(); }
+        function clearApp(app: string): void { Notifs.clearApp(app); }
         // "server=<registered> dnd=<bool> count=<history> popups=<on screen>"
         function status(): string { return "server=" + Notifs.running + " dnd=" + Notifs.dnd + " count=" + Notifs.count + " popups=" + Notifs.popups.length; }
     }

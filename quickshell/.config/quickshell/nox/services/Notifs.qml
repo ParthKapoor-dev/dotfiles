@@ -51,6 +51,10 @@ Singleton {
     function clearPopups() { popups = []; expiry.stop(); }
     function dismiss(n) { hidePopup(n); n.dismiss(); }
     function clearAll() { clearPopups(); for (const n of list) n.dismiss(); }
+    // dismiss a set of notifications (one app's group in the Notification Center)
+    function dismissMany(ns) { for (const n of ns.slice()) dismiss(n); }
+    function appKey(n) { return n.appName || n.desktopEntry || "Other"; }
+    function clearApp(app) { dismissMany(list.filter(n => appKey(n).toLowerCase() === String(app).toLowerCase())); }
     // run the "default" action (body click) if the app offers one
     function activate(n) {
         const a = n.actions.find(x => x.identifier === "default");

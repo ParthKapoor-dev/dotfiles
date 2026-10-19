@@ -77,7 +77,7 @@ GPopup {
         readonly property var groups: {
             const out = [], byApp = {};
             for (const n of Notifs.list) {
-                const k = n.appName || n.desktopEntry || "Other";
+                const k = Notifs.appKey(n);
                 if (!byApp[k]) { byApp[k] = { app: k, list: [] }; out.push(byApp[k]); }
                 byApp[k].list.push(n);
             }
@@ -123,39 +123,92 @@ GPopup {
                 }
             }
 
+            // one card per app. Several notifications from one app collapse to the newest, with
+            // the older ones peeking out under the card as a stack; hovering the card lists all of
+            // them (it stays open for a moment after the pointer leaves, so moving between rows or
+            // to the × doesn't snap it shut). The × in the group label clears the whole app.
             Repeater {
                 model: flick.groups
-                NcCard {
+                Item {
                     id: grp
                     required property var modelData
+                    readonly property var list: modelData.list
+                    readonly property bool stacked: list.length > 1
+                    readonly property bool expanded: !stacked || groupHover.hovered || holdOpen.running
+                    readonly property real peek: stacked && !expanded ? Math.min(list.length - 1, 2) * 6 : 0
                     width: col.width
-                    // group label (mock .grp) sits inside the card as its first row: outside it
-                    // floated over app windows with no backing
-                    Column {
-                        id: gcol
-                        width: parent.width
-                        spacing: 12
-                        GroupLabel {
-                            width: gcol.width
-                            leftText: grp.modelData.app
-                            rightText: grp.modelData.list.length > 6 ? "6 of " + grp.modelData.list.length
-                                : grp.modelData.list.length > 1 ? grp.modelData.list.length + " notifications" : ""
+                    implicitHeight: gcard.implicitHeight + peek
+                    Behavior on implicitHeight { enabled: grp.stacked; NumberAnimation { duration: Theme.durPop; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+
+                    HoverHandler { id: groupHover; onHoveredChanged: if (!hovered) holdOpen.restart() }
+                    Timer { id: holdOpen; interval: 350 }
+
+                    // the stack: older notifications as narrower card edges under the newest
+                    Repeater {
+                        model: grp.stacked ? Math.min(grp.list.length - 1, 2) : 0
+                        Rectangle {
+                            required property int index
+                            readonly property real inset: 8 * (index + 1)
+                            x: inset; width: grp.width - inset * 2
+                            y: gcard.implicitHeight - 12 + 6 * (index + 1)
+                            height: 12
+                            z: -1 - index
+                            radius: Theme.square ? 4 : 10
+                            // a step lighter than the card so the edge reads against dark windows
+                            color: Qt.lighter(Theme.cardGlass, 1.9 - 0.4 * index)
+                            border.width: 1
+                            border.color: Theme.rgba(Theme.t.color.label, 0.1)
+                            opacity: grp.expanded ? 0 : 1
+                            Behavior on opacity { NumberAnimation { duration: Theme.durPop } }
                         }
-                        Repeater {
-                            model: grp.modelData.list.slice(0, 6)
-                            Column {
-                                id: entry
-                                required property var modelData
-                                required property int index
-                                width: gcol.width
-                                spacing: 12
-                                Rectangle { visible: entry.index > 0; width: parent.width; height: 1; color: Theme.sep }
-                                NotificationCard {
-                                    width: parent.width
-                                    notification: entry.modelData
-                                    compact: false
-                                    card: false
-                                    onCloseRequested: Notifs.dismiss(entry.modelData)
+                    }
+
+                    NcCard {
+                        id: gcard
+                        width: grp.width
+                        // group label (mock .grp) sits inside the card as its first row: outside it
+                        // floated over app windows with no backing
+                        Column {
+                            id: gcol
+                            width: parent.width
+                            spacing: 12
+                            Item {
+                                width: gcol.width; height: 14
+                                GroupLabel {
+                                    width: parent.width - (clearApp.visible ? clearApp.width + 8 : 0)
+                                    leftText: grp.modelData.app
+                                    rightText: grp.stacked ? grp.list.length + " notifications" : ""
+                                }
+                                // clear every notification from this app
+                                Rectangle {
+                                    id: clearApp
+                                    visible: grp.stacked
+                                    anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
+                                    width: 18; height: 18
+                                    radius: Theme.square ? 4 : 9
+                                    color: clearMouse.containsMouse ? Theme.fill2 : "transparent"
+                                    opacity: groupHover.hovered ? 1 : 0
+                                    Behavior on opacity { NumberAnimation { duration: Theme.durHover } }
+                                    Glyph { anchors.centerIn: parent; name: "x"; size: 9; color: Theme.label }
+                                    MouseArea { id: clearMouse; anchors.fill: parent; hoverEnabled: true; enabled: clearApp.opacity > 0; onClicked: Notifs.dismissMany(grp.list) }
+                                }
+                            }
+                            Repeater {
+                                model: grp.expanded ? grp.list : grp.list.slice(0, 1)
+                                Column {
+                                    id: entry
+                                    required property var modelData
+                                    required property int index
+                                    width: gcol.width
+                                    spacing: 12
+                                    Rectangle { visible: entry.index > 0; width: parent.width; height: 1; color: Theme.sep }
+                                    NotificationCard {
+                                        width: parent.width
+                                        notification: entry.modelData
+                                        compact: false
+                                        card: false
+                                        onCloseRequested: Notifs.dismiss(entry.modelData)
+                                    }
                                 }
                             }
                         }
