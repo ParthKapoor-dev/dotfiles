@@ -9,7 +9,7 @@ import qs.core
 import qs.components
 import qs.services
 
-// Notes: a floating, always-on-top markdown notepad (Ctrl+Super+N; IPC `notes toggle|open|hide|create|openNote <path>`).
+// Notes: a floating, always-on-top markdown notepad (Ctrl+Super+S; IPC `notes toggle|open|hide|create|openNote <path>`).
 // One real window (title "Notes", Hyprland rule: float, pin = on every desktop, centred) with a
 // sidebar of notes (notes.directory, default ~/Notes, *.md, newest first, search) and a rich editor:
 // Qt's own markdown document (TextEdit MarkdownText), so what you see is styled and what is saved is

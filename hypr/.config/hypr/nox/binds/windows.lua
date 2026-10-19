@@ -76,7 +76,7 @@ return function(ctx)
         { "CTRL + SUPER + SHIFT + Left", W.move({ workspace = "r-1" }), desc = "Move window to previous desktop on monitor" },
 
         { "SUPER + ALT + S", W.move({ workspace = "special", follow = false }), desc = "Send window to scratchpad" },
-        { "CTRL + SUPER + S", D.workspace.toggle_special(), desc = "Toggle scratchpad" },
+        -- (Ctrl+Super+S was a second scratchpad key; it opens Notes now, shells/nox.lua)
 
         -- make window not amogus large
         { "CTRL + SUPER + Backslash", W.resize({ x = 640, y = 480 }), desc = "Resize window to 640×480" },
