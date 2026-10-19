@@ -9,7 +9,7 @@
     "screens": [],
     "left": ["logo", "appName", "menus", "workspaces", "layout"],
     "center": [],
-    "right": ["recording", "dnd", "tray", "stats", "phone", "network", "bluetooth", "battery", "search", "controlCenter", "clock"]
+    "right": ["recording", "dnd", "tray", "hubstaff", "stats", "phone", "network", "bluetooth", "battery", "search", "controlCenter", "clock"]
   },
   "widgets": {
     "logo": {
@@ -86,7 +86,7 @@
     "show": ["date", "clock", "system", "media", "activity", "quote"],
     "system": ["host", "uptime", "cpu", "temp", "battery"],
     "media": { "art": true, "progress": true, "bars": true },
-    "activity": { "source": "github", "weeks": 12 },
+    "activity": { "source": "github", "weeks": 53 },
     "timeFormat": "HH:mm",
     "dateFormat": "dddd d MMMM",
     "clockSize": 132,

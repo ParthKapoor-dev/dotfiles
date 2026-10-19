@@ -19,6 +19,7 @@ Singleton {
         "network": "NetworkStatus.qml",
         "bluetooth": "BluetoothStatus.qml",
         "phone": "PhoneStatus.qml",
+        "hubstaff": "HubstaffStatus.qml",
         "volume": "Volume.qml",
         "battery": "Battery.qml",
         "stats": "Stats.qml",

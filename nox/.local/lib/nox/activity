@@ -88,7 +88,7 @@ def main():
             print(" ".join("·" if not days[i]["count"] else "▪" if days[i]["count"] < 5 else "■" for i in range(row, len(days), 7)))
         return
 
-    start, today = week_range(max(1, min(a.weeks, 52)))
+    start, today = week_range(max(1, min(a.weeks, 53)))
     source = a.source
     try:
         counts = from_github(start, today) if source == "github" else from_local(start, today, a.roots or ["~/code"])

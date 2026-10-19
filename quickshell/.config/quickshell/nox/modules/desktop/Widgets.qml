@@ -399,7 +399,7 @@ Variants {
         // commit activity: weeks x 7 days of dots (Monday on top), shaded in the accent by
         // count relative to the busiest day, today outlined. Data: ~/.local/state/nox/activity.json
         // from `nox activity refresh` (GitHub through gh, else local git), refreshed hourly while
-        // shown. desktopWidgets.activity: { source: github | local, weeks: 12 }
+        // shown. desktopWidgets.activity: { source: github | local, weeks: 1..53 (53 = a year, default 12) }
         Component {
             id: activity
             Item {
@@ -419,7 +419,7 @@ Variants {
                 }
                 readonly property string today: Qt.formatDate(clock.date, "yyyy-MM-dd")
                 visible: days.length > 0
-                implicitHeight: visible ? 30 + head.implicitHeight + 10 + grid.height : 0
+                implicitHeight: visible ? grid.y + grid.height : 0
 
                 FileView {
                     id: store
@@ -448,24 +448,55 @@ Variants {
                     y: 30
                     width: act.width
                     horizontalAlignment: win.align
-                    text: win.caps("Commits · " + act.total + " in " + Math.round(act.days.length / 7) + " weeks"
+                    text: win.caps("Commits · " + act.total + (act.weeks >= 52 ? " in the last year" : " in " + act.weeks + " weeks")
                                    + (act.streak > 1 ? " · " + act.streak + " day streak" : ""))
+                }
+                // dots shrink to fit the column: 12 weeks = 9px dots, a year (53) = 6px
+                readonly property int weeks: Math.ceil(days.length / 7)
+                readonly property real pitch: Math.min(13, Math.floor((width + 2) / Math.max(1, weeks)))
+                readonly property real cell: Math.max(3, pitch - (pitch >= 10 ? 4 : 2))
+                // month initials over the first week of each month (long ranges only)
+                Item {
+                    id: months
+                    visible: act.weeks > 16
+                    y: head.y + head.implicitHeight + 8
+                    x: grid.x
+                    width: grid.width; height: visible ? 12 : 0
+                    Repeater {
+                        model: {
+                            const out = [];
+                            for (let w = 0; w < act.weeks; w++) {
+                                const d = act.days[w * 7];
+                                if (!d) continue;
+                                const dt = new Date(d.date + "T00:00:00");
+                                if (dt.getDate() <= 7 && w < act.weeks - 1) out.push({ w, m: Qt.formatDate(dt, "MMM").charAt(0) });
+                            }
+                            return out;
+                        }
+                        Cap {
+                            required property var modelData
+                            x: modelData.w * act.pitch
+                            text: modelData.m
+                            font.pixelSize: 9
+                            font.letterSpacing: 0
+                        }
+                    }
                 }
                 Grid {
                     id: grid
-                    y: head.y + head.implicitHeight + 10
+                    y: months.y + months.height + (months.visible ? 4 : 2)
                     x: win.right ? act.width - width : 0
                     rows: 7
                     flow: Grid.TopToBottom
-                    spacing: 4
+                    spacing: act.pitch - act.cell
                     Repeater {
                         model: act.days
                         Rectangle {
                             required property var modelData
                             readonly property int c: modelData.count
                             readonly property real level: c <= 0 || act.peak <= 0 ? 0 : Math.ceil(4 * Math.sqrt(c / act.peak))   // 1..4
-                            width: 9; height: 9
-                            radius: Theme.square ? 1 : 4.5
+                            width: act.cell; height: act.cell
+                            radius: Theme.square ? (act.cell > 6 ? 1 : 0) : act.cell / 2
                             color: c < 0 ? "transparent" : level === 0 ? Theme.white(0.07) : Theme.rgba(Theme.t.color.accent, [0, 0.32, 0.55, 0.78, 1][level])
                             border.width: modelData.date === act.today ? 1 : 0
                             border.color: Theme.white(0.85)
