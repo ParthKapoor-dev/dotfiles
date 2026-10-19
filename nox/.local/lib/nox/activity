@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+"""nox activity [refresh|show] [--weeks N] [--source github|local] - commit activity for the desktop widget.
+
+Writes ~/.local/state/nox/activity.json: {"source", "updated", "days": [{"date", "count"}...]}
+(oldest first, whole weeks Monday..Sunday ending with the current week), read by the
+"activity" desktop widget (modules/desktop/Widgets.qml), which runs `nox activity refresh`
+at most once an hour.
+
+Sources (shell.json desktopWidgets.activity.source, default "github"):
+  github  your GitHub contribution calendar through the `gh` CLI (its own login; nothing stored
+          here). Includes private contributions if the profile counts them.
+  local   commits by `git config user.email` in every repo under activity.roots (default ~/code,
+          4 levels deep); no network.
+github falls back to local when gh is missing or not logged in.
+"""
+import argparse
+import datetime as dt
+import json
+import os
+import subprocess
+import sys
+
+STATE = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state")), "nox")
+OUT = os.path.join(STATE, "activity.json")
+
+
+def week_range(weeks):
+    today = dt.date.today()
+    start = today - dt.timedelta(days=today.weekday() + 7 * (weeks - 1))   # Monday, weeks-1 back
+    return start, today
+
+
+def from_github(start, today):
+    q = ("query($from:DateTime!,$to:DateTime!){viewer{contributionsCollection(from:$from,to:$to)"
+         "{contributionCalendar{weeks{contributionDays{date contributionCount}}}}}}")
+    r = subprocess.run(["gh", "api", "graphql", "-f", "query=" + q,
+                        "-f", "from=%sT00:00:00Z" % start, "-f", "to=%sT23:59:59Z" % today],
+                       capture_output=True, text=True, timeout=30)
+    if r.returncode != 0:
+        raise RuntimeError(r.stderr.strip() or "gh failed")
+    cal = json.loads(r.stdout)["data"]["viewer"]["contributionsCollection"]["contributionCalendar"]
+    return {d["date"]: d["contributionCount"] for w in cal["weeks"] for d in w["contributionDays"]}
+
+
+def find_repos(roots, depth=4):
+    for root in roots:
+        root = os.path.expanduser(root)
+        base = root.rstrip("/").count("/")
+        for cur, dirs, _ in os.walk(root):
+            if ".git" in dirs:
+                yield cur
+                dirs[:] = []           # no nested repos / submodules
+                continue
+            dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ("node_modules", "target", "vendor")]
+            if cur.count("/") - base >= depth:
+                dirs[:] = []
+
+
+def from_local(start, today, roots):
+    email = subprocess.run(["git", "config", "--global", "user.email"], capture_output=True, text=True).stdout.strip()
+    counts = {}
+    for repo in find_repos(roots):
+        cmd = ["git", "-C", repo, "log", "--all", "--no-merges", "--since=%s" % start, "--format=%ad", "--date=short"]
+        if email:
+            cmd.insert(5, "--author=" + email)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
+        for line in r.stdout.split():
+            counts[line] = counts.get(line, 0) + 1
+    return counts
+
+
+def main():
+    ap = argparse.ArgumentParser(prog="nox activity", description=__doc__.split("\n")[0])
+    ap.add_argument("cmd", nargs="?", default="show", choices=["refresh", "show"])
+    ap.add_argument("--weeks", type=int, default=12)
+    ap.add_argument("--source", default="github", choices=["github", "local"])
+    ap.add_argument("--root", action="append", dest="roots", help="local: repo search root (repeatable; default ~/code)")
+    a = ap.parse_args()
+
+    if a.cmd == "show":
+        try:
+            d = json.load(open(OUT))
+        except (OSError, ValueError):
+            sys.exit("nox activity: nothing yet, run `nox activity refresh`")
+        days = d["days"]
+        print("%s · %d commits in %d weeks · updated %s" % (d["source"], sum(x["count"] for x in days), len(days) // 7, d["updated"]))
+        for row in range(7):
+            print(" ".join("·" if not days[i]["count"] else "▪" if days[i]["count"] < 5 else "■" for i in range(row, len(days), 7)))
+        return
+
+    start, today = week_range(max(1, min(a.weeks, 52)))
+    source = a.source
+    try:
+        counts = from_github(start, today) if source == "github" else from_local(start, today, a.roots or ["~/code"])
+    except (OSError, RuntimeError, ValueError, KeyError, subprocess.TimeoutExpired) as e:
+        if source != "github":
+            sys.exit("nox activity: %s" % e)
+        print("nox activity: github unavailable (%s), using local git" % str(e).splitlines()[0][:120], file=sys.stderr)
+        source = "local"
+        counts = from_local(start, today, a.roots or ["~/code"])
+
+    days, d = [], start
+    end = start + dt.timedelta(days=7 * ((today - start).days // 7 + 1) - 1)    # through Sunday
+    while d <= end:
+        days.append({"date": d.isoformat(), "count": counts.get(d.isoformat(), 0) if d <= today else -1})
+        d += dt.timedelta(days=1)
+    os.makedirs(STATE, exist_ok=True)
+    tmp = OUT + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump({"source": source, "updated": dt.datetime.now().isoformat(timespec="seconds"), "days": days}, f)
+    os.replace(tmp, OUT)
+
+
+if __name__ == "__main__":
+    main()
