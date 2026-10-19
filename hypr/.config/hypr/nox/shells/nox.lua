@@ -42,6 +42,7 @@ P.GLOBAL = {
     launcher_interrupt  = "launcherToggleReleaseInterrupt", -- live
     notification_center = "notificationCenterToggle",       -- live
     dnd                 = "dndToggle",                      -- live
+    notes               = "notesToggle",                    -- live (Ctrl+Super+N)
     switcher_next       = "switcherNext",                   -- live (Alt+Tab)
     switcher_prev       = "switcherPrev",                   -- live (Alt+Shift+Tab)
     switcher_alt        = "switcherAlt",                    -- live (Alt_L release = switch)
@@ -150,6 +151,7 @@ function P.binds(ctx)
 
     local rest = {
         { "SUPER + Tab", X(ipc("overview")), desc = "Open overview" },
+        { "CTRL + SUPER + N", G("notes"), desc = "Show or hide Notes" },
         -- Alt+Tab window switcher (most recently used); releasing Alt switches. The Alt release is a
         -- release bind (fires when Alt_L / Alt_R comes up, whatever was pressed in between) and
         -- non-consuming + transparent so apps still see Alt (menus, Alt+key shortcuts)

@@ -139,6 +139,8 @@
           { "label": "Record Screen", "icon": "record", "action": "record", "keywords": ["record", "video", "wf-recorder"] },
           { "label": "Mission Control", "icon": "grid", "action": "overview", "keywords": ["overview", "expose", "workspaces"] },
           { "label": "Clipboard History", "icon": "clip", "action": "clipboard", "keywords": ["clipboard", "paste", "cliphist"] },
+          { "label": "Notes", "icon": "edit", "action": "notes", "keywords": ["notes", "notepad", "markdown", "write", "scratch"] },
+          { "label": "New Note", "icon": "edit", "action": "newNote", "keywords": ["note", "notes", "quick note", "markdown", "write"] },
           { "label": "Choose Wallpaper", "icon": "image", "action": "wallpapers", "keywords": ["wallpaper", "background", "picture"] },
           { "label": "Wallpaper Slideshow", "icon": "play", "action": "wallpaperSlideshow", "keywords": ["wallpaper", "slideshow", "cycle", "rotate"] },
           { "label": "Default Apps", "icon": "settings", "action": "defaultApps", "keywords": ["default", "browser", "file manager", "mime", "open with", "xdg"] },

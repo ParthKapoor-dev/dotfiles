@@ -50,6 +50,8 @@ Singleton {
         phoneSend: () => Phone.pickAndSend(),
         phoneRing: () => Phone.ring(),
         phonePair: () => Phone.pair(),
+        notes: () => Panels.notesCommand("toggle"),
+        newNote: () => Panels.notesCommand("new"),
         about: () => { about.running = true; }
     })
     // region screenshot -> clipboard + screenshot card (nox shot; Save on the card keeps it)

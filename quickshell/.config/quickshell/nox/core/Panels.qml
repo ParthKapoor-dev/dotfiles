@@ -15,7 +15,8 @@ Singleton {
     property string launcherQuery: ""  // text to start the next launcher session with
     property bool overviewOpen: false
     signal overviewStep(int delta)
-    signal switcherCommand(string cmd)  // Alt+Tab switcher: next | prev | commit | cancel (modules/switcher)     // Mission Control: browse desktops while open (IPC overview next|prev)
+    signal switcherCommand(string cmd)
+    signal notesCommand(string cmd)     // Notes window: toggle | show | new (modules/notes)  // Alt+Tab switcher: next | prev | commit | cancel (modules/switcher)     // Mission Control: browse desktops while open (IPC overview next|prev)
     property bool sessionOpen: false
     property bool cheatsheetOpen: false
     property bool dockRevealed: false  // autohide: pointer at the bottom edge / dock hovered / IPC

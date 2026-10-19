@@ -22,6 +22,7 @@ import qs.modules.cheatsheet
 import qs.modules.shot
 import qs.modules.desktop
 import qs.modules.switcher
+import qs.modules.notes
 
 ShellRoot {
     LazyLoader { active: Config.loaded && Config.moduleEnabled("bar"); component: Bar {} }
@@ -36,6 +37,8 @@ ShellRoot {
     LazyLoader { active: Config.loaded && Config.moduleEnabled("overview"); component: Overview {} }
     // Alt+Tab window switcher (on unless modules.switcher is false)
     LazyLoader { active: Config.loaded && Config.opt.modules?.switcher !== false; component: Switcher {} }
+    // floating markdown notepad (Ctrl+Super+N; on unless modules.notes is false)
+    LazyLoader { active: Config.loaded && Config.opt.modules?.notes !== false; component: Notes {} }
     LazyLoader { active: Config.loaded && Config.moduleEnabled("session"); component: Session {} }
     // keyboard shortcuts sheet (on unless modules.cheatsheet is false)
     LazyLoader { active: Config.loaded && Config.opt.modules?.cheatsheet !== false; component: Cheatsheet {} }
@@ -209,6 +212,7 @@ ShellRoot {
             onPressed: { if (superTap.pressGuard) { superTap.pressGuard = false; return; } superTap.mightTrigger = false; }
         }
         // Alt+Tab: next / prev step the switcher; switcherAlt (Alt release) commits the selection
+        GlobalShortcut { appid: "nox"; name: "notesToggle"; description: "Show / hide Notes"; onPressed: Panels.notesCommand("toggle") }
         GlobalShortcut { appid: "nox"; name: "switcherNext"; description: "Window switcher: next (Alt+Tab)"; onPressed: Panels.switcherCommand("next") }
         GlobalShortcut { appid: "nox"; name: "switcherPrev"; description: "Window switcher: previous (Alt+Shift+Tab)"; onPressed: Panels.switcherCommand("prev") }
         // bound as a release bind: Hyprland delivers it at the Alt release (as a press and/or release
