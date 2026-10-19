@@ -21,6 +21,7 @@ import qs.modules.polkit
 import qs.modules.cheatsheet
 import qs.modules.shot
 import qs.modules.desktop
+import qs.modules.switcher
 
 ShellRoot {
     LazyLoader { active: Config.loaded && Config.moduleEnabled("bar"); component: Bar {} }
@@ -33,6 +34,8 @@ ShellRoot {
     LazyLoader { active: Config.loaded && Config.moduleEnabled("wallpaper"); component: Background {} }
     LazyLoader { active: Config.loaded && Config.moduleEnabled("corners"); component: Corners {} }
     LazyLoader { active: Config.loaded && Config.moduleEnabled("overview"); component: Overview {} }
+    // Alt+Tab window switcher (on unless modules.switcher is false)
+    LazyLoader { active: Config.loaded && Config.opt.modules?.switcher !== false; component: Switcher {} }
     LazyLoader { active: Config.loaded && Config.moduleEnabled("session"); component: Session {} }
     // keyboard shortcuts sheet (on unless modules.cheatsheet is false)
     LazyLoader { active: Config.loaded && Config.opt.modules?.cheatsheet !== false; component: Cheatsheet {} }
@@ -73,7 +76,15 @@ ShellRoot {
         function current(): string { return Panels.popup; }
     }
 
-    // qs -c nox ipc call overview toggle | open | close
+    // qs -c nox ipc call switcher next | prev | commit | cancel
+    IpcHandler {
+        target: "switcher"
+        function next(): void { Panels.switcherCommand("next"); }
+        function prev(): void { Panels.switcherCommand("prev"); }
+        function commit(): void { Panels.switcherCommand("commit"); }
+        function cancel(): void { Panels.switcherCommand("cancel"); }
+    }
+    // qs -c nox ipc call overview toggle | open | close | next | prev
     IpcHandler {
         target: "overview"
         function toggle(): void { Panels.overviewOpen = !Panels.overviewOpen; }
@@ -197,6 +208,11 @@ ShellRoot {
             // the catchall also fires on the Super press itself (Hyprland 0.55.3+): absorb that one
             onPressed: { if (superTap.pressGuard) { superTap.pressGuard = false; return; } superTap.mightTrigger = false; }
         }
+        // Alt+Tab: next / prev step the switcher; switcherAlt is bound to Alt_L (non-consuming) and
+        // its release commits the selection
+        GlobalShortcut { appid: "nox"; name: "switcherNext"; description: "Window switcher: next (Alt+Tab)"; onPressed: Panels.switcherCommand("next") }
+        GlobalShortcut { appid: "nox"; name: "switcherPrev"; description: "Window switcher: previous (Alt+Shift+Tab)"; onPressed: Panels.switcherCommand("prev") }
+        GlobalShortcut { appid: "nox"; name: "switcherAlt"; description: "Window switcher: Alt released = switch"; onReleased: Panels.switcherCommand("commit") }
         GlobalShortcut {
             appid: "nox"; name: "notificationCenterToggle"; description: "Toggle the Notification Center"
             onPressed: Panels.toggle("notifications")
