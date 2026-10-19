@@ -14,7 +14,7 @@ import qs.services
 // 150 ms, it hides 400 ms after the pointer leaves (not while its menu is open); slides with the
 // sheet curve. `qs -c nox ipc call dock toggle|open|close` reveals/hides it.
 // Without autohide it reserves its height (dock.reserveSpace) like the mock's tiling area.
-// Window previews: resting on a running app's tile for dock.previewDelay ms (450) opens a glass
+// Window previews: resting on a running app's tile for dock.previewDelay ms (180) opens a glass
 // card above it with a live thumbnail per window (title under it): click = focus that window,
 // middle click / x = close it. Moving to another running tile switches the card at once; it
 // closes 250 ms after the pointer has left both the tile and the card. dock.previews: false = off.
@@ -224,15 +224,18 @@ Variants {
             }
             function show(t) {
                 if (win.menuOpen || !t) return;
+                const fresh = !visible;
                 tile = t;
                 const p = t.mapToItem(null, t.width / 2, 0);
                 cx = p.x; topY = p.y;
+                if (fresh) { card.opacity = 0; card.rise = 8; }
                 visible = true;
+                card.opacity = 1; card.rise = 0;
             }
             function hide() { openTimer.stop(); closeTimer.stop(); pending = null; tile = null; visible = false; }
             property real cx: 0
             property real topY: 0
-            Timer { id: openTimer; interval: Config.opt.dock?.previewDelay ?? 450; onTriggered: preview.show(preview.pending) }
+            Timer { id: openTimer; interval: Config.opt.dock?.previewDelay ?? 180; onTriggered: preview.show(preview.pending) }
             Timer { id: closeTimer; interval: 250; onTriggered: if (!preview.hovered && !(preview.tile?.hovered ?? false)) preview.hide() }
             onHoveredChanged: if (!hovered && tile) closeTimer.restart()
             // the app quit / its last window closed
@@ -253,9 +256,16 @@ Variants {
                 radius: card.radius
                 offset.y: 10; blur: 28; spread: -4
                 color: Theme.rgba("#000000", 0.4)
+                opacity: card.opacity
+                transform: Translate { y: card.rise }
             }
             Glass {
                 id: card
+                // open motion: fade in while rising 8px into place
+                property real rise: 0
+                Behavior on opacity { NumberAnimation { duration: Theme.durPop; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+                Behavior on rise { NumberAnimation { duration: Theme.durPop; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveSheet } }
+                transform: Translate { y: card.rise }
                 x: 16; y: 16
                 menu: true
                 color: Theme.cardGlass
