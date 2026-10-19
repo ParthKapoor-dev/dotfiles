@@ -37,7 +37,7 @@ ShellRoot {
     LazyLoader { active: Config.loaded && Config.moduleEnabled("overview"); component: Overview {} }
     // Alt+Tab window switcher (on unless modules.switcher is false)
     LazyLoader { active: Config.loaded && Config.opt.modules?.switcher !== false; component: Switcher {} }
-    // floating markdown notepad (Ctrl+Super+N; on unless modules.notes is false)
+    // floating markdown notepad (Ctrl+Super+S; on unless modules.notes is false)
     LazyLoader { active: Config.loaded && Config.opt.modules?.notes !== false; component: Notes {} }
     LazyLoader { active: Config.loaded && Config.moduleEnabled("session"); component: Session {} }
     // keyboard shortcuts sheet (on unless modules.cheatsheet is false)

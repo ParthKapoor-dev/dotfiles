@@ -49,7 +49,8 @@ Scope {
 
     // windows to offer: every mapped window, MRU first, unknown ones after, minimized last
     function snapshot() {
-        const all = Hyprland.toplevels.values.filter(t => t.wayland && (t.workspace?.id ?? 0) !== 0);
+        // (Notes parks itself on special:notes while hidden: not a window to switch to)
+        const all = Hyprland.toplevels.values.filter(t => t.wayland && (t.workspace?.id ?? 0) !== 0 && t.workspace?.name !== "special:notes");
         const rank = a => { const i = mru.indexOf(norm(a)); return i < 0 ? 1e6 : i; };
         const minimized = t => (t.workspace?.name ?? "").startsWith("special:minimized");
         return all.slice().sort((x, y) => (minimized(x) - minimized(y)) || (rank(x.address) - rank(y.address)));

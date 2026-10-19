@@ -5,6 +5,7 @@ import QtQuick.Window
 import Qt.labs.folderlistmodel
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 import qs.core
 import qs.components
 import qs.services
@@ -30,6 +31,7 @@ Scope {
     readonly property string home: Quickshell.env("HOME")
     readonly property string dir: (opts.directory ?? "~/Notes").replace(/^~/, home)
     property bool shown: false
+    property bool mapped: false            // the window exists; hiding parks it, it isn't closed
     property string current: ""            // absolute path of the open note
     property bool source: false            // markdown source view
     property bool sidebar: state.data.sidebar ?? true
@@ -40,11 +42,33 @@ Scope {
     function show() {
         shown = true;
         if (!current) openLast();
+        if (!mapped) mapped = true;
+        else park(false);
         Qt.callLater(() => editor.forceActiveFocus());
     }
     function hide() {
         if (dropIfEmpty()) { current = ""; editor.text = ""; } else saveNow();
         shown = false;
+        park(true);
+    }
+    // Hiding moves the window to the hidden special:notes workspace (unpinned first: Hyprland won't
+    // move a pinned window) and showing brings it to the current desktop and pins it again, so it
+    // comes back where you left it, at the size you left it. Unmapping instead would make Hyprland
+    // centre it at the rule's size again on every show.
+    readonly property var toplevel: Hyprland.toplevels.values.find(t => t.title === "Notes" && t.wayland?.appId === "org.quickshell") ?? null
+    function park(away) {
+        const t = toplevel;
+        if (!t || !Hypr.lua) { mapped = !away; return; }
+        const w = "window = " + Hypr.str("address:" + Hypr.addr(t.address));
+        if (away) {
+            Hyprland.dispatch("hl.dsp.window.pin({ action = \"disable\", " + w + " })");
+            Hyprland.dispatch("hl.dsp.window.move({ workspace = \"special:notes\", follow = false, " + w + " })");
+        } else {
+            const ws = Hyprland.focusedMonitor?.activeWorkspace?.id ?? Hyprland.focusedWorkspace?.id ?? 1;
+            Hyprland.dispatch("hl.dsp.window.move({ workspace = " + ws + ", follow = false, " + w + " })");
+            Hyprland.dispatch("hl.dsp.window.pin({ action = \"enable\", " + w + " })");
+            Hyprland.dispatch("hl.dsp.focus({ " + w + " })");
+        }
     }
     function url(p) { return "file://" + p; }
     function base(p) { return p.split("/").pop().replace(/\.md$/i, ""); }
@@ -183,7 +207,15 @@ Scope {
         while (e < t.length && !sepAt(t, e)) e++;
         return [s, e];
     }
-    function blockMd(r) { return editor.getFormattedText(r[0], r[1]).replace(/\n+$/, ""); }
+    function blockMd(r) {
+        // an empty block (a bare bullet after deleting its text) reads as "" over its own range:
+        // read it through its separator instead (or the whole document when that is all there is)
+        if (r[0] === r[1]) {
+            const md = r[1] < editor.length ? editor.getFormattedText(r[0], r[0] + 1) : editor.length === 0 ? editor.text : "";
+            return md.split("\n")[0];
+        }
+        return editor.getFormattedText(r[0], r[1]).replace(/\n+$/, "");
+    }
     // "- [ ] x" -> { kind: "check", checked, text } etc.; text keeps its inline markdown
     function parse(md) {
         let m;
@@ -325,13 +357,21 @@ Scope {
     property bool curItalic: false
     property bool curStrike: false
     property bool curCode: false
+    property bool curEmpty: true            // the caret's block has no text (shows its hint)
+    property rect hintRect                  // where that hint goes (after the bullet / box)
+    property int words: 0
     function refreshState() {
         if (source || !current) return;
-        curKind = parse(blockMd(blockRange(editor.cursorPosition))).kind;
+        const r = blockRange(editor.cursorPosition);
+        curKind = parse(blockMd(r)).kind;
+        curEmpty = editor.getText(r[0], r[1]).replace(/\u200b/g, "") === "";
+        hintRect = editor.positionToRectangle(r[1]);
+        const all = editor.getText(0, editor.length).replace(/\u200b/g, "").trim();
+        words = all ? all.split(/\s+/).length : 0;
         const f = editor.cursorSelection.font;
         curBold = f.bold; curItalic = f.italic; curStrike = f.strikeout; curCode = f.family === Theme.fontMono;
     }
-    Timer { id: stateTimer; interval: 60; onTriggered: root.refreshState() }
+    Timer { id: stateTimer; interval: 30; onTriggered: root.refreshState() }
 
     IpcHandler {
         target: "notes"
@@ -376,12 +416,13 @@ Scope {
 
     FloatingWindow {
         id: win
-        visible: root.shown
+        visible: root.mapped
         title: "Notes"
         color: Theme.bg
         implicitWidth: root.opts.width ?? 860
         implicitHeight: root.opts.height ?? 580
-        onVisibleChanged: if (!visible) root.saveNow()
+        // closed by the compositor (Super+Q): start over on the next show
+        onVisibleChanged: if (!visible) { root.saveNow(); root.mapped = false; root.shown = false; }
 
         Item {
             anchors.fill: parent
@@ -399,7 +440,13 @@ Scope {
                 Column {
                     anchors.fill: parent
                     anchors.margins: 10
+                    anchors.topMargin: 14
                     spacing: 8
+                    Item {
+                        width: parent.width; height: 18
+                        GText { x: 4; anchors.verticalCenter: parent.verticalCenter; text: "NOTES"; small: true; secondary: true; font.weight: Font.DemiBold; font.letterSpacing: 1.4 }
+                        GText { anchors.right: parent.right; anchors.rightMargin: 4; anchors.verticalCenter: parent.verticalCenter; text: files.count; small: true; color: Theme.label3; font.family: Theme.fontMono }
+                    }
                     Row {
                         width: parent.width
                         spacing: 6
@@ -427,7 +474,7 @@ Scope {
                     ListView {
                         id: list
                         width: parent.width
-                        height: parent.height - 38
+                        height: parent.height - 38 - 26
                         clip: true
                         spacing: 2
                         boundsBehavior: Flickable.StopAtBounds
@@ -493,23 +540,18 @@ Scope {
                     Row {
                         x: 14; anchors.verticalCenter: parent.verticalCenter
                         spacing: 8
-                        ToolBtn { icon: "side_navigation"; tip: "Sidebar  Ctrl+\\"; on: root.sidebar; onClicked: { root.sidebar = !root.sidebar; state.data = Object.assign({}, state.data, { sidebar: root.sidebar }); state.save(); } }
+                        ToolBtn { icon: "side_navigation"; tip: "Sidebar  Ctrl+\\"; onClicked: { root.sidebar = !root.sidebar; state.data = Object.assign({}, state.data, { sidebar: root.sidebar }); state.save(); } }
                         TextInput {
                             id: nameEdit
                             anchors.verticalCenter: parent.verticalCenter
                             width: Math.min(Math.max(80, contentWidth + 4), main.width - 280)
                             text: root.current ? root.base(root.current) : ""
                             color: Theme.label
-                            font.family: Theme.fontUi; font.pixelSize: 14; font.weight: Font.DemiBold
+                            font.family: Theme.fontUi; font.pixelSize: 15; font.weight: Font.DemiBold
                             selectionColor: Theme.rgba(Theme.t.color.accent, 0.4)
                             clip: true
                             onEditingFinished: { root.rename(text); editor.forceActiveFocus(); }
                             Keys.onEscapePressed: { text = root.base(root.current); editor.forceActiveFocus(); }
-                        }
-                        GText {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: root.status
-                            small: true; secondary: true
                         }
                     }
                     Row {
@@ -530,7 +572,6 @@ Scope {
                         }
                         ToolBtn { icon: "close"; tip: "Hide  Esc"; onClicked: root.hide() }
                     }
-                    Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.sep }
                 }
                 QtObject {
                     id: srcToggle
@@ -545,27 +586,38 @@ Scope {
                     id: bar
                     visible: !root.source
                     anchors.top: head.bottom
-                    width: parent.width; height: visible ? 42 : 0
+                    width: parent.width; height: visible ? 44 : 0
+                    clip: true
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: tools.width + 10; height: 36
+                        radius: Theme.square ? 6 : 12
+                        color: Theme.fill
+                        border.width: 1; border.color: Theme.hair
+                    }
                     Row {
-                        x: 14; anchors.verticalCenter: parent.verticalCenter
+                        id: tools
+                        // a narrow window keeps the essentials (the rest stay on their shortcuts / the / menu)
+                        readonly property bool compact: main.width < 540
+                        anchors.centerIn: parent
                         spacing: 3
-                        ToolBtn { label: "¶"; tip: "Text  Ctrl+0"; on: root.curKind === "p"; onClicked: root.applyBlock("p") }
+                        ToolBtn { label: "¶"; visible: !tools.compact; tip: "Text  Ctrl+0"; on: root.curKind === "p"; onClicked: root.applyBlock("p") }
                         ToolBtn { label: "H1"; tip: "Heading 1  Ctrl+1"; on: root.curKind === "h1"; onClicked: root.applyBlock("h1") }
                         ToolBtn { label: "H2"; tip: "Heading 2  Ctrl+2"; on: root.curKind === "h2"; onClicked: root.applyBlock("h2") }
-                        ToolBtn { label: "H3"; tip: "Heading 3  Ctrl+3"; on: root.curKind === "h3"; onClicked: root.applyBlock("h3") }
-                        Item { width: 6; height: 1 } Sep {} Item { width: 6; height: 1 }
+                        ToolBtn { label: "H3"; visible: !tools.compact; tip: "Heading 3  Ctrl+3"; on: root.curKind === "h3"; onClicked: root.applyBlock("h3") }
+                        Item { width: 4; height: 1 } Sep {} Item { width: 4; height: 1 }
                         ToolBtn { icon: "format_bold"; tip: "Bold  Ctrl+B"; on: root.curBold; onClicked: root.inline("bold") }
                         ToolBtn { icon: "format_italic"; tip: "Italic  Ctrl+I"; on: root.curItalic; onClicked: root.inline("italic") }
-                        ToolBtn { icon: "format_strikethrough"; tip: "Strike  Ctrl+Shift+X"; on: root.curStrike; onClicked: root.inline("strikeout") }
+                        ToolBtn { icon: "format_strikethrough"; visible: !tools.compact; tip: "Strike  Ctrl+Shift+X"; on: root.curStrike; onClicked: root.inline("strikeout") }
                         ToolBtn { icon: "code"; tip: "Inline code  Ctrl+E"; on: root.curCode; onClicked: root.inline("code") }
-                        Item { width: 6; height: 1 } Sep {} Item { width: 6; height: 1 }
+                        Item { width: 4; height: 1 } Sep {} Item { width: 4; height: 1 }
                         ToolBtn { icon: "format_list_bulleted"; tip: "Bullets  Ctrl+Shift+8"; on: root.curKind === "bullet"; onClicked: root.applyBlock("bullet") }
                         ToolBtn { icon: "format_list_numbered"; tip: "Numbered  Ctrl+Shift+7"; on: root.curKind === "number"; onClicked: root.applyBlock("number") }
                         ToolBtn { icon: "checklist"; tip: "Checklist  Ctrl+Shift+9"; on: root.curKind === "check"; onClicked: root.applyBlock("check") }
-                        ToolBtn { icon: "format_quote"; tip: "Quote  Ctrl+Shift+."; on: root.curKind === "quote"; onClicked: root.applyBlock("quote") }
-                        Item { width: 6; height: 1 } Sep {} Item { width: 6; height: 1 }
+                        ToolBtn { icon: "format_quote"; visible: !tools.compact; tip: "Quote  Ctrl+Shift+."; on: root.curKind === "quote"; onClicked: root.applyBlock("quote") }
+                        Item { width: 4; height: 1 } Sep {} Item { width: 4; height: 1 }
                         ToolBtn { icon: "link"; tip: "Link  Ctrl+K"; onClicked: linkBox.ask() }
-                        ToolBtn { icon: "horizontal_rule"; tip: "Divider"; onClicked: root.divider() }
+                        ToolBtn { icon: "horizontal_rule"; visible: !tools.compact; tip: "Divider"; onClicked: root.divider() }
                     }
                 }
 
@@ -573,7 +625,7 @@ Scope {
                 Flickable {
                     id: flick
                     visible: !root.source
-                    anchors.top: bar.bottom; anchors.bottom: parent.bottom
+                    anchors.top: bar.bottom; anchors.bottom: foot.top
                     width: parent.width
                     clip: true
                     contentWidth: width
@@ -586,10 +638,10 @@ Scope {
                     }
                     TextEdit {
                         id: editor
-                        readonly property real maxW: 720
-                        x: Math.max(28, (flick.width - maxW) / 2)
-                        y: 22
-                        width: Math.min(maxW, flick.width - 56)
+                        readonly property real maxW: 680
+                        x: Math.max(36, (flick.width - maxW) / 2)
+                        y: 26
+                        width: Math.min(maxW, flick.width - 72)
                         textFormat: TextEdit.MarkdownText
                         wrapMode: TextEdit.Wrap
                         selectByMouse: true
@@ -602,6 +654,7 @@ Scope {
                         tabStopDistance: 28
                         onCursorRectangleChanged: { flick.follow(cursorRectangle); stateTimer.restart(); root.slashUpdate(); }
                         onTextChanged: {
+                            stateTimer.restart();
                             if (root.loading) return;
                             root.status = "Edited";
                             saveTimer.restart();
@@ -609,11 +662,22 @@ Scope {
                         }
                         onLinkActivated: l => Qt.openUrlExternally(l)
 
+                        // hint at the caret on an empty block, after its bullet / box / heading size
+                        // (one placeholder at the top-left would sit on an empty list's bullet)
                         GText {
-                            visible: editor.length === 0 && !editor.preeditText
-                            text: "Write markdown… type / for blocks"
-                            secondary: true
-                            font.pixelSize: editor.font.pixelSize
+                            readonly property rect r: root.hintRect
+                            readonly property string hint: !root.curEmpty || root.slashAt >= 0 || editor.preeditText ? ""
+                                : editor.length === 0 && root.curKind === "p" ? "Start writing, or type / for blocks"
+                                : !editor.activeFocus ? ""
+                                : ({ p: "Type / for blocks", h1: "Heading 1", h2: "Heading 2", h3: "Heading 3", bullet: "List item",
+                                     number: "List item", check: "To-do", quote: "Quote" })[root.curKind] ?? ""
+                            visible: hint !== ""
+                            text: hint
+                            x: r.x + 2
+                            y: r.y + (r.height - height) / 2
+                            color: Theme.label3
+                            font.pixelSize: Math.max(12, Math.round(r.height * 0.7))
+                            font.weight: /^h/.test(root.curKind) ? Font.Bold : Font.Normal
                         }
 
                         Keys.onPressed: e => {
@@ -710,7 +774,7 @@ Scope {
                 Flickable {
                     id: srcFlick
                     visible: root.source
-                    anchors.top: head.bottom; anchors.bottom: parent.bottom
+                    anchors.top: head.bottom; anchors.bottom: foot.top
                     width: parent.width
                     clip: true
                     contentHeight: srcEdit.implicitHeight + 80
@@ -730,6 +794,32 @@ Scope {
                             if ((e.modifiers & Qt.ControlModifier) && e.key === Qt.Key_M) { srcToggle.go(); e.accepted = true; }
                             else if ((e.modifiers & Qt.ControlModifier) && e.key === Qt.Key_S) { root.saveNow(); e.accepted = true; }
                         }
+                    }
+                }
+
+                // footer: words + save state, quiet
+                Item {
+                    id: foot
+                    anchors.bottom: parent.bottom
+                    width: parent.width; height: 30
+                    Rectangle { width: parent.width; height: 1; color: Theme.sep; opacity: 0.6 }
+                    GText {
+                        x: 16; anchors.verticalCenter: parent.verticalCenter
+                        text: root.words === 1 ? "1 word" : root.words + " words" + (root.words >= 200 ? " · " + Math.max(1, Math.round(root.words / 220)) + " min read" : "")
+                        small: true; color: Theme.label3
+                    }
+                    Row {
+                        anchors.right: parent.right; anchors.rightMargin: 16
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 6
+                        visible: root.status !== ""
+                        Rectangle {
+                            width: 6; height: 6; radius: 3
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: root.status === "Saved" ? Theme.label3 : Theme.accent
+                            Behavior on color { ColorAnimation { duration: 200 } }
+                        }
+                        GText { text: root.source ? root.status + " · markdown" : root.status; small: true; color: Theme.label3 }
                     }
                 }
 
@@ -759,6 +849,15 @@ Scope {
                         GText { visible: !linkIn.text; text: "Paste or type a link, Enter"; secondary: true; anchors.verticalCenter: parent.verticalCenter }
                     }
                 }
+            }
+            // a touch of film grain over everything, like the desktop widgets
+            Image {
+                anchors.fill: parent
+                z: 100
+                source: "../../assets/grain.png"
+                fillMode: Image.Tile
+                opacity: root.opts.grain ?? 0.035
+                smooth: false
             }
         }
     }
