@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+"""clip-title - remember the display name of copied links, for the launcher's clipboard history.
+
+Run by Hyprland as `wl-paste --type text/html --watch ~/.local/lib/nox/clip-title`: stdin is the
+HTML of a copy. Apps like Teamwork, Jira or Slack copy a link as <a href="URL">Name</a> (HTML) plus
+the bare URL (plain text, what cliphist stores), so the history only showed the URL. When the HTML
+is exactly one link and nothing else, URL -> name is saved to ~/.local/state/nox/clip-titles.json
+(newest last, at most 500, mode 600); the clipboard provider shows the name with the URL under it.
+Any other HTML (a paragraph, a page selection) is ignored and nothing is written.
+"""
+import html.parser
+import json
+import os
+import sys
+
+STATE = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state")), "nox")
+OUT = os.path.join(STATE, "clip-titles.json")
+MAX = 500
+
+
+class Links(html.parser.HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.links, self.outside, self.cur = [], [], None
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "a":
+            self.cur = [dict(attrs).get("href", ""), []]
+
+    def handle_endtag(self, tag):
+        if tag == "a" and self.cur is not None:
+            self.links.append((self.cur[0], " ".join("".join(self.cur[1]).split())))
+            self.cur = None
+
+    def handle_data(self, data):
+        (self.cur[1] if self.cur is not None else self.outside).append(data)
+
+
+def main():
+    raw = sys.stdin.buffer.read(256 * 1024).decode("utf-8", "replace")
+    if "<a" not in raw.lower():
+        return
+    p = Links()
+    try:
+        p.feed(raw)
+        p.close()
+    except Exception:
+        return
+    if len(p.links) != 1 or "".join(p.outside).strip():
+        return
+    url, name = p.links[0]
+    url = url.strip()
+    if not url.lower().startswith(("http://", "https://")) or not name or name == url:
+        return
+    try:
+        titles = json.load(open(OUT))
+        if not isinstance(titles, dict):
+            titles = {}
+    except (OSError, ValueError):
+        titles = {}
+    titles.pop(url, None)
+    titles[url] = name[:300]
+    titles = dict(list(titles.items())[-MAX:])
+    os.makedirs(STATE, exist_ok=True)
+    tmp = OUT + ".tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        json.dump(titles, f)
+    os.replace(tmp, OUT)
+
+
+if __name__ == "__main__":
+    main()

@@ -80,6 +80,9 @@ P.execs = {
     -- clipboard history: plain cliphist (ii also poked its own service over IPC)
     "wl-paste --type text --watch cliphist store",
     "wl-paste --type image --watch cliphist store",
+    -- link names for the history: a copied <a href>Name</a> (Teamwork, Jira, Slack) stores only the
+    -- URL in cliphist; this keeps URL -> Name (~/.local/state/nox/clip-titles.json)
+    "wl-paste --type text/html --watch ~/.local/lib/nox/clip-title",
     -- polkit: nox's polkit module is the agent. If it is not there yet,
     -- uncomment the KDE agent (polkit-kde-agent is installed):
     -- "/usr/lib/polkit-kde-authentication-agent-1",

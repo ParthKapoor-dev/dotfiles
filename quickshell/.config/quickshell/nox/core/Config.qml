@@ -314,6 +314,7 @@ Singleton {
                 "calculator",
                 "apps",
                 "windows",
+                "pins",
                 "clipboard",
                 "wallpapers",
                 "commands",

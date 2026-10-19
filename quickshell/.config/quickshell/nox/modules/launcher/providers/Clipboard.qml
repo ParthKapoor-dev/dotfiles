@@ -12,7 +12,11 @@ import qs.services
 // <id>.png (re-encoded by magick, at most 1600 px; reused across restarts; files of entries no longer
 // in cliphist are deleted on refresh; entries cliphist stored truncated are marked "unreadable"),
 // text into memory, one batch of `cliphist decode` per query. Enter = `cliphist decode <id> | wl-copy`,
-// Shift+Delete = `cliphist delete` for that entry. Nothing runs until the provider is queried.
+// Shift+Delete = `cliphist delete` for that entry, Ctrl+Enter = pin it (services/Pins, launcher "'").
+// Links copied with a name (an <a href> in the HTML: Teamwork, Jira, Slack) show that name with
+// the URL under it: names come from ~/.local/state/nox/clip-titles.json, kept by
+// ~/.local/lib/nox/clip-title (Hyprland: `wl-paste --type text/html --watch`).
+// Nothing runs until the provider is queried.
 // The store itself is filled by Hyprland: `wl-paste --watch cliphist store`.
 Item {
     id: root
@@ -30,7 +34,16 @@ Item {
     readonly property string cacheDir: (Quickshell.env("XDG_CACHE_HOME") || Quickshell.env("HOME") + "/.cache") + "/nox/clipboard-previews"
     function fileUrl(name) { return "file://" + cacheDir + "/" + name; }
 
-    function refresh() { if (!lister.running) lister.running = true; }
+    function refresh() { if (!lister.running) lister.running = true; titlesFile.reload(); }
+    // URL -> link name (see header)
+    property var titles: ({})
+    FileView {
+        id: titlesFile
+        path: Paths.state("clip-titles")
+        printErrors: false
+        onLoaded: { try { root.titles = JSON.parse(text()) ?? {}; } catch (e) { root.titles = {}; } }
+    }
+    function titleFor(t) { const s = (t ?? "").trim(); return /^https?:\/\/\S+$/i.test(s) ? (titles[s] ?? "") : ""; }
 
     // row type + icon: a lone colour or URL is labelled as such (the preview card shows it that way)
     function kind(t) {
@@ -48,22 +61,23 @@ Item {
         let i = 0;
         for (const e of entries) {
             i++;
-            if (q && !(e.image ? (e.meta + " image").toLowerCase().includes(q) : e.text.toLowerCase().includes(q))) continue;
+            const label = e.image ? "" : titleFor(bodies[e.id] ?? e.text);
+            if (q && !(e.image ? (e.meta + " image").toLowerCase().includes(q) : (e.text + " " + label).toLowerCase().includes(q))) continue;
             shown.push(e);
-            const m = q && !e.image ? Fuzzy.best(text, [[e.text, 1]]) : null;
+            const m = q && !e.image ? Fuzzy.best(text, [[label || e.text, 1]]) : null;
             const body = bodies[e.id];
             const [type, icon] = e.image ? ["Image", "image"] : kind(body ?? e.text);
             const img = e.image && have[e.id] ? fileUrl(have[e.id]) : "";
             out.push({
-                title: e.image ? "Image" : e.text.replace(/\s+/g, " ").slice(0, 160),
-                sub: e.image ? e.meta + (failed[e.id] ? " · unreadable" : "") : "",
+                title: e.image ? "Image" : label || e.text.replace(/\s+/g, " ").slice(0, 160),
+                sub: e.image ? e.meta + (failed[e.id] ? " · unreadable" : "") : label ? e.text.trim().replace(/^https?:\/\/(www\.)?/i, "").slice(0, 160) : "",
                 icon,
                 thumb: img,
                 thumbSlot: e.image,
                 preview: img,
                 previewFit: true,
                 previewText: e.image ? "" : (body ?? e.text),
-                previewTitle: type,
+                previewTitle: label || type,
                 previewTag: e.image ? e.meta : body === undefined ? "" : body.length + (body.length >= 6000 ? "+" : "") + " chars · " + body.split("\n").length + (body.includes("\n") ? " lines" : " line"),
                 highlight: m?.indices ?? [],
                 type,
@@ -71,6 +85,7 @@ Item {
                 key: e.id,
                 score: -i,
                 run: () => Quickshell.execDetached(["sh", "-c", "cliphist decode \"$1\" | wl-copy", "sh", e.id]),
+                mark: e.image ? undefined : () => Pins.add(label || (bodies[e.id] ?? e.text), bodies[e.id] ?? e.text), markLabel: "Pin",
                 remove: () => { remover.command = ["sh", "-c", "printf '%s\\n' \"$1\" | cliphist delete", "sh", e.line]; remover.running = true; }
             });
             if (out.length >= (options.limit ?? 60)) break;

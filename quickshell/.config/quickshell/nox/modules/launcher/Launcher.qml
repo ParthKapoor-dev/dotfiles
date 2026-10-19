@@ -183,7 +183,10 @@ Scope {
     function markSelected() {
         const cur = selectable[sel]?.item;
         if (!cur?.mark) return false;
-        try { cur.mark(); } catch (e) { console.warn("nox: launcher mark failed:", e); }
+        // mark() returning "reset" (e.g. opening an edit level) clears the input back to the prefix
+        let r;
+        try { r = cur.mark(); } catch (e) { console.warn("nox: launcher mark failed:", e); }
+        if (r === "reset" && prefixed) { text = prefixed.prefix; search(); return true; }
         search(true);
         return true;
     }
@@ -259,6 +262,9 @@ Scope {
             if (Panels.launcherOpen) { root.text = query; root.search(); }
             else { root.initialText = query; Panels.launcherOpen = true; }
         }
+        // run / mark the selected result, as Enter / Ctrl+Enter (scripting/tests)
+        function activate(): void { if (Panels.launcherOpen) root.runSelected(); }
+        function mark(): void { if (Panels.launcherOpen) root.markSelected(); }
         // current results, one per line: "<group>\t<title>\t<sub>" (scripting/tests)
         function results(): string {
             let group = "";

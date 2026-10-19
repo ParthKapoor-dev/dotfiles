@@ -23,7 +23,8 @@ import Quickshell
 //            remove? (function, Shift+Delete), run: function(),
 //            stay? (true = Enter runs it and keeps the launcher open: the input resets to the typed prefix and the search re-runs),
 //            alt? (function, Shift+Enter: secondary action, closes the launcher; altLabel? = footer hint, default "Alternate"),
-//            mark? (function, Ctrl+Enter: toggle membership, the launcher stays open; markLabel? = footer hint, default "Mark"),
+//            mark? (function, Ctrl+Enter: toggle membership, the launcher stays open; markLabel? = footer hint, default "Mark";
+//                   returning "reset" clears the input back to the prefix, e.g. after opening an edit level),
 //            badge? (short string, e.g. "3" = small numbered pill on the icon/thumbnail),
 //            keys? (["Super", "⇧", "S"] = keycaps of the result's shortcut, shown left of the type tag),
 //            move? (function(delta) -> false if it couldn't, Alt+Up = -1 / Alt+Down = +1: reorder; the launcher
@@ -41,6 +42,7 @@ Singleton {
         "windows": "Windows.qml",
         "run": "Run.qml",
         "clipboard": "Clipboard.qml",
+        "pins": "Pins.qml",
         "wallpapers": "Wallpapers.qml",
         "slideshow": "Slideshow.qml",
         "defaults": "DefaultApps.qml",
