@@ -7,7 +7,7 @@ import qs.services
 
 // Hubstaff (services/Hubstaff.qml), like the macOS menu bar item: a dot (accent while tracking)
 // and today's time for the active project, H:MM. Hidden while the client isn't running.
-// Popover: project + task, time today with seconds, Stop / Resume Timer, Open Hubstaff.
+// Popover: task over project, time today with seconds, Stop / Resume Timer, Open Hubstaff.
 // widgets.hubstaff: { showTime: true, interval: 30000, cli: "~/Hubstaff/HubstaffCLI.bin.x86_64" }
 BarButton {
     id: root
@@ -56,8 +56,9 @@ BarButton {
                 width: parent.width
                 icon: "folder"
                 on: Hubstaff.tracking
-                title: Hubstaff.project
-                subtitle: Hubstaff.task !== "" ? Hubstaff.task : "No task"
+                // the task is what you work on: it leads, the project sits under it
+                title: Hubstaff.task !== "" ? Hubstaff.task : Hubstaff.project
+                subtitle: Hubstaff.task !== "" ? Hubstaff.project : "No task"
                 onClicked: { Panels.close(); Hubstaff.openApp(); }
             }
             MenuSep { width: parent.width }
