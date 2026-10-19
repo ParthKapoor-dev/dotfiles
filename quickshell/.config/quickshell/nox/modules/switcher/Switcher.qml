@@ -80,16 +80,22 @@ Scope {
     function commit() {
         if (!open) return;
         const t = current;
+        const wasShown = shown;
+        snap = wasShown;
         close();
         if (!t) return;
         touch(norm(t.address));
-        // focus once the surface has let go of the keyboard: focusing while the exclusive layer
-        // still holds it made Hyprland hand focus back to the old window when the layer unmapped
+        // quick tap: the surface never took the keyboard, focus right away (as fast as Super+N).
+        // Shown: the surface unmaps at once (no fade) and the focus goes one frame later, after it
+        // has let go of the keyboard; focusing while the exclusive layer still held it made
+        // Hyprland hand focus back to the old window when the layer unmapped
+        if (!wasShown) { Hypr.focusWindow(t.address); return; }
         pendingFocus = t.address;
         focusTimer.restart();
     }
     property string pendingFocus: ""
-    Timer { id: focusTimer; interval: 40; onTriggered: { Hypr.focusWindow(root.pendingFocus); root.pendingFocus = ""; } }
+    property bool snap: false            // commit: hide without the fade
+    Timer { id: focusTimer; interval: 16; onTriggered: { Hypr.focusWindow(root.pendingFocus); root.pendingFocus = ""; root.snap = false; } }
     function close() { showTimer.stop(); open = false; shown = false; }
     function closeSelected() {
         const t = current;
@@ -161,7 +167,7 @@ Scope {
                 id: fade
                 anchors.fill: parent
                 opacity: root.shown ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: root.shown ? Theme.durPop : Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+                Behavior on opacity { enabled: !root.snap; NumberAnimation { duration: root.shown ? Theme.durPop : Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
 
                 // dim the desktop a little
                 Rectangle { anchors.fill: parent; color: Qt.rgba(0, 0, 0, root.opts.dim ?? 0.32) }
