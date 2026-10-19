@@ -26,6 +26,7 @@ Item {
     readonly property real fill: 0.9                       // target visual size of the icon content
     readonly property real norm: sep ? 1 : Math.min(1.25, Apps.iconScale(item))
     signal menuRequested()
+    signal clicked()
 
     Behavior on s { NumberAnimation { duration: Theme.durPop; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
 
@@ -119,7 +120,7 @@ Item {
         onClicked: m => {
             if (m.button === Qt.RightButton) root.menuRequested();
             else if (m.button === Qt.MiddleButton) { if (!root.item.stack) Apps.launch(root.item); }
-            else { Panels.close(); Apps.activate(root.item); }
+            else { Panels.close(); root.clicked(); Apps.activate(root.item); }
         }
     }
 }
