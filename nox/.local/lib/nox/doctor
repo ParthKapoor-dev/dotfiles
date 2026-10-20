@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+# nox doctor [--summary] - check the whole nox setup; every problem comes with its fix command.
+#   packages (packages/pacman.txt + aur.txt), stow links, broken symlinks into the repo or the
+#   nox state dir, machine values (nox detect), theme (rendered + applied), Hyprland config,
+#   the shell, user units, fonts of the current look, pending migrations, and the optional
+#   extras: greeter, voice (whisper.cpp), phone (kdeconnect-rs), Claude agent hook.
+#   --summary   one line per section (nox update uses it); exit 1 when something core is red
+# Read-only: it never changes anything.
+set -uo pipefail
+LIB="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+REPO="$(cd "$LIB/../../../.." && pwd)"
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/nox"
+NOX="$REPO/nox/.local/bin/nox"
+SUMMARY=0; [ "${1:-}" = --summary ] && SUMMARY=1
+if [ -t 1 ]; then G=$'\e[32m' Y=$'\e[33m' R=$'\e[31m' B=$'\e[1m' D=$'\e[2m' N=$'\e[0m'; else G="" Y="" R="" B="" D="" N=""; fi
+RED=0 WARN=0 sec="" sec_bad=0 sec_warn=0 sec_ok=0
+
+section() { flush; sec="$1"; sec_bad=0; sec_warn=0; sec_ok=0; [ "$SUMMARY" = 1 ] || printf '\n%s%s%s\n' "$B" "$1" "$N"; }
+flush() {
+    [ -n "$sec" ] && [ "$SUMMARY" = 1 ] || return 0
+    if [ "$sec_bad" -gt 0 ]; then printf '  %s✗%s %-10s %d problem(s)\n' "$R" "$N" "$sec" "$sec_bad"
+    elif [ "$sec_warn" -gt 0 ]; then printf '  %s!%s %-10s %d optional item(s) not set up\n' "$Y" "$N" "$sec" "$sec_warn"
+    else printf '  %s✓%s %-10s ok\n' "$G" "$N" "$sec"; fi
+}
+ok() { sec_ok=$((sec_ok + 1)); [ "$SUMMARY" = 1 ] || printf '  %s✓%s %s\n' "$G" "$N" "$1"; }
+bad() { RED=$((RED + 1)); sec_bad=$((sec_bad + 1)); [ "$SUMMARY" = 1 ] || printf '  %s✗%s %s\n      %sfix:%s %s\n' "$R" "$N" "$1" "$D" "$N" "$2"; }
+opt() { WARN=$((WARN + 1)); sec_warn=$((sec_warn + 1)); [ "$SUMMARY" = 1 ] || printf '  %s!%s %s\n      %soptional:%s %s\n' "$Y" "$N" "$1" "$D" "$N" "$2"; }
+
+entries() { sed -e 's/#.*//' -e 's/[[:space:]]*|[[:space:]]*/ /g' -e 's/^[[:space:]]*//;s/[[:space:]]*$//' "$1" | grep -v -e '^$' -e '^manual:'; }
+satisfied() {
+    local a
+    for a in "$@"; do
+        case "$a" in /* | '~'*) [ -e "${a/#\~/$HOME}" ] && return 0 ;; *) pacman -T "$a" >/dev/null 2>&1 && return 0 ;; esac
+    done
+    return 1
+}
+
+# ---------------------------------------------------------------- core
+section packages
+for f in pacman aur; do
+    m=()
+    while read -r line; do
+        # shellcheck disable=SC2086
+        satisfied $line || m+=("${line%% *}")
+    done < <(entries "$REPO/packages/$f.txt")
+    if [ ${#m[@]} -eq 0 ]; then ok "$f.txt: all $(entries "$REPO/packages/$f.txt" | wc -l) installed"
+    else bad "$f.txt: missing ${m[*]}" "$REPO/install.sh --only packages"; fi
+done
+
+section stow
+if ! command -v stow >/dev/null; then bad "stow not installed" "sudo pacman -S stow"
+else
+    n=0; total=0
+    while read -r pkg; do
+        total=$((total + 1))
+        case " bin systemd-desktop " in *" $pkg "*) fold=(--no-folding) ;; *) fold=() ;; esac
+        out=$(stow -n -v -d "$REPO" -t "$HOME" "${fold[@]}" "$pkg" 2>&1 | grep -v 'WARNING: in simulation mode')
+        if [ -z "$out" ]; then n=$((n + 1)); else bad "$pkg not (fully) linked: $(printf '%s' "$out" | head -1)" "$REPO/install.sh --only stow"; fi
+    done < <(cd "$REPO" && find . -mindepth 1 -maxdepth 1 -type d ! -name '.*' ! -name '_*' ! -name packages ! -name migrations ! -name docs -printf '%f\n' | sort)
+    [ "$n" = "$total" ] && ok "all $total packages linked"
+    # broken links that point into the repo or the nox state dir (left behind by moved/removed files)
+    broken=()
+    while IFS= read -r l; do
+        t=$(readlink "$l")
+        case "$t" in *"$(basename "$REPO")/"* | *".local/state/nox/"*) broken+=("$l") ;; esac
+    done < <(find "$HOME/.config" "$HOME/.local/bin" "$HOME/.local/lib" "$HOME/.local/share/applications" "$HOME/.local/share/icons" \
+                  "$HOME/.local/share/zsh" "$HOME/.local/share/kio" "$HOME/.local/share/color-schemes" -maxdepth 4 -xtype l 2>/dev/null)
+    [ -L "$HOME/.zshrc" ] && [ ! -e "$HOME/.zshrc" ] && broken+=("$HOME/.zshrc")
+    if [ ${#broken[@]} -eq 0 ]; then ok "no broken links into the repo or ~/.local/state/nox"
+    else for l in "${broken[@]}"; do bad "broken link $l -> $(readlink "$l")" "rm '$l'   (then $REPO/install.sh --only stow,theme)"; done; fi
+fi
+
+section machine
+if out=$("$NOX" detect --check 2>&1); then ok "${out##*$'\n'}"; else bad "machine values: $(printf '%s' "$out" | head -1 | sed 's/^todo: //')" "nox detect"; fi
+
+section theme
+if out=$("$NOX" theme status 2>&1); then ok "${out##*$'\n'}"; else bad "theme: $(printf '%s' "$out" | head -2 | tr '\n' ';')" "nox theme apply"; fi
+if out=$("$NOX" theme check 2>&1); then ok "every rendered output validates (nox theme check)"; else bad "nox theme check: $(printf '%s' "$out" | grep FAIL | head -2 | tr '\n' ';')" "fix the template or token, then nox theme render"; fi
+# fonts of the current look
+fonts=$(python3 -I -c 'import json,sys
+t=json.load(open(sys.argv[1]))["font"]
+print("\n".join(sorted({t[k] for k in ("ui","display","mono","icon","label","numeric") if t.get(k)})))' "$STATE/tokens.json" 2>/dev/null)
+missing=()
+while IFS= read -r fam; do
+    [ -n "$fam" ] || continue
+    fc-list "$fam" family 2>/dev/null | grep -q . || missing+=("$fam")
+done <<<"$fonts"
+if [ ${#missing[@]} -eq 0 ]; then ok "fonts of the look installed ($(printf '%s' "$fonts" | tr '\n' ',' | sed 's/,$//; s/,/, /g'))"
+else bad "fonts missing: ${missing[*]}" "see packages/aur.txt and optional.txt (look group) for where they come from"; fi
+
+section hyprland
+if out=$("$NOX" hypr check 2>&1); then ok "config verifies (Hyprland --verify-config)"; else bad "hypr config: $(printf '%s' "$out" | tail -2 | tr '\n' ' ')" "nox hypr check  (then fix the module it names)"; fi
+if [ -L "${XDG_CONFIG_HOME:-$HOME/.config}/hypr/hyprland.lua" ]; then ok "hyprland.lua -> $(readlink "${XDG_CONFIG_HOME:-$HOME/.config}/hypr/hyprland.lua")"
+else bad "hyprland.lua is not the nox symlink" "nox hypr on"; fi
+if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
+    errs=$(hyprctl configerrors 2>/dev/null | grep -v '^$' || true)
+    [ -z "$errs" ] && ok "running compositor reports no config errors" || bad "hyprctl configerrors: $(printf '%s' "$errs" | head -2 | tr '\n' ' ')" "nox hypr check"
+fi
+
+section shell
+if [ -n "${WAYLAND_DISPLAY:-}" ]; then
+    if out=$("$NOX" shell status 2>&1) && printf '%s' "$out" | grep -q '^ipc: *ok'; then ok "qs -c nox running, IPC answers"
+    else bad "shell: $(printf '%s' "$out" | head -2 | tr '\n' ' ')" "nox shell start   (log: nox shell log)"; fi
+else ok "not in a graphical session (shell not checked)"; fi
+
+section units
+for u in nox-greeter-sync.path; do
+    [ "$(systemctl --user is-enabled "$u" 2>/dev/null)" = enabled ] && ok "$u enabled" || bad "$u not enabled" "systemctl --user enable --now $u"
+done
+
+section updates
+pend=()
+for m in "$REPO"/migrations/*.sh; do
+    [ -e "$m" ] || continue
+    [ -e "$STATE/migrations/$(basename "$m")" ] || pend+=("$(basename "$m")")
+done
+[ ${#pend[@]} -eq 0 ] && ok "no pending migrations ($(cat "$REPO/VERSION" 2>/dev/null || echo '?'))" || bad "pending migrations: ${pend[*]}" "nox update   (or: nox update --migrate)"
+
+# ---------------------------------------------------------------- extras (optional)
+section extras
+if [ -d /etc/nox-greeter ]; then
+    if grep -q nox-greeter /etc/greetd/config.toml 2>/dev/null; then ok "greeter installed and the login screen"; else opt "greeter installed, not the login screen" "nox greeter on   (sudo)"; fi
+    stale=()
+    for f in hyprland.lua launch.sh shell/shell.qml shell/Greeter.qml; do cmp -s "$REPO/_greeter/$f" "/etc/nox-greeter/$f" || stale+=("$f"); done
+    [ ${#stale[@]} -eq 0 ] && ok "greeter files in /etc match the repo" || opt "/etc/nox-greeter is older than the repo (${stale[*]})" "nox greeter install   (sudo)"
+else opt "nox greeter not installed" "$REPO/install.sh --only greeter"; fi
+w="${XDG_DATA_HOME:-$HOME/.local/share}/nox/whisper"
+if [ -x "$w/bin/whisper-server" ] && compgen -G "$w/ggml-*.bin" >/dev/null; then ok "voice: whisper.cpp $(cut -d' ' -f1 "$w/bin/VERSION" 2>/dev/null) + model"
+else opt "voice: whisper.cpp / model not built" "nox voice setup"; fi
+if [ -x "$HOME/.local/bin/kdeconnect-service" ]; then
+    if st=$("$NOX" phone build --status 2>/dev/null); then ok "phone: kdeconnect-service ($st)"; else opt "phone: kdeconnect-service installed, but not by nox phone build ($st)" "nox phone build"; fi
+else opt "phone: kdeconnect-service not installed" "nox phone build"; fi
+if [ -d "$HOME/.claude" ]; then
+    if "$NOX" agents hook status >/dev/null 2>&1; then ok "Claude agent hook installed"; else opt "Claude agent hook not installed" "nox agents hook install"; fi
+fi
+[ -x "${NOX_UPSCALER:-$HOME/.local/share/nox/realesrgan/realesrgan-ncnn-vulkan}" ] && ok "wallpaper upscaler (realesrgan)" || opt "realesrgan not installed (nox wallpaper prep upscaling)" "see packages/optional.txt, extras group"
+
+flush
+echo
+if [ "$RED" -gt 0 ]; then printf '%s%d problem(s)%s, %d optional item(s) open\n' "$R" "$RED" "$N" "$WARN"; exit 1; fi
+printf '%sall good%s (%d optional item(s) open)\n' "$G" "$N" "$WARN"
