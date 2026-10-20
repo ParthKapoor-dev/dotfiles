@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Effects
+import QtQuick.Shapes
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -10,8 +11,8 @@ import qs.components
 import qs.services
 
 // Alt+Tab window switcher (namespace nox:switcher). Windows in most-recently-used order (all
-// desktops, minimized last): a strip of app icons on glass, the selected one ringed, and a live
-// preview of the selected window with its title above the strip; the rest of the screen dims.
+// desktops, minimized last): a live hero preview of the selected window with its desktop/app/title
+// set under it, over a filmstrip of window cards; the rest of the screen drops to near-black.
 // Hold Alt, tap Tab to step (Shift+Tab back), release Alt = switch. A quick Alt+Tab tap switches
 // to the previous window without the UI ever showing (it only appears after switcher.showDelay ms,
 // 110). Also: arrows inside, Enter = switch, Esc = cancel, Q / W = close the selected
@@ -145,6 +146,13 @@ Scope {
     }
 
     // ---- UI ----
+    // One subject on near-black: the desktop drops away (dim + vignette + film grain), the selected
+    // window is a live hero preview framed by accent corner brackets, its desktop/app set as a small
+    // mono label and its title in the UI font underneath with "03 / 08" at the right. Below, a
+    // filmstrip of window cards (one-frame thumbnail + icon + app name); an accent hairline slides to
+    // the selected card, which lifts and brightens. Only the hero is live: cards capture one frame
+    // each, and a ListView only builds the cards in view, so 15 windows cost about what 8 do.
+    // Enter: fade + a 0.985 -> 1 settle (durPop, <= 130 ms). Exit on commit is instant (snap).
     LazyLoader {
         active: true
         PanelWindow {
@@ -160,18 +168,57 @@ Scope {
 
             readonly property real sw: width
             readonly property int n: root.list.length
-            // icon tiles shrink to fit at most 88% of the screen width
-            readonly property real tile: Math.max(44, Math.min(84, (sw * 0.88 - 24) / Math.max(1, n)))
-            readonly property real icon: Math.round(tile * 0.66)
+            readonly property int enterMs: Math.min(Theme.durPop, 130)
+            // filmstrip: cards shrink to fit up to 86% of the screen, past that the strip scrolls
+            readonly property real stripMax: Math.min(sw * 0.86, 1280)
+            readonly property int gap: 10
+            readonly property real cardW: Math.round(Math.max(112, Math.min(152, (stripMax - gap * (n - 1)) / Math.max(1, n))))
+            readonly property real thumbH: Math.round(cardW * 0.6)
+            readonly property real cardH: thumbH + 28          // thumbnail + name row
+            readonly property real lift: 5
+            readonly property int rad: Theme.square ? 2 : 10
+            function two(i) { return (i < 10 ? "0" : "") + i; }
+            function isMin(t) { return (t?.workspace?.name ?? "").startsWith("special:minimized"); }
+            function whereOf(t) {
+                const ws = t?.workspace;
+                return !ws ? "" : isMin(t) ? "Minimized" : (ws.name ?? "").startsWith("special:") ? "Scratch" : "Desktop " + ws.id;
+            }
 
             Item {
                 id: fade
                 anchors.fill: parent
                 opacity: root.shown ? 1 : 0
-                Behavior on opacity { enabled: !root.snap; NumberAnimation { duration: root.shown ? Theme.durPop : Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+                Behavior on opacity { enabled: !root.snap; NumberAnimation { duration: root.shown ? win.enterMs : Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
 
-                // dim the desktop a little
-                Rectangle { anchors.fill: parent; color: Qt.rgba(0, 0, 0, root.opts.dim ?? 0.32) }
+                // ---- backdrop: near-black, vignette, grain ----
+                Rectangle { anchors.fill: parent; color: Qt.rgba(0, 0, 0, root.opts.dim ?? 0.74) }
+                Shape {
+                    anchors.fill: parent
+                    preferredRendererType: Shape.GeometryRenderer
+                    ShapePath {
+                        strokeWidth: -1
+                        fillGradient: RadialGradient {
+                            centerX: win.width / 2; centerY: win.height * 0.44
+                            focalX: centerX; focalY: centerY
+                            centerRadius: Math.hypot(win.width, win.height) * 0.56
+                            GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0) }
+                            GradientStop { position: 0.5; color: Qt.rgba(0, 0, 0, 0.22) }
+                            GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.8) }
+                        }
+                        startX: 0; startY: 0
+                        PathLine { x: win.width; y: 0 }
+                        PathLine { x: win.width; y: win.height }
+                        PathLine { x: 0; y: win.height }
+                        PathLine { x: 0; y: 0 }
+                    }
+                }
+                Image {
+                    anchors.fill: parent
+                    source: "../../assets/grain.png"
+                    fillMode: Image.Tile
+                    opacity: root.opts.grain ?? 0.07
+                    smooth: false
+                }
                 MouseArea { anchors.fill: parent; onClicked: root.close() }
 
                 Item {
@@ -196,34 +243,45 @@ Scope {
                 Column {
                     id: stack
                     anchors.centerIn: parent
-                    spacing: 18
-                    scale: root.shown ? 1 : 0.97
-                    Behavior on scale { NumberAnimation { duration: Theme.durPop; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveSheet } }
+                    anchors.verticalCenterOffset: -win.height * 0.02
+                    spacing: 0
+                    scale: root.shown ? 1 : 0.985
+                    Behavior on scale { NumberAnimation { duration: win.enterMs; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveSheet } }
 
-                    // live preview of the selected window
+                    // ---- hero: live preview of the selected window ----
                     Item {
                         id: pv
                         anchors.horizontalCenter: parent.horizontalCenter
-                        readonly property real maxW: Math.min(win.sw * 0.5, 720)
-                        readonly property real maxH: win.height * 0.42
+                        readonly property real maxW: Math.min(win.sw * 0.6, 920)
+                        readonly property real maxH: win.height * 0.47
                         readonly property var src: shot.sourceSize
                         readonly property real k: src.width > 0 ? Math.min(maxW / src.width, maxH / src.height) : 1
                         width: src.width > 0 ? Math.round(src.width * k) : maxW
                         height: src.width > 0 ? Math.round(src.height * k) : maxH * 0.7
-                        Behavior on width { NumberAnimation { duration: Theme.durPop; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveSheet } }
-                        Behavior on height { NumberAnimation { duration: Theme.durPop; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveSheet } }
+                        Behavior on width { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveSheet } }
+                        Behavior on height { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveSheet } }
                         RectangularShadow {
                             anchors.fill: parent
-                            radius: Theme.radiusWindow
-                            offset.y: 16; blur: 48; spread: -6
-                            color: Qt.rgba(0, 0, 0, 0.55)
+                            radius: win.rad
+                            offset.y: 24; blur: 72; spread: -4
+                            color: Qt.rgba(0, 0, 0, 0.85)
                         }
                         Rectangle {
                             anchors.fill: parent
-                            radius: Theme.radiusWindow
-                            color: Theme.bg
+                            radius: win.rad
+                            color: Theme.page
                             border.width: 1
-                            border.color: Theme.white(0.12)
+                            border.color: Theme.white(0.14)
+                        }
+                        // no frame yet / minimized: the app icon stands in
+                        Image {
+                            anchors.centerIn: parent
+                            width: 72; height: 72
+                            sourceSize.width: 144; sourceSize.height: 144
+                            source: root.current ? root.iconFor(root.current) : ""
+                            asynchronous: true
+                            smooth: true; mipmap: true
+                            opacity: shot.hasContent ? 0 : 0.5
                         }
                         ScreencopyView {
                             id: shot
@@ -234,100 +292,225 @@ Scope {
                             opacity: hasContent ? 1 : 0
                             Behavior on opacity { NumberAnimation { duration: Theme.durHover } }
                         }
-                    }
-
-                    // title + app
-                    Column {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        spacing: 3
-                        GText {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            width: Math.min(implicitWidth, pv.maxW)
-                            horizontalAlignment: Text.AlignHCenter
-                            elide: Text.ElideRight
-                            text: root.current?.title || root.appName(root.current)
-                            font.pixelSize: 15
-                            font.weight: Font.DemiBold
-                        }
-                        GText {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: {
-                                const t = root.current;
-                                const ws = t?.workspace;
-                                const where = !ws ? "" : (ws.name ?? "").startsWith("special:minimized") ? "Minimized" : "Desktop " + ws.id;
-                                return [root.appName(t), where].filter(x => x).join(" · ");
-                            }
-                            small: true
-                            secondary: true
-                        }
-                    }
-
-                    // icon strip
-                    Item {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        width: strip.width + 24
-                        height: win.tile + 24
-                        RectangularShadow {
-                            anchors.fill: shelf
-                            radius: shelf.radius
-                            offset.y: 10; blur: 30; spread: -4
-                            color: Qt.rgba(0, 0, 0, 0.4)
-                        }
-                        Glass {
-                            id: shelf
+                        // viewfinder corners, just outside the frame
+                        Brackets {
                             anchors.fill: parent
-                            menu: true
-                            color: Theme.cardGlass
-                            radius: Theme.square ? 8 : 22
+                            anchors.margins: -7
+                            inset: 0
+                            len: 16
+                            thick: 1.5
                         }
-                        // selection marker glides between tiles
-                        Rectangle {
-                            id: marker
-                            readonly property var at: (cells.count, cells.itemAt(root.sel))
-                            x: 12 + (at ? at.x : 0)
-                            y: 12
-                            width: win.tile; height: win.tile
-                            radius: Theme.square ? 5 : 16
-                            color: Theme.white(0.12)
-                            border.width: Theme.square ? 1 : 0
-                            border.color: Theme.white(0.22)
-                            Behavior on x { enabled: root.shown; NumberAnimation { duration: Theme.durHover + 40; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveSheet } }
-                            Rectangle {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                anchors.bottom: parent.bottom; anchors.bottomMargin: 5
-                                width: Theme.square ? 14 : 5; height: Theme.square ? 2 : 5
-                                radius: Theme.square ? 0 : 2.5
-                                color: Theme.accent
+                    }
+
+                    Item { width: 1; height: 22 }
+
+                    // ---- caption: DESKTOP 2 · APP / title / 03 / 08 ----
+                    Item {
+                        id: caption
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: Math.max(pv.width, 360)
+                        height: capCol.height
+                        Column {
+                            id: capCol
+                            width: parent.width - count.width - 24
+                            spacing: 7
+                            Row {
+                                spacing: 9
+                                Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 6; height: 6; radius: Theme.square ? 0 : 3; color: Theme.accent }
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: [win.whereOf(root.current), root.appName(root.current)].filter(x => x).join(" · ")
+                                    color: Theme.label2
+                                    font.family: Theme.fontMono
+                                    font.pixelSize: 11
+                                    font.weight: Font.Medium
+                                    font.capitalization: Font.AllUppercase
+                                    font.letterSpacing: 1
+                                }
+                            }
+                            Text {
+                                width: parent.width
+                                text: root.current?.title || root.appName(root.current)
+                                color: Theme.label
+                                font.family: Theme.fontUi
+                                font.pixelSize: 22
+                                font.weight: Font.Medium
+                                font.letterSpacing: -0.2
+                                elide: Text.ElideRight
                             }
                         }
                         Row {
-                            id: strip
-                            x: 12; y: 12
-                            Repeater {
-                                id: cells
-                                model: win.visible ? root.list : []
-                                Item {
-                                    id: cell
-                                    required property var modelData
-                                    required property int index
-                                    width: win.tile; height: win.tile
+                            id: count
+                            anchors.right: parent.right
+                            anchors.bottom: parent.bottom
+                            anchors.bottomMargin: 3
+                            spacing: 6
+                            Text {
+                                text: win.two(root.sel + 1)
+                                color: Theme.label
+                                font.family: Theme.fontMono
+                                font.pixelSize: 13
+                                font.weight: Font.Medium
+                            }
+                            Text {
+                                text: "/ " + win.two(win.n)
+                                color: Theme.label3
+                                font.family: Theme.fontMono
+                                font.pixelSize: 13
+                            }
+                        }
+                    }
+
+                    Item { width: 1; height: 26 }
+                    Rectangle {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: Math.max(pv.width, strip.width); height: 1
+                        color: Theme.white(0.07)
+                    }
+                    Item { width: 1; height: 18 }
+
+                    // ---- filmstrip ----
+                    ListView {
+                        id: strip
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: Math.min(win.n * (win.cardW + win.gap) - win.gap, win.stripMax)
+                        height: win.cardH + win.lift + 4
+                        orientation: ListView.Horizontal
+                        spacing: win.gap
+                        clip: true
+                        interactive: contentWidth > width
+                        boundsBehavior: Flickable.StopAtBounds
+                        cacheBuffer: 0
+                        model: win.visible ? root.list : []
+                        // the selection drives the view (assigned, so a model reset can't strand it)
+                        function sync() { currentIndex = root.sel; }
+                        Component.onCompleted: sync()
+                        onCountChanged: sync()
+                        Connections { target: root; function onSelChanged() { strip.sync(); } }
+                        highlightFollowsCurrentItem: true
+                        highlightMoveDuration: Theme.durHover + 20
+                        highlightMoveVelocity: -1
+                        highlightResizeDuration: 0
+                        highlightRangeMode: ListView.ApplyRange
+                        preferredHighlightBegin: Math.min(width * 0.15, win.cardW)
+                        preferredHighlightEnd: width - Math.min(width * 0.15, win.cardW)
+                        // accent hairline under the selected card
+                        highlight: Item {
+                            width: win.cardW; height: strip.height
+                            Rectangle {
+                                anchors.bottom: parent.bottom
+                                width: parent.width; height: 2
+                                color: Theme.accent
+                            }
+                        }
+                        delegate: Item {
+                            id: card
+                            required property var modelData
+                            required property int index
+                            readonly property bool on: root.sel === card.index
+                            readonly property bool minimized: win.isMin(card.modelData)
+                            width: win.cardW; height: strip.height
+                            z: 1
+
+                            Item {
+                                id: body
+                                width: parent.width; height: win.cardH
+                                y: card.on ? 0 : win.lift
+                                opacity: card.on ? 1 : card.minimized ? 0.32 : 0.5
+                                Behavior on y { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveSheet } }
+                                Behavior on opacity { NumberAnimation { duration: Theme.durHover } }
+
+                                Rectangle {
+                                    id: frame
+                                    width: parent.width; height: win.thumbH
+                                    radius: win.rad
+                                    color: Theme.surface
+                                    border.width: 1
+                                    border.color: card.on ? Theme.white(0.5) : Theme.white(0.1)
+                                    Behavior on border.color { ColorAnimation { duration: Theme.durHover } }
+                                    // one frame of the window, aspect-fit
+                                    ScreencopyView {
+                                        id: thumb
+                                        readonly property var src: sourceSize
+                                        readonly property real k: src.width > 0 ? Math.min((frame.width - 2) / src.width, (frame.height - 2) / src.height) : 1
+                                        anchors.centerIn: parent
+                                        width: src.width > 0 ? Math.round(src.width * k) : frame.width - 2
+                                        height: src.width > 0 ? Math.round(src.height * k) : frame.height - 2
+                                        captureSource: card.modelData?.wayland ?? null
+                                        live: false
+                                        opacity: hasContent ? 1 : 0
+                                    }
+                                    // no frame: the icon fills in
                                     Image {
                                         anchors.centerIn: parent
-                                        width: win.icon; height: win.icon
-                                        sourceSize.width: win.icon * 2; sourceSize.height: win.icon * 2
-                                        source: root.iconFor(cell.modelData)
+                                        visible: !thumb.hasContent
+                                        width: Math.round(win.thumbH * 0.46); height: width
+                                        sourceSize.width: width * 2; sourceSize.height: height * 2
+                                        source: root.iconFor(card.modelData)
                                         asynchronous: true
                                         smooth: true; mipmap: true
-                                        scale: root.sel === cell.index ? 1.06 : 1
-                                        opacity: (cell.modelData.workspace?.name ?? "").startsWith("special:minimized") ? 0.55 : 1
-                                        Behavior on scale { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
                                     }
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        // only a real pointer move selects (the strip may open under a resting pointer)
-                                        onPositionChanged: root.sel = cell.index
-                                        onClicked: { root.sel = cell.index; root.commit(); }
+                                }
+                                Row {
+                                    y: win.thumbH + 8
+                                    width: parent.width
+                                    spacing: 7
+                                    Image {
+                                        id: ico
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 16; height: 16
+                                        sourceSize.width: 32; sourceSize.height: 32
+                                        source: root.iconFor(card.modelData)
+                                        asynchronous: true
+                                        smooth: true; mipmap: true
+                                    }
+                                    Text {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: parent.width - ico.width - parent.spacing
+                                        text: root.appName(card.modelData)
+                                        color: card.on ? Theme.label : Theme.label2
+                                        font.family: Theme.fontMono
+                                        font.pixelSize: 10
+                                        font.weight: Font.Medium
+                                        font.capitalization: Font.AllUppercase
+                                        font.letterSpacing: 1
+                                        elide: Text.ElideRight
+                                    }
+                                }
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                // only a real pointer move selects (the strip may open under a resting pointer)
+                                onPositionChanged: root.sel = card.index
+                                onClicked: { root.sel = card.index; root.commit(); }
+                            }
+                        }
+                    }
+
+                    Item { width: 1; height: 16 }
+
+                    // ---- key hints ----
+                    Row {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        spacing: 22
+                        Repeater {
+                            model: [["Tab", "next"], ["Shift", "back"], ["Q", "close"], ["Esc", "cancel"]]
+                            Row {
+                                id: hint
+                                required property var modelData
+                                spacing: 6
+                                Repeater {
+                                    model: 2
+                                    Text {
+                                        required property int index
+                                        text: hint.modelData[index]
+                                        color: index === 0 ? Theme.label2 : Theme.label3
+                                        font.family: Theme.fontMono
+                                        font.pixelSize: 9
+                                        font.weight: index === 0 ? Font.Medium : Font.Normal
+                                        font.capitalization: Font.AllUppercase
+                                        font.letterSpacing: 0.8
                                     }
                                 }
                             }
