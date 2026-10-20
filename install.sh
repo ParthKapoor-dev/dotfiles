@@ -11,13 +11,13 @@
 # Idempotent: every step checks first and reports "ok" when there is nothing to do, so it is
 # safe to re-run after a pull (`nox update` does the stow + theme part for you).
 #
-# Core steps:   preflight packages stow detect theme units
+# Core steps:   preflight packages stow migrate detect theme units
 # Extras:       greeter battery etc voice phone hook notes   (asked one by one; need --only or y)
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 TARGET="$HOME"
-CORE=(preflight packages stow detect theme units)
+CORE=(preflight packages stow migrate detect theme units)
 EXTRAS=(greeter battery etc voice phone hook notes)
 # stow packages whose target dirs also hold files from elsewhere: link files, never fold the dir
 NO_FOLD=" bin systemd-desktop "
@@ -25,6 +25,9 @@ NO_FOLD=" bin systemd-desktop "
 UNITS=(nox-greeter-sync.path)
 
 DRY=0 YES=0 ONLY="" SKIP=""
+# no nox state yet = a fresh install: migrations (which move an older setup forward) are only
+# recorded as done, never run
+FRESH=0; [ -d "${XDG_STATE_HOME:-$HOME/.local/state}/nox" ] || FRESH=1
 if [ -t 1 ]; then G=$'\e[32m' Y=$'\e[33m' R=$'\e[31m' B=$'\e[1m' D=$'\e[2m' N=$'\e[0m'; else G="" Y="" R="" B="" D="" N=""; fi
 
 usage() { sed -n '2,/^set -euo/{/^set -euo/d;s/^# \{0,1\}//;p}' "$0"; }
@@ -155,6 +158,15 @@ s_stow() {
         run stow -d "$REPO" -t "$TARGET" "${fold[@]}" "$pkg" || bad "stow $pkg failed: $(printf '%s' "$out" | tail -2)"
     done
     [ "$n" = "${#pkgs[@]}" ] && ok "all ${#pkgs[@]} packages linked" || ok "$n of ${#pkgs[@]} packages were already linked"
+}
+
+s_migrate() {
+    step migrate "migrations/*.sh, once each (nox update --migrate)"
+    local p
+    p=$(nox update --check --no-pull 2>/dev/null | sed -n 's/^nox update: pending migrations: //p' | xargs -n1 basename 2>/dev/null | tr '\n' ' ')
+    if [ -z "$p" ] || [ "$p" = "none " ]; then ok "no pending migrations (VERSION $(cat "$REPO/VERSION" 2>/dev/null || echo ?))"; return; fi
+    if [ "$FRESH" = 1 ]; then todo "fresh install: record $p as done (nothing to migrate)"; run nox update --mark-done
+    else todo "pending: $p"; run nox update --migrate || bad "a migration failed"; fi
 }
 
 s_detect() {

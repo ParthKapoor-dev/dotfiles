@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# nox update [--no-pull] [--check] - update the nox desktop from its git repo.
+#   1. git pull --ff-only in the repo (never merges or rebases; a diverged repo stops here)
+#   2. runs every new migrations/NNN-*.sh once (state: ~/.local/state/nox/migrations/)
+#   3. re-stows the packages and re-applies the theme (install.sh --only stow,theme)
+#   4. prints the nox doctor summary
+#   --no-pull     skip step 1 (after pulling by hand)
+#   --check       show what would happen (incoming commits, pending migrations); change nothing
+#   --migrate     only step 2
+#   --mark-done   record every migration as applied without running it (fresh installs:
+#                 install.sh does this, the migrations only move an older setup forward)
+set -uo pipefail
+LIB="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+REPO="$(cd "$LIB/../../../.." && pwd)"
+MSTATE="${XDG_STATE_HOME:-$HOME/.local/state}/nox/migrations"
+say() { printf 'nox update: %s\n' "$*"; }
+die() { printf 'nox update: %s\n' "$*" >&2; exit 1; }
+
+pending() {
+    local m
+    for m in "$REPO"/migrations/[0-9]*.sh; do
+        [ -e "$m" ] || continue
+        [ -e "$MSTATE/$(basename "$m")" ] || printf '%s\n' "$m"
+    done
+}
+migrate() {
+    local m n=0
+    mkdir -p "$MSTATE"
+    while IFS= read -r m; do
+        say "migration $(basename "$m")"
+        if (cd "$REPO" && REPO="$REPO" bash "$m"); then
+            date -Is >"$MSTATE/$(basename "$m")"; n=$((n + 1))
+        else
+            die "migration $(basename "$m") failed: fix it and re-run nox update (later migrations not run)"
+        fi
+    done < <(pending)
+    [ "$n" = 0 ] && say "no pending migrations" || say "$n migration(s) applied"
+}
+
+pull=1 check=0
+case "${1:-}" in
+    -h | --help | help) sed -n '2,/^set -uo/{/^set -uo/d;s/^# \{0,1\}//;p}' "$0"; exit 0 ;;
+    --migrate) migrate; exit $? ;;
+    --mark-done)
+        mkdir -p "$MSTATE"
+        while IFS= read -r m; do date -Is >"$MSTATE/$(basename "$m")"; say "marked $(basename "$m") as applied"; done < <(pending)
+        exit 0 ;;
+esac
+for a in "$@"; do
+    case "$a" in --no-pull) pull=0 ;; --check) check=1 ;; *) die "unknown option '$a' (see nox update --help)" ;; esac
+done
+
+git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1 || die "$REPO is not a git checkout"
+old=$(cat "$REPO/VERSION" 2>/dev/null || echo "?")
+if [ "$check" = 1 ]; then
+    git -C "$REPO" fetch -q && say "incoming: $(git -C "$REPO" rev-list --count HEAD..@{u} 2>/dev/null || echo ?) commit(s)"
+    git -C "$REPO" log --oneline HEAD..@{u} 2>/dev/null | sed 's/^/    /'
+    p=$(pending); say "pending migrations: ${p:-none}"
+    exit 0
+fi
+if [ "$pull" = 1 ]; then
+    before=$(git -C "$REPO" rev-parse HEAD)
+    git -C "$REPO" pull --ff-only -q || die "git pull --ff-only failed (local commits or a diverged branch in $REPO): sort it out, then nox update --no-pull"
+    after=$(git -C "$REPO" rev-parse HEAD)
+    if [ "$before" = "$after" ]; then say "repo already up to date ($old)"
+    else say "pulled $(git -C "$REPO" rev-list --count "$before..$after") commit(s): $old -> $(cat "$REPO/VERSION" 2>/dev/null || echo ?)"; fi
+fi
+migrate || exit 1
+"$REPO/install.sh" --only stow,theme --yes | sed -n '/\[\(todo\|fail\)\]\|\$ /p'
+echo
+"$LIB/doctor" --summary

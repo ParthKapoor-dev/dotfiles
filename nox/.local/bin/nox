@@ -5,7 +5,7 @@
 set -euo pipefail
 LIB="${NOX_LIB:-$(cd "$(dirname "$(readlink -f "$0")")/../lib/nox" && pwd)}"
 QS=(qs -c nox)
-MODULES="theme shell layout shot record wallpaper dpms battery phone hypr greeter workspaces activity notes files agents voice ask detect doctor"
+MODULES="theme shell layout shot record wallpaper dpms battery phone hypr greeter workspaces activity notes files agents voice ask detect doctor update"
 
 usage() {
     cat <<'EOF'
@@ -33,6 +33,7 @@ usage: nox <command> [args]
   agents [toggle|list|usage|focus <id>|prune]   (coding agents: Mission Control, Ctrl+Super+M)
   voice  [toggle|start|stop|cancel|status|tidy on|off|last|setup|server|doctor|bench]   (dictation: hold Super+Shift+Space)
   detect [--yes|--print|--check|--get KEY]     (machine values -> git-ignored local files)
+  update [--check|--no-pull|--migrate]          (git pull --ff-only, migrations, re-stow, theme apply, doctor)
   doctor [--summary]                            (check everything: packages, links, theme, extras; fix commands)
   status                                        (hypr + shell + theme + idle at a glance)
   help [command]
@@ -49,7 +50,7 @@ module_help() {
 cmd="${1:-help}"
 [ $# -gt 0 ] && shift
 case "$cmd" in
-    theme | shell | layout | shot | record | wallpaper | dpms | battery | phone | hypr | greeter | workspaces | activity | notes | files | agents | voice | ask | detect | doctor) exec "$LIB/$cmd" "$@" ;;
+    theme | shell | layout | shot | record | wallpaper | dpms | battery | phone | hypr | greeter | workspaces | activity | notes | files | agents | voice | ask | detect | doctor | update) exec "$LIB/$cmd" "$@" ;;
     ws) exec "$LIB/workspaces" "$@" ;;
     ipc)
         [ $# -ge 2 ] || { echo "usage: nox ipc <target> <function> [args]   (targets: qs -c nox ipc show)" >&2; exit 2; }
