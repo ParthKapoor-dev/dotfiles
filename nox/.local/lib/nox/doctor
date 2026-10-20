@@ -56,7 +56,7 @@ else
         case " bin systemd-desktop " in *" $pkg "*) fold=(--no-folding) ;; *) fold=() ;; esac
         out=$(stow -n -v -d "$REPO" -t "$HOME" "${fold[@]}" "$pkg" 2>&1 | grep -v 'WARNING: in simulation mode')
         if [ -z "$out" ]; then n=$((n + 1)); else bad "$pkg not (fully) linked: $(printf '%s' "$out" | head -1)" "$REPO/install.sh --only stow"; fi
-    done < <(cd "$REPO" && find . -mindepth 1 -maxdepth 1 -type d ! -name '.*' ! -name '_*' ! -name packages ! -name migrations ! -name docs -printf '%f\n' | sort)
+    done < <(cd "$REPO" && find . -mindepth 1 -maxdepth 1 -type d ! -name '.*' ! -name '_*' ! -name packages ! -name migrations ! -name docs ! -name web -printf '%f\n' | sort)
     [ "$n" = "$total" ] && ok "all $total packages linked"
     # broken links that point into the repo or the nox state dir (left behind by moved/removed files)
     broken=()

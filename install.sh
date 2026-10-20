@@ -134,7 +134,7 @@ s_stow() {
     step stow "link every package dir into ~ (GNU stow)"
     command -v stow >/dev/null || { bad "stow not installed (packages step)"; return; }
     local pkgs pkg fold out conflicts c ts n=0
-    mapfile -t pkgs < <(cd "$REPO" && find . -mindepth 1 -maxdepth 1 -type d ! -name '.*' ! -name '_*' ! -name packages ! -name migrations ! -name docs -printf '%f\n' | sort)
+    mapfile -t pkgs < <(cd "$REPO" && find . -mindepth 1 -maxdepth 1 -type d ! -name '.*' ! -name '_*' ! -name packages ! -name migrations ! -name docs ! -name web -printf '%f\n' | sort)
     # real dirs first, so stow links into them instead of folding them into the repo
     for d in .local/share/zsh/site-functions .local/bin .local/lib .config/systemd/user; do
         [ -d "$TARGET/$d" ] || run mkdir -p "$TARGET/$d"
