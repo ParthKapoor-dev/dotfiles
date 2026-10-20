@@ -54,6 +54,8 @@ cwd=
 dir=${XDG_RUNTIME_DIR:-/run/user/$UID}/nox/agents
 [ -d "$dir" ] || { /usr/bin/mkdir -p "$dir" && /usr/bin/chmod 700 "$dir"; } || exit 0
 f=$dir/$sid.json
+# debug (event order only, never content): touch $XDG_RUNTIME_DIR/nox/agents/.debug
+[ -e "$dir/.debug" ] && printf '%s %s %s\n' "$(date +%T.%3N)" "${sid:0:8}" "$ev" >>"$dir/.debug.log"
 # per-session lock (parallel tool calls fire concurrently): mkdir, a bash loadable when present
 lk=$dir/.$sid.lock
 for i in {1..100}; do

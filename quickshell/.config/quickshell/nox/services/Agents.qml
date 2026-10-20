@@ -68,6 +68,11 @@ Singleton {
         refreshUsage();
     }
     function close() { Panels.close(popupId); gridOpen = false; }
+    // from a notification button: the click that dismisses the card lands as a click outside the
+    // panel and closed it again at once, so open it once that click has settled
+    property var pendingShow: null
+    function showSoon(id, reply) { pendingShow = [id, !!reply]; showLater.restart(); }
+    Timer { id: showLater; interval: 280; onTriggered: if (root.pendingShow) { root.show(root.pendingShow[0], root.pendingShow[1]); root.pendingShow = null; } }
     function expand(id) { focusId = id ?? ""; Panels.close(popupId); gridOpen = true; refreshUsage(); }
     function closeGrid() { gridOpen = false; }
 
@@ -355,7 +360,7 @@ Singleton {
         notifyAct(s, ["notify-send", "-a", kindName(s), "-i", "utilities-terminal",
             "-A", "default=Show", "-A", "jump=Jump", "-A", "open=Show", "--wait", title, body], a => {
             if (a === "jump") jump(s.id);
-            else if (a === "open" || a === "default") show(s.id);
+            else if (a === "open" || a === "default") showSoon(s.id);
         });
     }
     function shouldNotifyDone(s) {
@@ -379,9 +384,9 @@ Singleton {
         notifyAct(s, argv, a => {
             if (a === "diff") openDiff(s.id);
             else if (a === "pr") openPr(t.pr);
-            else if (a === "reply") show(s.id, true);
+            else if (a === "reply") showSoon(s.id, true);
             else if (a === "jump") jump(s.id);
-            else if (a === "default") show(s.id);
+            else if (a === "default") showSoon(s.id);
         });
     }
 
