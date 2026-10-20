@@ -1,0 +1,137 @@
+#!/usr/bin/env python3
+# nox voice-rec - microphone capture for voice typing (run by the shell's Voice service).
+#
+#   voice-rec OUT.wav [--target NODE] [--max SECONDS] [--tail SECONDS]
+#
+# Records 16 kHz mono s16 from the default PipeWire source (or --target) with pw-record into
+# OUT.wav and prints one line per 40 ms on stdout:
+#   READY            first audio arrived (the mic is live)
+#   L <0..1>         level of the last 40 ms (RMS on a -55..-10 dBFS scale)
+#   MAX              the --max cap was reached (default 120 s)
+#   END <sec> <dB>   last line: recorded seconds, loudest 40 ms window in dBFS
+# SIGTERM / SIGINT stop it after --tail seconds (default 0.2: the last syllable is usually still
+# being spoken when the key comes up). Audio only ever goes to OUT.wav; nothing else is kept.
+import math
+import os
+import signal
+import subprocess
+import sys
+import time
+import wave
+from array import array
+
+RATE, CHUNK = 16000, 640          # 40 ms windows
+FLOOR_DB, TOP_DB = -55.0, -10.0
+
+
+class Stop(Exception):
+    pass
+
+
+def main(argv):
+    if not argv or argv[0].startswith("-"):
+        print("usage: voice-rec OUT.wav [--target NODE] [--max SECONDS] [--tail SECONDS]", file=sys.stderr)
+        return 2
+    out, target, cap, tail = argv[0], "", 120.0, 0.2
+    i = 1
+    while i < len(argv):
+        a = argv[i]
+        if a in ("--target", "--max", "--tail") and i + 1 < len(argv):
+            v = argv[i + 1]
+            if a == "--target":
+                target = v
+            elif a == "--max":
+                cap = float(v)
+            else:
+                tail = float(v)
+            i += 2
+        else:
+            print("voice-rec: unknown argument " + a, file=sys.stderr)
+            return 2
+
+    cmd = ["pw-record", "--raw", "--rate", str(RATE), "--channels", "1", "--format", "s16",
+           "--latency", "20ms", "--media-category", "Capture",
+           "-P", "{ node.name = nox-voice, node.description = \"Voice typing\", application.name = \"nox voice\" }"]
+    if target:
+        cmd += ["--target", target]
+    cmd.append("-")
+
+    stop_at = [None]
+
+    def on_signal(_sig, _frm):
+        if stop_at[0] is None:
+            stop_at[0] = time.monotonic() + tail
+        if tail <= 0:
+            raise Stop()
+
+    signal.signal(signal.SIGTERM, on_signal)
+    signal.signal(signal.SIGINT, on_signal)
+
+    try:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=0)
+    except OSError as e:
+        print("ERR pw-record: %s" % e, flush=True)
+        return 1
+
+    os.makedirs(os.path.dirname(os.path.abspath(out)), mode=0o700, exist_ok=True)
+    wav = wave.open(out, "wb")
+    wav.setnchannels(1)
+    wav.setsampwidth(2)
+    wav.setframerate(RATE)
+
+    pending = b""
+    frames = 0
+    peak_db = -120.0
+    ready = False
+    limit = int(cap * RATE)
+    try:
+        while True:
+            if stop_at[0] is not None and time.monotonic() >= stop_at[0]:
+                break
+            try:
+                data = proc.stdout.read(CHUNK * 2)
+            except Stop:
+                break
+            if not data:
+                break
+            if not ready:
+                ready = True
+                print("READY", flush=True)
+            wav.writeframesraw(data)
+            pending += data
+            while len(pending) >= CHUNK * 2:
+                block, pending = pending[:CHUNK * 2], pending[CHUNK * 2:]
+                s = array("h", block)
+                if sys.byteorder == "big":
+                    s.byteswap()
+                rms = math.sqrt(sum(x * x for x in s) / len(s)) / 32768.0
+                db = 20 * math.log10(rms) if rms > 0 else -120.0
+                peak_db = max(peak_db, db)
+                v = min(1.0, max(0.0, (db - FLOOR_DB) / (TOP_DB - FLOOR_DB)))
+                print("L %.3f" % v, flush=True)
+            frames += len(data) // 2
+            if frames >= limit:
+                print("MAX", flush=True)
+                break
+    except Stop:
+        pass
+    finally:
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        if proc.poll() is None:
+            proc.terminate()
+        try:
+            proc.wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        wav.close()
+    if not ready:
+        print("ERR no audio from the microphone", flush=True)
+        print("END 0 -120", flush=True)
+        return 1
+    print("END %.2f %.1f" % (frames / RATE, peak_db), flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

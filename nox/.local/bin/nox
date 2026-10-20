@@ -5,7 +5,7 @@
 set -euo pipefail
 LIB="${NOX_LIB:-$(cd "$(dirname "$(readlink -f "$0")")/../lib/nox" && pwd)}"
 QS=(qs -c nox)
-MODULES="theme shell layout shot record wallpaper dpms battery phone hypr greeter workspaces activity notes files agents"
+MODULES="theme shell layout shot record wallpaper dpms battery phone hypr greeter workspaces activity notes files agents voice ask"
 
 usage() {
     cat <<'EOF'
@@ -17,6 +17,7 @@ usage: nox <command> [args]
   widgets [status|on|off|toggle|left|right|auto|reset]   (desktop clock column; shell.json desktopWidgets)
   layout next|prev|set <name>|get
   shot   region|screen|window|all|copy|ocr|annotate|save|pin <file>
+  ask    [start|toggle|close|status|lens]       (Circle to Ask: circle anything, Claude answers; Super+Shift+A)
   record [--fullscreen] [--sound]
   wallpaper pick|random|list [--all]|set <path>|prep <image|dir>...
             slideshow start|stop|next|prev|status|list|clear|add <path>...|remove <path>...
@@ -30,6 +31,7 @@ usage: nox <command> [args]
   notes  [toggle|show|hide|new|open <file>|start|quit|qt <cmd>]   (floating markdown notepad, ~/Notes)
   files  terminal|copypath|ocr|webp|png|jpg|half|strip <file>...   (Dolphin right-click nox menu)
   agents [toggle|list|usage|focus <id>|prune]   (coding agents: Mission Control, Ctrl+Super+M)
+  voice  [toggle|start|stop|cancel|status|tidy on|off|last|setup|server|doctor|bench]   (dictation: hold Super+Shift+Space)
   status                                        (hypr + shell + theme + idle at a glance)
   help [command]
 EOF
@@ -45,7 +47,7 @@ module_help() {
 cmd="${1:-help}"
 [ $# -gt 0 ] && shift
 case "$cmd" in
-    theme | shell | layout | shot | record | wallpaper | dpms | battery | phone | hypr | greeter | workspaces | activity | notes | files | agents) exec "$LIB/$cmd" "$@" ;;
+    theme | shell | layout | shot | record | wallpaper | dpms | battery | phone | hypr | greeter | workspaces | activity | notes | files | agents | voice | ask) exec "$LIB/$cmd" "$@" ;;
     ws) exec "$LIB/workspaces" "$@" ;;
     ipc)
         [ $# -ge 2 ] || { echo "usage: nox ipc <target> <function> [args]   (targets: qs -c nox ipc show)" >&2; exit 2; }

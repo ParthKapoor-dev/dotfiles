@@ -34,6 +34,7 @@ P.IPC = {
     wallpaper_set  = "wallpaper set",           -- planned (+ <path>; used by nox wallpaper)
     layout_changed = "layout changed",          -- planned (+ <name>; sent by nox/layouts.lua)
     agents         = "agents toggle",           -- live (Mission Control for coding agents)
+    ask            = "ask toggle",              -- live (Circle to Ask, modules/ask)
 }
 
 -- GlobalShortcut names (appid "nox"), dispatched as global "nox:<name>"
@@ -47,6 +48,8 @@ P.GLOBAL = {
     switcher_next       = "switcherNext",                   -- live (Alt+Tab)
     switcher_prev       = "switcherPrev",                   -- live (Alt+Shift+Tab)
     switcher_alt        = "switcherAlt",                    -- live (Alt_L release = switch)
+    voice_hold          = "voiceHold",                      -- live (hold Super+Shift+Space = voice typing)
+    voice_release       = "voiceRelease",                   -- live (any Space release ends a hold)
 }
 
 -- exits != 0 only when no nox instance answers (`ipc call` to a missing
@@ -125,13 +128,16 @@ P.gestures = {
 -- Ctrl+Super+R restart shell         nox shell restart (kills crash relaunches too)
 -- Ctrl+Super+P panel family cycle    DROPPED (ii only)
 -- Super+Shift+S region screenshot    nox shot region (clipboard + card; Print too)
--- Super+Shift+A region search        snip_to_search.sh (Google Lens, unchanged)
+-- Super+Shift+A region search        Circle to Ask (ipc ask toggle); Google Lens = the card's Lens
+--                                    chip / `nox ask lens` (snip_to_search.sh), also the fallback
+--                                    when the shell is down
 -- Super+Shift+X / T OCR              nox shot ocr
 -- Super+Shift+R, Super+Alt+R record  nox record (region, toggle)
 -- Ctrl+Alt+R, Super+Shift+Alt+R      nox record --fullscreen [--sound]
 -- Super+keypad -/+ zoom (ii ipc)     in-process cursor zoom (same 1..3 clamp)
 -- New: Super+Alt+D Do Not Disturb, Alt+Print window shot, Shift+Print monitor shot,
--- Ctrl+Super+Space command palette (launcher ">": actions, toggles, binds with their keys).
+-- Ctrl+Super+Space command palette (launcher ">": actions, toggles, binds with their keys),
+-- hold Super+Shift+Space voice typing (Super+Space = launcher, Super+Alt+Space = float are taken).
 -- (Super+Space launcher and Super+Alt+N Control Center live in binds/custom.lua.)
 ---------------------------------------------------------------------------
 function P.binds(ctx)
@@ -167,6 +173,10 @@ function P.binds(ctx)
         { "SUPER + V", X(ipc("clipboard") .. " || pkill fuzzel || cliphist list | fuzzel --match-mode fzf --dmenu | cliphist decode | wl-copy"), desc = "Open clipboard history" },
         { "SUPER + Period", X(ipc("emoji") .. " || pkill fuzzel || " .. HS .. "/fuzzel-emoji.sh copy"), desc = "Emoji picker (launcher, .)" },
         { "CTRL + SUPER + Space", X(ipc("palette") .. " || pkill fuzzel || fuzzel"), desc = "Command palette (launcher, >)" },
+        -- voice typing (nox voice): hold to talk, release to type it. The Space release bind ends a
+        -- hold even when Super / Shift came up first; non-consuming, so apps still get every Space
+        { "SUPER + SHIFT + Space", G("voice_hold"), desc = "Voice typing (hold to talk)" },
+        { "Space", G("voice_release"), release = true, ignore_mods = true, non_consuming = true, transparent = true, desc = "Internal: voice typing, Space release ends the hold" },
         { "SUPER + N", G("notification_center"), desc = "Open notification center" },
         { "SUPER + ALT + D", G("dnd"), desc = "Toggle Do Not Disturb" },
         { "SUPER + M", X(ipc("control_center")), desc = "Open Control Center (Now Playing)" },
@@ -189,7 +199,7 @@ function P.binds(ctx)
         { "SHIFT + Print", X("nox shot screen"), locked = true, desc = "Screenshot monitor" },
         { "ALT + Print", X("nox shot window"), locked = true, desc = "Screenshot window" },
         { "CTRL + Print", X("nox shot all"), locked = true, desc = "Screenshot all monitors" },
-        { "SUPER + SHIFT + A", X("pidof slurp || " .. HS .. "/snip_to_search.sh"), desc = "Search region with Google Lens" },
+        { "SUPER + SHIFT + A", X(ipc("ask") .. " || pidof slurp || " .. HS .. "/snip_to_search.sh"), desc = "Circle to Ask: ask Claude about a screen region" },
         { "SUPER + SHIFT + X", X("nox shot ocr"), desc = "OCR region to clipboard" },
         { "SUPER + SHIFT + T", X("nox shot ocr"), desc = "OCR region to clipboard" },
         { "SUPER + SHIFT + R", X("nox record"), locked = true, desc = "Record region (toggle)" },
@@ -226,12 +236,12 @@ function P.layer_rules(ctx)
         -- menus, launcher, OSD: quick fade (they animate their own content)
         { match = { namespace = "^nox:popup$" }, animation = "fade", ignore_alpha = padded },
         { match = { namespace = "^nox:launcher$" }, animation = "fade" },
-        { match = { namespace = "^nox:osd$" }, animation = "fade" },
+        { match = { namespace = "^nox:(osd|voice)$" }, animation = "fade" },
         { match = { namespace = "^nox:notifications$" }, animation = "fade" },
         -- 0.5: lower values blur the soft card shadows (orange halo on Ember wallpaper)
         -- full-screen / static surfaces: no blur, no compositor animation (they animate themselves)
-        { match = { namespace = "^nox:(wallpaper|corners|overview|widgets|agents)$" }, blur = false },
-        { match = { namespace = "^nox:(corners|overview|session|polkit|widgets|agents)$" }, no_anim = true },
+        { match = { namespace = "^nox:(wallpaper|corners|overview|widgets|agents|ask)$" }, blur = false },
+        { match = { namespace = "^nox:(corners|overview|session|polkit|widgets|agents|ask)$" }, no_anim = true },
     }
 end
 

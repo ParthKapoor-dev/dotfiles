@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# nox ask - Circle to Ask: freeze the screen, circle anything, Claude answers beside it
+# (the shell's modules/ask; Super+Shift+A).
+#
+#   nox ask               freeze the focused monitor and wait for a circle (same as Super+Shift+A)
+#   nox ask toggle|close  toggle / close the overlay
+#   nox ask status        open?, model, timings (freeze_ms, first_token_ms); never the content
+#   nox ask lens          Google Lens on a region: the old Super+Shift+A, unchanged
+#                         (hypr scripts/snip_to_search.sh: select with slurp, it uploads and opens Lens)
+#
+# In the overlay: drag a loop around anything (a straight drag = rectangle, a click = that window),
+# Esc / right click closes. Chips: Copy text (OCR), Explain more, Send to agent (interactive claude
+# in a new terminal, cwd from the window title or ask.agentDir), Translate, Table -> CSV, Lens.
+# Answers come from the Claude Code CLI in headless mode (claude -p, --safe-mode, no tools, no
+# settings, no session files; NOX_ASK=1 in its env). Screenshots live in $XDG_RUNTIME_DIR/nox-ask
+# and are deleted on close (Send to agent keeps a copy in nox-ask/keep, pruned after a day).
+# Settings: ~/.config/nox/shell.json "ask": model, claude, extraArgs, timeout, agentDir, systemPrompt.
+
+set -uo pipefail
+QS=(qs -c nox)
+LENS="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/nox/scripts/snip_to_search.sh"
+
+cmd="${1:-start}"
+[ $# -gt 0 ] && shift
+case "$cmd" in
+    start | toggle | close | status)
+        "${QS[@]}" ipc show >/dev/null 2>&1 || { echo "nox ask: the shell is not running (nox shell start)" >&2; exit 1; }
+        exec "${QS[@]}" ipc call ask "$cmd" ;;
+    lens)
+        pidof slurp >/dev/null 2>&1 && exit 0
+        [ -x "$LENS" ] || { echo "nox ask lens: $LENS not found" >&2; exit 1; }
+        exec "$LENS" ;;
+    -h | --help | help)
+        sed -n '2,/^[^#]/{/^[^#]/d;s/^# \{0,1\}//;p}' "$0" ;;
+    *)
+        echo "nox ask: unknown command '$cmd' (start|toggle|close|status|lens)" >&2; exit 2 ;;
+esac

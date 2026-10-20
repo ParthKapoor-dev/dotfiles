@@ -71,6 +71,7 @@
     "card": { "enabled": true, "timeout": 8000, "position": "bottom-right", "width": 300, "actions": ["save", "folder", "annotate", "copy", "pin", "phone", "upload", "delete"] },
     "upload": { "service": "0x0", "expires": 24, "confirm": true }
   },
+  "ask": { "_comment": "Circle to Ask (Super+Shift+A, `nox ask`, IPC target ask; modules.ask: false turns it off). model: Claude Code model alias or id (sonnet: ~1 s to the first token; opus: ~0.5 s slower). claude: path to the Claude Code CLI. extraArgs: more `claude -p` flags. timeout: ms to the first token before it gives up. agentDir: cwd of Send to agent when the window title holds no existing path. systemPrompt: replaces the built-in one (modules/ask/AskSession.qml).", "model": "sonnet", "claude": "~/.local/bin/claude", "extraArgs": [], "timeout": 45000, "agentDir": "~" },
   "recorder": { "directory": "~/Videos", "args": [] },
   "nightLight": { "temperature": 4500 },
   "stats": { "_comment": "bar widget 'stats' (widgets.stats.show: cpu | mem | temp | net). Sampled from /proc + /sys every interval ms; thermalZone: auto or a /sys/class/thermal zone number.", "interval": 2000, "thermalZone": "auto" },
@@ -172,6 +173,23 @@
     "brightness": true,
     "mic": true,
     "hideWhilePopupOpen": true
+  },
+  "voice": {
+    "_comment": "Voice typing: hold Super+Shift+Space (or nox voice toggle), speak, release; the text is pasted into the focused field. Local whisper.cpp on the GPU (nox voice setup builds it and downloads the model). language: auto | en | hi | ...; prompt: optional context that biases spelling (names, 'Hinglish in Latin script'). model: q5_0 | q8_0 | a .bin path. tidy: drop um / uh / repeats (the pill's TIDY chip and nox voice tidy keep a runtime choice in ~/.local/state/nox/voice.json). smartTidy: also run the text through claude -p (smartTidyModel; ~3 s). source: PipeWire node name ('' = default mic). idleMinutes: unload the model from VRAM after this long unused (0 = keep). restoreClipboard: put the previous clipboard back after the paste. Audio is deleted after transcribing; transcripts are never stored.",
+    "enabled": true,
+    "language": "auto",
+    "prompt": "",
+    "model": "q5_0",
+    "tidy": true,
+    "smartTidy": false,
+    "smartTidyModel": "haiku",
+    "source": "",
+    "maxSeconds": 120,
+    "idleMinutes": 10,
+    "gpu": true,
+    "port": 8178,
+    "restoreClipboard": true,
+    "offset": 96
   },
   "notifications": {
     "_comment": "rules: [{ \"appName\": \"^Spotify$\", \"mute\": true }] - match appName/summary/body/desktopEntry (regex, case-insensitive); mute = history only, drop = discard, timeout = ms, urgency = low|normal|critical",

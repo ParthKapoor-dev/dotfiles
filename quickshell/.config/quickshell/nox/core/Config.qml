@@ -603,6 +603,22 @@ Singleton {
             "mic": true,
             "hideWhilePopupOpen": true
         },
+        "voice": {
+            "enabled": true,
+            "language": "auto",
+            "prompt": "",
+            "model": "q5_0",
+            "tidy": true,
+            "smartTidy": false,
+            "smartTidyModel": "haiku",
+            "source": "",
+            "maxSeconds": 120,
+            "idleMinutes": 10,
+            "gpu": true,
+            "port": 8178,
+            "restoreClipboard": true,
+            "offset": 96
+        },
         "notifications": {
             "position": "top-right",
             "width": 344,

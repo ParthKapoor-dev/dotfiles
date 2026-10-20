@@ -54,12 +54,16 @@ Singleton {
         onTriggered: {
             const q = root.pending;
             root.pending = null;
-            if (!q) return;
-            const mods = q.term ? "CTRL SHIFT" : "CTRL";
-            const w = q.addr ? "address:" + Hypr.addr(q.addr) : "";
-            Hypr.dispatch("sendshortcut " + mods + ", V, " + w,
-                          "hl.dsp.send_shortcut({ mods = \"" + mods + "\", key = \"V\"" + (w ? ", window = " + Hypr.str(w) : "") + " })");
+            if (q) root.sendPaste(q.addr, q.term);
         }
+    }
+    // Ctrl+V (Ctrl+Shift+V in terminals) to a window (address; "" = the focused one). Also used by
+    // voice typing (services/Voice).
+    function sendPaste(addr, term) {
+        const mods = term ? "CTRL SHIFT" : "CTRL";
+        const w = addr ? "address:" + Hypr.addr(addr) : "";
+        Hypr.dispatch("sendshortcut " + mods + ", V, " + w,
+                      "hl.dsp.send_shortcut({ mods = \"" + mods + "\", key = \"V\"" + (w ? ", window = " + Hypr.str(w) : "") + " })");
     }
 
     JsonState { id: state; path: Paths.state("pins") }

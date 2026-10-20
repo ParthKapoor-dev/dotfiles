@@ -24,6 +24,8 @@ import qs.modules.desktop
 import qs.modules.switcher
 import qs.modules.notes
 import qs.modules.agents
+import qs.modules.ask
+import qs.modules.voice
 
 ShellRoot {
     LazyLoader { active: Config.loaded && Config.moduleEnabled("bar"); component: Bar {} }
@@ -40,6 +42,9 @@ ShellRoot {
     LazyLoader { active: Config.loaded && Config.opt.modules?.switcher !== false; component: Switcher {} }
     // floating markdown notepad (Ctrl+Super+S; on unless modules.notes is false)
     LazyLoader { active: Config.loaded && Config.opt.modules?.notes !== false; component: Notes {} }
+    // voice typing: hold Super+Shift+Space, speak, release (IPC target voice, `nox voice`; on unless
+    // voice.enabled is false). Pill only while in use; whisper-server only while warm (services/Voice)
+    LazyLoader { active: Config.loaded && Config.opt.voice?.enabled !== false; component: VoiceTyping {} }
     // coding agents at a glance (Ctrl+Super+M, `nox agents`, IPC target agents; on unless modules.agents is false)
     LazyLoader { active: Config.loaded && Config.opt.modules?.agents !== false; component: AgentsView {} }
     LazyLoader { active: Config.loaded && Config.moduleEnabled("session"); component: Session {} }
@@ -48,6 +53,9 @@ ShellRoot {
     // post-screenshot card + pinned screenshots (IPC target shot; on unless modules.shot is false;
     // screenshot.card.enabled: false keeps pins but sends plain notifications instead of the card)
     LazyLoader { active: Config.loaded && Config.opt.modules?.shot !== false; component: Shot {} }
+    // Circle to Ask: freeze the screen, circle anything, Claude answers beside it (Super+Shift+A,
+    // `nox ask`, IPC target ask; on unless modules.ask is false; shell.json "ask")
+    LazyLoader { active: Config.loaded && Config.opt.modules?.ask !== false; component: Ask {} }
     // clock / date / now playing on the empty side of the wallpaper (desktopWidgets.enabled,
     // `nox widgets on|off`; services/DesktopWidgets)
     LazyLoader { active: Config.loaded && DesktopWidgets.ready && DesktopWidgets.enabled; component: Widgets {} }
