@@ -22,7 +22,7 @@ usage: nox <command> [args]
             slideshow start|stop|next|prev|status|list|clear|add <path>...|remove <path>...
   dpms   on|off|toggle [monitor]
   battery [status|protect|full|toggle|limit <60-100>|reapply]   (charge limit, 80% by default)
-  phone  status|send [file...]|clip|ring|pair|on|off|logs   (KDE Connect phone link)
+  phone  status|send [file...]|clip|ring|commands|pair|on|off|logs   (KDE Connect phone link)
   hypr   status|check|on [--live]|off
   greeter sync|test|nested|install|on|off|status  (login screen on greetd)
   workspaces save [name]|restore [name]|pick|list|show [name]|rm <name>  (session: apps + window layout; alias ws)

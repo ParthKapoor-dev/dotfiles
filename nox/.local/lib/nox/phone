@@ -6,6 +6,7 @@
 #   nox phone send [file…]  send files; no args = pick one with fuzzel (files in ~ changed in the last 30 days)
 #   nox phone clip          send the clipboard text
 #   nox phone ring          make the phone ring (find my phone)
+#   nox phone commands      (re)write the buttons the phone shows under Run command (list below)
 #   nox phone pair          pairing instructions + ask reachable unpaired phones to pair
 #   nox phone on|off        start/stop the daemon for this session (does not enable it at login)
 #   nox phone logs [-f]     daemon journal
@@ -28,6 +29,13 @@ say() {   # message to the terminal, or a notification when run from the shell (
 die() { say "$1" "${2:-}"; exit 1; }
 call() { busctl --user call "$BUS" "$OBJ" "$IFACE" "$@"; }
 up() { busctl --user status "$BUS" >/dev/null 2>&1; }
+
+# Run command buttons on the phone: id (fixed, so the phone keeps them across rewrites) | name | command
+COMMANDS='nox-lock|Lock|loginctl lock-session
+nox-sleep|Sleep|systemctl suspend
+nox-shot|Screenshot|nox shot screen
+nox-note|New note|nox notes new
+nox-pause|Pause all media|playerctl -a pause'
 
 # devices as TSV: id name type paired reachable
 devices() {
@@ -95,6 +103,14 @@ case "$cmd" in
         need
         call RingDevice s "$ID" || die "Ring failed"
         say "Ringing $NAME" ;;
+    commands)
+        f="${XDG_CONFIG_HOME:-$HOME/.config}/kdeconnect/runcommand.json"
+        mkdir -p "${f%/*}"
+        jq -Rn '[inputs | split("|") | {id: .[0], name: .[1], command: (.[2:] | join("|"))}]' <<<"$COMMANDS" >"$f.tmp" &&
+            mv "$f.tmp" "$f" || die "Could not write $f"
+        n=$(jq length "$f")
+        if up && d=$(pick) && [ -n "$d" ]; then call PushLocalCommands s "${d%%$'\t'*}" >/dev/null 2>&1; fi
+        say "Phone commands set" "$n buttons under Run command" ;;
     ping)
         need
         call SendPing ss "$ID" "Ping from $(hostname)" && say "Pinged $NAME" ;;
@@ -122,5 +138,5 @@ A stale \"$(hostname)\" left from the old KDE Connect daemon can be unpaired in 
         exec journalctl --user -u "$UNIT" -o cat "$@" ;;
     help | -h | --help)
         sed -n '2,/^[^#]/{/^[^#]/d;s/^# \{0,1\}//;p}' "$0" ;;
-    *) echo "nox phone: unknown command '$cmd' (status|send|clip|ring|ping|pair|on|off|logs)" >&2; exit 2 ;;
+    *) echo "nox phone: unknown command '$cmd' (status|send|clip|ring|commands|ping|pair|on|off|logs)" >&2; exit 2 ;;
 esac
