@@ -1,18 +1,22 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import qs.core
 import qs.components
 import qs.services
+import qs.modules.agents
 
-// Coding agents (services/Agents, Mission Control): a square dot + count. Hidden while no session
-// is alive. Needs you = accent dot pinging + how many wait; working = white dot + how many work;
-// all idle = dim dot + session count. Click (or Ctrl+Super+M) opens Mission Control.
+// Coding agents (services/Agents): a square dot + count. Hidden while no session is alive (and
+// the panel is closed). Needs you = accent dot pinging + how many wait; working = white dot + how
+// many work; all idle = dim dot + session count. Click (or Ctrl+Super+M) opens the agents panel
+// (modules/agents/AgentsPanel: Needs you / Done / Working; E expands to the full-screen grid).
 BarButton {
     id: root
     property string widgetId: "agents"
     hpad: 8
     spacing: 6
-    visible: Agents.any
-    active: Agents.open
+    readonly property string popupId: Agents.popupId
+    visible: Agents.any || Agents.panelOpen
+    active: Agents.panelOpen
     onClicked: Agents.toggle()
 
     readonly property bool need: Agents.needsYou > 0
@@ -55,5 +59,14 @@ BarButton {
         font.pixelSize: 11
         font.weight: Font.Medium
         font.features: ({ "tnum": 1 })
+    }
+
+    GPopup {
+        popupId: root.popupId
+        anchorItem: root
+        align: "itemRight"
+        popupWidth: Config.opt.agents?.panelWidth ?? 456
+        padding: 4
+        content: AgentsPanel {}
     }
 }

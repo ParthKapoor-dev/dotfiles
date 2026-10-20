@@ -21,6 +21,7 @@ Item {
     property real openedAt: 0
     signal jump(int index, var tileItem)
     signal dismiss()
+    signal reply(int index)
 
     readonly property int n: sessions.length
     readonly property int cols: n <= 1 ? 1 : n <= 4 ? 2 : n <= 9 ? 3 : 4
@@ -57,8 +58,10 @@ Item {
         else if (k === Qt.Key_Down) select(Math.min(n - 1, sel + cols));
         else if (k === Qt.Key_Up) select(Math.max(0, sel - cols));
         else if (k === Qt.Key_Return || k === Qt.Key_Enter || k === Qt.Key_Space) { if (n) root.jump(sel, tileAt(sel)); }
-        // Y / N / R: the answer is given in the pane (status hook never decides), so they jump there
+        // Y / N on a waiting tile: the answer is given in the pane, so they jump there
         else if ((k === Qt.Key_Y || k === Qt.Key_N || k === Qt.Key_R) && cur?.status === "needs-you") root.jump(sel, tileAt(sel));
+        // R: reply (the panel's reply box)
+        else if (k === Qt.Key_R && Agents.canReply(cur)) root.reply(sel);
         else return;
         e.accepted = true;
     }
@@ -282,7 +285,7 @@ Item {
         Row {
             spacing: 20
             Repeater {
-                model: [[["←", "↑", "↓", "→"], "Move"], [["↵"], "Jump to pane"], [["Y"], "Answer in pane"]]
+                model: [[["←", "↑", "↓", "→"], "Move"], [["↵"], "Jump to pane"], [["R"], "Reply"], [["Y"], "Answer in pane"]]
                 Row {
                     id: hint
                     required property var modelData

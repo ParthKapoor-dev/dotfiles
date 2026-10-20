@@ -7,14 +7,17 @@ import Quickshell.Hyprland
 import qs.core
 import qs.services
 
-// Mission Control for coding agents (namespace nox:agents; mock C4 / 23e). Ctrl+Super+M,
-// `nox agents`, the bar dot, or a "needs you" notification's Open. One tile per live session
-// (services/Agents, fed by the Claude Code hook ~/.local/lib/nox/agent-hook).
+// Full-screen Mission Control for coding agents (namespace nox:agents; mock C4 / 23e): the
+// "expand" of the bar panel (modules/agents/AgentsPanel: E there, `nox agents grid`). One tile
+// per live session with its activity feed, files, context and cost (services/Agents, fed by the
+// Claude Code hook ~/.local/lib/nox/agent-hook).
 // Keys: arrows move, Enter (or Y on a waiting tile) jumps to the session's pane: the tile flies
-// into its window and the window takes focus (Orca: also its terminal tab). Esc / click outside
-// closes. Answering happens in the pane: the status hook is read-only by design.
+// into its window and the window takes focus (Orca: also its terminal tab; tmux: the terminal
+// attached to it). R = reply (back to the panel with the reply box open). Esc / click outside closes.
 // The surface stays loaded and only maps while open, so it opens in one frame.
-// IPC: qs -c nox ipc call agents toggle | open | close | focus <session-id> | status
+// IPC: qs -c nox ipc call agents toggle | open | close   (the panel; Ctrl+Super+M, the bar dot)
+//                                grid | focus <session-id> | reply <session-id> | status
+//                                answer <session-id> <allow|deny>   (the answer-backend seam)
 Scope {
     id: root
     readonly property alias view: view    // the contents (offscreen tests grab it)
@@ -24,7 +27,10 @@ Scope {
         function toggle(): void { Agents.toggle(); }
         function open(): void { Agents.show(""); }
         function close(): void { Agents.close(); }
+        function grid(): void { if (Agents.gridOpen) Agents.closeGrid(); else Agents.expand(""); }
         function focus(id: string): void { Agents.show(id); }
+        function reply(id: string): void { Agents.show(id, true); }
+        function answer(id: string, choice: string): void { Agents.answer(id, choice); }
         function status(): string { return "sessions=" + Agents.alive.length + " working=" + Agents.working + " needs=" + Agents.needsYou + " errors=" + Agents.errors; }
     }
 
@@ -35,38 +41,28 @@ Scope {
         const s = view.sessions[i];
         if (!s || view.jumping || clients.running) return;
         pending = { session: s, tile: tile };
+        // the window lookup lives in the helper (pid chain, tmux client, Orca)
+        clients.command = [Agents.helper, "focus", s.id, "--dry-run"];
         clients.running = true;
     }
     Process {
         id: clients
-        command: ["hyprctl", "-j", "clients"]
         stdout: StdioCollector {
             onStreamFinished: {
-                let list = [];
-                try { list = JSON.parse(text); } catch (e) {}
-                root.land(list);
+                let r = {};
+                try { r = JSON.parse(text); } catch (e) {}
+                root.land(r);
             }
         }
     }
-    function findClient(s, list) {
-        const byPid = {};
-        for (const c of list) (byPid[c.pid] = byPid[c.pid] ?? []).push(c);
-        for (const pid of (s.chain ?? [])) {
-            const c = byPid[pid];
-            if (!c) continue;
-            // single-instance terminals: several windows, one pid; the title usually names the project
-            const proj = String(s.project ?? "").toLowerCase();
-            return c.find(x => proj && String(x.title ?? "").toLowerCase().includes(proj)) ?? c[0];
-        }
-        if (s.kind === "orca") return list.find(c => String(c.class ?? "").toLowerCase() === "orca") ?? null;
-        return null;
-    }
-    function land(list) {
+    function land(res) {
         const p = pending;
         pending = null;
         if (!p || !win.visible) return;
-        const c = findClient(p.session, list);
-        if (!c) {
+        const c = res.window;
+        if (!c || !c.at || !c.size) {
+            // a tmux session whose terminal was closed: the helper opens a new one attached to it
+            if (res.reattach) { Agents.jump(p.session.id); return; }
             Panels.hud(p.session.bg ? "Background session · no window" : "No window for this session", "x");
             return;
         }
@@ -88,7 +84,7 @@ Scope {
         interval: 600
         onTriggered: {
             root.snap = true;
-            Agents.close();
+            Agents.closeGrid();
             focusTimer.restart();
         }
     }
@@ -108,8 +104,8 @@ Scope {
     // ---- open / close ----
     Connections {
         target: Agents
-        function onOpenChanged() {
-            if (Agents.open) {
+        function onGridOpenChanged() {
+            if (Agents.gridOpen) {
                 hideTimer.stop();
                 root.snap = false;
                 view.jumping = false;
@@ -126,7 +122,7 @@ Scope {
                 else hideTimer.restart();
             }
         }
-        function onFocusIdChanged() { if (Agents.open && Agents.focusId) view.selectId(Agents.focusId); }
+        function onFocusIdChanged() { if (Agents.gridOpen && Agents.focusId) view.selectId(Agents.focusId); }
     }
     Timer { id: hideTimer; interval: Theme.durFade + 200; onTriggered: { win.visible = false; view.jumping = false; } }
 
@@ -137,7 +133,7 @@ Scope {
         color: "transparent"
         WlrLayershell.namespace: "nox:agents"
         WlrLayershell.layer: WlrLayer.Overlay
-        WlrLayershell.keyboardFocus: Agents.open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        WlrLayershell.keyboardFocus: Agents.gridOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
         exclusionMode: ExclusionMode.Ignore
         anchors { top: true; bottom: true; left: true; right: true }
 
@@ -145,7 +141,8 @@ Scope {
             id: view
             anchors.fill: parent
             onJump: (i, tile) => root.jump(i, tile)
-            onDismiss: Agents.close()
+            onDismiss: Agents.closeGrid()
+            onReply: i => { const s = view.sessions[i]; if (s) Agents.show(s.id, true); }
         }
         Item {
             id: keys

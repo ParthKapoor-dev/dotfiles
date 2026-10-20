@@ -44,6 +44,12 @@ Singleton {
         return n.startsWith("bluez") ? "BT" : n.indexOf("usb") !== -1 ? "USB" : "MIC";
     }
 
+    // A field inside the shell can take the next dictation instead of the focused window
+    // (Mission Control's reply box): sink = function(text) while it wants it, null after. The hold
+    // key, `nox voice toggle` and dictate() all deliver there while it is set; nothing is pasted.
+    property var sink: null
+    function dictate(fn) { sink = fn; start("hold"); }
+
     function setTidy(on) { state.data = Object.assign({}, state.data, { tidy: !!on }); state.save(); }
 
     // ---- hold key (GlobalShortcut voiceHold: press + release; voiceRelease: Space came up) ----
@@ -222,6 +228,13 @@ Singleton {
     function insert(text) {
         lastText = text;
         words = text.split(/\s+/).filter(w => w.length > 0).length;
+        if (typeof sink === "function") {
+            try { sink(text); } catch (e) { console.warn("nox: voice sink failed:", e); }
+            phase = "done";
+            hideTimer.interval = 1200;
+            hideTimer.restart();
+            return;
+        }
         const t = Hyprland.activeToplevel;
         const cls = t?.lastIpcObject?.class ?? t?.wayland?.appId ?? "";
         paste.addr = t?.address ?? "";
