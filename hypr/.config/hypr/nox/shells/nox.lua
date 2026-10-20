@@ -84,6 +84,8 @@ P.execs = {
     -- link names for the history: a copied <a href>Name</a> (Teamwork, Jira, Slack) stores only the
     -- URL in cliphist; this keeps URL -> Name (~/.local/state/nox/clip-titles.json)
     "wl-paste --type text/html --watch ~/.local/lib/nox/clip-title",
+    -- Notes (Ctrl+Super+S) waits hidden on special:notes, so the first show is instant
+    "nox notes start",
     -- polkit: nox's polkit module is the agent. If it is not there yet,
     -- uncomment the KDE agent (polkit-kde-agent is installed):
     -- "/usr/lib/polkit-kde-authentication-agent-1",

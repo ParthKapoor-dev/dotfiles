@@ -1,0 +1,7 @@
+{
+  "name": "nox-notes",
+  "productName": "Notes",
+  "desktopName": "dev.nox.Notes.desktop",
+  "main": "main.cjs",
+  "private": true
+}

@@ -1,7 +1,7 @@
 {
   "name": "nox-notes",
   "private": true,
-  "description": "nox Notes editor bundle (Milkdown Crepe). Build: npm ci && npm run build -> ../nox/.local/lib/nox/notes-app/web",
+  "description": "nox Notes editor page (Milkdown Crepe, runs in notes-app/main.cjs on electron43). Build: npm ci && npm run build -> ../nox/.local/lib/nox/notes-app/web",
   "scripts": {
     "build": "node build.mjs"
   },

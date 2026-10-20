@@ -2,43 +2,39 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data:; img-src * data: file:; style-src 'self' 'unsafe-inline' file:; script-src 'self' file:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src * data: file:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:">
 <title>Notes</title>
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
 <div id="app">
-  <aside id="side">
-    <div class="side-head"><span class="label">Notes</span><span id="count" class="count"></span></div>
-    <div class="side-tools">
-      <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><input id="find" placeholder="Find a note" spellcheck="false"></label>
-      <button id="new" class="icon" title="New note  Ctrl+N"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+  <header id="bar">
+    <div id="tabs"></div>
+    <button id="new" class="icon" title="New note  Ctrl+N"><svg viewBox="0 0 24 24"><path d="M12 5.5v13M5.5 12h13"/></svg></button>
+    <span class="grow"></span>
+    <div class="seg" id="mode">
+      <button id="mode-edit" class="icon on" title="Edit"><svg viewBox="0 0 24 24"><path d="M5 19h4L19.5 8.5a2.1 2.1 0 0 0-3-3L6 16v3z"/></svg></button>
+      <button id="mode-preview" class="icon" title="Preview  Ctrl+M"><svg viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg></button>
     </div>
-    <ul id="list"></ul>
-  </aside>
-  <main>
-    <header id="head">
-      <button id="toggle-side" class="icon" title="Sidebar  Ctrl+\"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9.5 4.5v15"/></svg></button>
-      <input id="title" spellcheck="false" autocomplete="off">
-      <span class="grow"></span>
-      <div class="seg">
-        <button id="mode-rich" class="icon on" title="Rich text"><svg viewBox="0 0 24 24"><path d="M5 19h4L19.5 8.5a2.1 2.1 0 0 0-3-3L6 16v3z"/></svg></button>
-        <button id="mode-src" class="icon" title="Markdown source  Ctrl+M"><svg viewBox="0 0 24 24"><path d="M8.5 7L3.5 12l5 5M15.5 7l5 5-5 5"/></svg></button>
-      </div>
-      <button id="hide" class="icon" title="Hide  Esc"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-    </header>
-    <div id="scroll">
-      <div id="editor"></div>
-      <textarea id="source" spellcheck="false" hidden></textarea>
-    </div>
-    <footer>
-      <span id="words"></span>
-      <span class="grow"></span>
-      <span id="status"><i></i><b></b></span>
-    </footer>
-  </main>
+    <button id="all" class="icon" title="All notes  Ctrl+P"><svg viewBox="0 0 24 24"><path d="M4.5 6.5h15M4.5 12h15M4.5 17.5h9"/></svg></button>
+    <button id="hide" class="icon" title="Hide  Esc"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
+  </header>
+  <div id="info">
+    <input id="title" spellcheck="false" autocomplete="off" title="Rename">
+    <span id="where"></span>
+    <span class="grow"></span>
+    <span id="words"></span>
+    <span id="status"><i></i><b></b></span>
+  </div>
+  <div id="scroll"><div id="editor"></div></div>
 </div>
-<div id="grain"></div>
+<div id="palette" hidden>
+  <div class="pal">
+    <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><input id="find" placeholder="Find a note or type a new name" spellcheck="false"></label>
+    <ul id="results"></ul>
+    <div class="pal-hint"><span>↵ open</span><span>Ctrl+↵ new with this name</span><span>Ctrl+⌫ trash</span><span>Esc close</span></div>
+  </div>
+</div>
 <script src="app.js"></script>
 </body>
 </html>

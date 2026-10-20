@@ -1,30 +1,34 @@
 #!/usr/bin/env bash
-# nox notes - the floating markdown notepad (Ctrl+Super+S): notes-app/ (GTK + WebKit + Milkdown Crepe)
-# usage: nox notes [toggle|show|hide|new|open <file>|qt <cmd>]
+# nox notes - the floating markdown notepad (Ctrl+Super+S): notes-app/ (Milkdown Crepe on electron43)
+# usage: nox notes [toggle|show|hide|new|open <file>|start|quit|qt <cmd>]
 #   toggle     show it, or hide it when it is on screen (default)
 #   show/hide  hiding parks the window on the special:notes workspace (unpinned: Hyprland won't
 #              move a pinned window); showing brings it to the current desktop, pinned, focused,
-#              so it keeps its place and size. The first show starts the app (centred by the rule).
+#              so it keeps its place and size
 #   new        show it with a new note           open <file>  show it with that note (~/Notes/*.md)
+#   start      start it hidden (Hyprland exec at login), so the first show is instant
+#   quit       close it (it saves first)
 #   qt <cmd>   the older notepad built into the shell (qs ipc: toggle|open|hide|create)
-# Notes are plain .md files in ~/Notes. The app runs on GTK3 + webkit2gtk-4.1 + python-gobject;
-# if those are missing it falls back to the shell's notepad.
+# Notes are plain .md files in ~/Notes. Without electron43 it falls back to the shell's notepad.
 set -euo pipefail
 HERE="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
-APP="$HERE/notes-app/app.py"
+APP="$HERE/notes-app"
 CLASS="dev.nox.Notes"
+ELECTRON="${NOX_ELECTRON:-electron43}"
 
 client() {   # "address workspace-name" of the Notes window, or nothing
     hyprctl -j clients 2>/dev/null | jq -r --arg c "$CLASS" 'map(select(.class == $c)) | first | select(.) | "\(.address) \(.workspace.name)"'
 }
+running() { pgrep -f -- "$ELECTRON.* $APP( |\$)" >/dev/null 2>&1 || pgrep -f -- "electron.*$APP( |\$)" >/dev/null 2>&1; }
 d() { hyprctl dispatch "$1" >/dev/null; }
 
+# start (or, when it is already running, hand it the arguments)
 launch() {
-    if ! python3 -c 'import gi; gi.require_version("WebKit2", "4.1"); from gi.repository import WebKit2' 2>/dev/null; then
-        echo "nox notes: webkit2gtk-4.1 / python-gobject missing, using the shell's notepad" >&2
+    if ! command -v "$ELECTRON" >/dev/null; then
+        echo "nox notes: $ELECTRON missing, using the shell's notepad" >&2
         exec qs -c nox ipc call notes "${QT_CMD:-toggle}"
     fi
-    setsid -f python3 "$APP" "$@" >/dev/null 2>&1 </dev/null
+    setsid -f "$ELECTRON" "$APP" "$@" >/dev/null 2>&1 </dev/null
 }
 
 show() {
@@ -42,28 +46,35 @@ hide() {
 
 cmd="${1:-toggle}"
 [ $# -gt 0 ] && shift
+addr="" wsname=""
 read -r addr wsname <<<"$(client || true)" || true
 
 case "$cmd" in
     toggle)
-        if [ -z "${addr:-}" ]; then launch
+        if [ -z "$addr" ]; then launch --show
         elif [ "$wsname" = "special:notes" ]; then show "$addr"
         else hide "$addr"; fi ;;
     show)
-        if [ -z "${addr:-}" ]; then launch; else show "$addr"; fi ;;
+        if [ -z "$addr" ]; then launch --show; else show "$addr"; fi ;;
     hide)
-        [ -n "${addr:-}" ] && hide "$addr" ;;
+        [ -z "$addr" ] || hide "$addr" ;;
     new)
         QT_CMD=create
-        if [ -z "${addr:-}" ]; then launch --new; else show "$addr"; python3 "$APP" --new; fi ;;
+        [ -z "$addr" ] || show "$addr"
+        launch --new ;;
     open)
         [ $# -ge 1 ] || { echo "usage: nox notes open <file>" >&2; exit 2; }
         f="$(readlink -f -- "$1")"
-        if [ -z "${addr:-}" ]; then launch --open "$f"; else show "$addr"; python3 "$APP" --open "$f"; fi ;;
+        [ -z "$addr" ] || show "$addr"
+        launch --open "$f" ;;
+    start)
+        running || launch --hidden ;;
+    quit)
+        [ -z "$addr" ] || d "hl.dsp.window.close({ window = \"address:$addr\" })" ;;
     qt)
         exec qs -c nox ipc call notes "${1:-toggle}" ;;
     -h | --help | help)
         sed -n '2,/^[^#]/{/^[^#]/d;s/^# \{0,1\}//;p}' "$0" ;;
     *)
-        echo "nox notes: unknown command '$cmd' (toggle|show|hide|new|open <file>|qt <cmd>)" >&2; exit 2 ;;
+        echo "nox notes: unknown command '$cmd' (toggle|show|hide|new|open <file>|start|quit|qt <cmd>)" >&2; exit 2 ;;
 esac

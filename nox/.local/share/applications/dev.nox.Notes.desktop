@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Notes
+Comment=Floating markdown notepad (Ctrl+Super+S)
+Exec=nox notes show
+Icon=dev.nox.Notes
+Terminal=false
+Categories=Office;TextEditor;
+Keywords=note;notes;markdown;notepad;scratch;
+StartupWMClass=dev.nox.Notes
+Actions=new;
+
+[Desktop Action new]
+Name=New Note
+Exec=nox notes new
