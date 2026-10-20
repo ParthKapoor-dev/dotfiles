@@ -2,7 +2,8 @@
   "_comment": "Nox shell (qs -c nox) user config. Live-reloaded. Missing keys fall back to built-in defaults (core/Config.qml). Widget ids: modules/bar/BarWidgets.qml; control-center section ids: modules/controlcenter/CcSections.qml; launcher provider ids: modules/launcher/LauncherProviders.qml; action names (logo menu, session, commands): services/Actions.qml.",
   "modules": {
     "bar": true, "dock": true, "controlCenter": true, "launcher": true, "osd": true, "notifications": true,
-    "wallpaper": true, "corners": true, "overview": true, "session": true, "polkit": true, "clipboard": true, "cheatsheet": true
+    "wallpaper": true, "corners": true, "overview": true, "session": true, "polkit": true, "clipboard": true, "cheatsheet": true,
+    "switcher": true, "notes": true, "agents": true, "shot": true, "ask": true, "voice": true
   },
   "terminal": ["ghostty"],
   "bar": {
@@ -178,7 +179,6 @@
   },
   "voice": {
     "_comment": "Voice typing: hold Super+Shift+Space (or nox voice toggle), speak, release; the text is pasted into the focused field. Local whisper.cpp on the GPU (nox voice setup builds it and downloads the model). language: auto | en | hi | ...; prompt: optional context that biases spelling (names, 'Hinglish in Latin script'). model: q5_0 | q8_0 | a .bin path. tidy: drop um / uh / repeats (the pill's TIDY chip and nox voice tidy keep a runtime choice in ~/.local/state/nox/voice.json). smartTidy: also run the text through claude -p (smartTidyModel; ~3 s). source: PipeWire node name ('' = default mic; `nox detect` sets the laptop mic in shell.local.json so Bluetooth headphones never drop into call mode while you talk). idleMinutes: unload the model from VRAM after this long unused (0 = keep). restoreClipboard: put the previous clipboard back after the paste. Audio is deleted after transcribing; transcripts are never stored.",
-    "enabled": true,
     "language": "auto",
     "prompt": "",
     "model": "q5_0",

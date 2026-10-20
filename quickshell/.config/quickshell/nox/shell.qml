@@ -1,6 +1,7 @@
 //@ pragma Env QT_QUICK_FLICKABLE_WHEEL_DECELERATION=10000
-// nox: small Quickshell shell for the "Sequoia" desktop.
-// Modules are switched on/off in ~/.config/nox/shell.json ("modules"), live.
+// nox: the Quickshell shell of the nox desktop.
+// Modules are switched on/off in ~/.config/nox/shell.json "modules" (live): Config.moduleEnabled(name),
+// defaults for every module in core/Config.qml defaults.modules.
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -38,24 +39,24 @@ ShellRoot {
     LazyLoader { active: Config.loaded && Config.moduleEnabled("wallpaper"); component: Background {} }
     LazyLoader { active: Config.loaded && Config.moduleEnabled("corners"); component: Corners {} }
     LazyLoader { active: Config.loaded && Config.moduleEnabled("overview"); component: Overview {} }
-    // Alt+Tab window switcher (on unless modules.switcher is false)
-    LazyLoader { active: Config.loaded && Config.opt.modules?.switcher !== false; component: Switcher {} }
-    // floating markdown notepad (Ctrl+Super+S; on unless modules.notes is false)
-    LazyLoader { active: Config.loaded && Config.opt.modules?.notes !== false; component: Notes {} }
-    // voice typing: hold Super+Shift+Space, speak, release (IPC target voice, `nox voice`; on unless
-    // voice.enabled is false). Pill only while in use; whisper-server only while warm (services/Voice)
-    LazyLoader { active: Config.loaded && Config.opt.voice?.enabled !== false; component: VoiceTyping {} }
-    // coding agents at a glance (Ctrl+Super+M, `nox agents`, IPC target agents; on unless modules.agents is false)
-    LazyLoader { active: Config.loaded && Config.opt.modules?.agents !== false; component: AgentsView {} }
+    // Alt+Tab window switcher
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("switcher"); component: Switcher {} }
+    // floating markdown notepad (Ctrl+Super+S)
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("notes"); component: Notes {} }
+    // voice typing: hold Super+Shift+Space, speak, release (IPC target voice, `nox voice`).
+    // Pill only while in use; whisper-server only while warm (services/Voice)
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("voice"); component: VoiceTyping {} }
+    // coding agents at a glance (Ctrl+Super+M, `nox agents`, IPC target agents)
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("agents"); component: AgentsView {} }
     LazyLoader { active: Config.loaded && Config.moduleEnabled("session"); component: Session {} }
-    // keyboard shortcuts sheet (on unless modules.cheatsheet is false)
-    LazyLoader { active: Config.loaded && Config.opt.modules?.cheatsheet !== false; component: Cheatsheet {} }
-    // post-screenshot card + pinned screenshots (IPC target shot; on unless modules.shot is false;
+    // keyboard shortcuts sheet
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("cheatsheet"); component: Cheatsheet {} }
+    // post-screenshot card + pinned screenshots (IPC target shot;
     // screenshot.card.enabled: false keeps pins but sends plain notifications instead of the card)
-    LazyLoader { active: Config.loaded && Config.opt.modules?.shot !== false; component: Shot {} }
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("shot"); component: Shot {} }
     // Circle to Ask: freeze the screen, circle anything, Claude answers beside it (Super+Shift+A,
-    // `nox ask`, IPC target ask; on unless modules.ask is false; shell.json "ask")
-    LazyLoader { active: Config.loaded && Config.opt.modules?.ask !== false; component: Ask {} }
+    // `nox ask`, IPC target ask; shell.json "ask")
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("ask"); component: Ask {} }
     // clock / date / now playing on the empty side of the wallpaper (desktopWidgets.enabled,
     // `nox widgets on|off`; services/DesktopWidgets)
     LazyLoader { active: Config.loaded && DesktopWidgets.ready && DesktopWidgets.enabled; component: Widgets {} }

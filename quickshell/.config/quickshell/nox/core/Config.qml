@@ -27,7 +27,13 @@ Singleton {
             "session": true,
             "polkit": true,
             "clipboard": true,
-            "cheatsheet": true
+            "cheatsheet": true,
+            "switcher": true,
+            "notes": true,
+            "agents": true,
+            "shot": true,
+            "ask": true,
+            "voice": true
         },
         "terminal": [
             "ghostty"
@@ -606,7 +612,6 @@ Singleton {
             "hideWhilePopupOpen": true
         },
         "voice": {
-            "enabled": true,
             "language": "auto",
             "prompt": "",
             "model": "q5_0",
@@ -665,7 +670,11 @@ Singleton {
 
     // Options for a bar widget id ({} if none).
     function widget(id) { return (opt.widgets && opt.widgets[id]) || ({}); }
-    function moduleEnabled(name) { return !!(opt.modules && opt.modules[name]); }
+    // Module switch: shell.json "modules": { "<name>": true|false }. Every module has its default in
+    // defaults.modules above (all on); a name missing there is off. The one convention for
+    // shell.qml's LazyLoaders and anything that asks "is X running?". (desktopWidgets.enabled is
+    // not a module switch: it is the widgets' own on/off with a runtime toggle, `nox widgets`.)
+    function moduleEnabled(name) { return opt.modules?.[name] === true; }
     // Options for a launcher provider id ({} if none).
     function launcherProvider(id) { return (opt.launcher && opt.launcher.provider && opt.launcher.provider[id]) || ({}); }
     // [] or missing = all screens

@@ -12,7 +12,7 @@ import qs.core
 // launcher's pins/emoji paste (clipboard + Ctrl+V / Ctrl+Shift+V in terminals, Pins.sendPaste).
 // The clipboard is put back afterwards. Audio lives in $XDG_RUNTIME_DIR/nox-voice only until it
 // is transcribed; transcripts are never written anywhere (the last one stays in memory: copyLast).
-// shell.json voice.{enabled, language, prompt, model, tidy, smartTidy, source, maxSeconds,
+// on/off: shell.json modules.voice. shell.json voice.{language, prompt, model, tidy, smartTidy, source, maxSeconds,
 // restoreClipboard, offset}; the runtime tidy toggle is kept in ~/.local/state/nox/voice.json.
 Singleton {
     id: root
@@ -59,7 +59,7 @@ Singleton {
 
     function start(m) {
         if (phase === "rec" || busy) return;
-        if (opts.enabled === false) return;
+        if (!Config.moduleEnabled("voice")) return;
         mode = m ?? "toggle";
         hist = []; level = 0; elapsed = 0; micLive = false; removed = []; message = ""; detail = ""; smartFailed = false;
         const dir = (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/nox-voice";
