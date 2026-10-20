@@ -6,8 +6,8 @@ import Quickshell.Services.Notifications
 import qs.core
 
 // Notification daemon (org.freedesktop.Notifications) + popup queue + Do Not Disturb.
-// The D-Bus server only exists while shell.json modules.notifications is true: only one
-// process can own the name, and end-4 "ii" owns it today, so the module ships disabled.
+// The D-Bus server only exists while shell.json modules.notifications is true (the default):
+// only one process can own the name, so no other notification daemon may run next to the shell.
 // If the name is taken, Quickshell logs "Could not register notification server..." and
 // takes over automatically once the other owner releases it.
 //

@@ -1,12 +1,13 @@
 # Local patches against upstream
 
-No config patches right now. The end-4 illogical-impulse ("ii") Quickshell
-config and its two patches (`quickshell-ii.patch`, `quickshell-ii-lua-dispatch.patch`)
-were removed on 2026-10-17 together with ii itself (see git history and
-`lnx/reports/remove-ii.md`); the desktop shell is `quickshell/.config/quickshell/nox`.
+| Patch | Upstream | Applied by |
+|---|---|---|
+| `kdeconnect-rs-remote-input.patch` | [cosmic-utils/kdeconnect](https://github.com/cosmic-utils/kdeconnect) at the commit pinned in `nox phone build` | `nox phone build` (clone at the pin, `git apply`, `cargo build --release -p kdeconnect-service`, install to `~/.local/bin`) |
 
-Quickshell binary: the package is still `illogical-impulse-quickshell-git` (keep it:
-it is the patched Quickshell build that `qs -c nox` runs on; currently
-0.1.0.r1-8 = Quickshell 0.3.2). The BT sink-removal crash fix lives in that build
-(r1-7: pin 6e17efab + upstream 5721955, 13fe9b0).
-Recipe: ~/code/sandbox/void/lnx/build/quickshell/. Do NOT reinstall r1-6 from dots-hyprland.
+The Remote Input patch adds the phone's remote mouse/keyboard (KDE Connect "Remote input") to
+the kdeconnect-rs daemon on Hyprland: virtual pointer + virtual keyboard over Wayland
+(wayland-protocols-misc), plus the D-Bus bits nox uses.
+
+No config patches. Quickshell is the official Arch package (`extra/quickshell` 0.3.2); the old
+patched `illogical-impulse-quickshell-git` build and the end-4 "ii" config patches are gone
+(removed 2026-10-17/18, see git history).

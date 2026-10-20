@@ -365,7 +365,7 @@
     },
     {
       "name": "term-sequences",
-      "_comment": "OSC palette for terminals without a theme file; read in place from ~/.local/state/nox/out/terminal/sequences.txt (fish config.fish cats it). No hook: the old ii copy target is gone.",
+      "_comment": "OSC palette for terminals without a theme file; read in place from ~/.local/state/nox/out/terminal/sequences.txt (nothing reads it by default: `cat` it from a shell rc for a terminal that has no theme file). No hook.",
       "template": "terminal/sequences.txt",
       "output": "terminal/sequences.txt",
       "check": "text",

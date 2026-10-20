@@ -1,7 +1,7 @@
 -- Look: gaps, border, rounding, shadow, blur, dim. Every value comes from tokens
 -- (tokens.* = shared design tokens, tokens.hypr.* = compositor-only knobs).
 --
--- Sequoia decisions:
+-- Look decisions (macOS-like, kept for every nox look):
 --  * Focus is shown by the SHADOW, not by border colour: the focused window gets
 --    the large soft `shadow.focused` shadow, others the lighter `shadow.unfocused`
 --    alpha. (Hyprland has one global shadow range/offset; only the colour differs
