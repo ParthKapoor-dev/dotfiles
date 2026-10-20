@@ -14,10 +14,11 @@ import qs.services
 // 150 ms, it hides 400 ms after the pointer leaves (not while its menu is open); slides with the
 // sheet curve. `qs -c nox ipc call dock toggle|open|close` reveals/hides it.
 // Without autohide it reserves its height (dock.reserveSpace) like the mock's tiling area.
-// Window previews: resting on a running app's tile for dock.previewDelay ms (180) opens a glass
+// Window previews: resting on a running app's tile for dock.previewDelay ms (70) opens a glass
 // card above it with a live thumbnail per window (title under it): click = focus that window,
-// middle click / x = close it. Moving to another running tile switches the card at once; it
-// closes 250 ms after the pointer has left both the tile and the card. dock.previews: false = off.
+// middle click / x = close it. Capture starts during the delay so the card opens with frames.
+// Moving to another running tile switches the card at once; it closes 250 ms after the pointer
+// has left both the tile and the card. Tiles with a card get no name tooltip. dock.previews: false = off.
 // The layer surface is full width but its input mask is only the shelf (or the hot strip).
 Variants {
     model: Config.screensFor(Config.opt.dock?.screens)
@@ -171,7 +172,8 @@ Variants {
                 // the tile the tooltip belongs to, kept while it fades out (target is already null)
                 property var last: null
                 onTargetChanged: if (target) last = target
-                readonly property bool on: target !== null && !win.menuOpen && preview.tile !== target
+                // running apps get the preview card instead (no flash during its open delay)
+                readonly property bool on: target !== null && !win.menuOpen && !preview.wants(target)
                 opacity: on ? 1 : 0
                 visible: opacity > 0.01 && last !== null
                 Behavior on opacity { NumberAnimation { duration: tip.on ? Theme.durHover : Theme.durFade; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
@@ -204,17 +206,21 @@ Variants {
             readonly property bool enabled_: Config.opt.dock?.previews ?? true
             property var tile: null              // DockItem the card belongs to
             property var pending: null           // tile waiting out the hover delay
-            readonly property var wins: tile?.item?.toplevels ?? []
+            // the pending tile's windows are captured already, so the card's first paint has frames
+            readonly property var src: tile ?? pending
+            readonly property var wins: src?.item?.toplevels ?? []
+            readonly property bool capturing: visible || pending !== null
             readonly property bool hovered: cardHover.hovered
             readonly property real thumbH: 112
             readonly property real maxThumbW: 220
 
+            // a tile that shows a card on hover (running app, previews on)
+            function wants(t) { return enabled_ && !!t && (t.item?.toplevels.length ?? 0) > 0 && !t.item?.stack; }
             function tileHovered(t, on) {
                 if (!enabled_) return;
                 if (on) {
                     closeTimer.stop();
-                    const live = (t.item?.toplevels.length ?? 0) > 0 && !t.item?.stack;
-                    if (!live) { pending = null; openTimer.stop(); if (tile) closeTimer.restart(); return; }
+                    if (!wants(t)) { pending = null; openTimer.stop(); if (tile) closeTimer.restart(); return; }
                     if (tile) { show(t); return; }       // card already up: follow the pointer
                     pending = t; openTimer.restart();
                 } else {
@@ -225,17 +231,17 @@ Variants {
             function show(t) {
                 if (win.menuOpen || !t) return;
                 const fresh = !visible;
-                tile = t;
+                tile = t; pending = null;
                 const p = t.mapToItem(null, t.width / 2, 0);
                 cx = p.x; topY = p.y;
-                if (fresh) { card.opacity = 0; card.rise = 8; }
+                if (fresh) { card.opacity = 0; card.rise = 6; }
                 visible = true;
                 card.opacity = 1; card.rise = 0;
             }
             function hide() { openTimer.stop(); closeTimer.stop(); pending = null; tile = null; visible = false; }
             property real cx: 0
             property real topY: 0
-            Timer { id: openTimer; interval: Config.opt.dock?.previewDelay ?? 180; onTriggered: preview.show(preview.pending) }
+            Timer { id: openTimer; interval: Config.opt.dock?.previewDelay ?? 70; onTriggered: preview.show(preview.pending) }
             Timer { id: closeTimer; interval: 250; onTriggered: if (!preview.hovered && !(preview.tile?.hovered ?? false)) preview.hide() }
             onHoveredChanged: if (!hovered && tile) closeTimer.restart()
             // the app quit / its last window closed
@@ -261,10 +267,10 @@ Variants {
             }
             Glass {
                 id: card
-                // open motion: fade in while rising 8px into place
+                // open motion: fade in while rising 6px into place, quick (100 ms) so it reads as instant
                 property real rise: 0
-                Behavior on opacity { NumberAnimation { duration: Theme.durPop; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
-                Behavior on rise { NumberAnimation { duration: Theme.durPop; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveSheet } }
+                Behavior on opacity { NumberAnimation { duration: 100; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+                Behavior on rise { NumberAnimation { duration: 100; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveSheet } }
                 transform: Translate { y: card.rise }
                 x: 16; y: 16
                 menu: true
@@ -277,7 +283,7 @@ Variants {
                     x: 8; y: 8
                     spacing: 8
                     Repeater {
-                        model: preview.visible ? preview.wins : []
+                        model: preview.capturing ? preview.wins : []
                         Item {
                             id: th
                             required property var modelData
@@ -303,7 +309,7 @@ Variants {
                                     readonly property real k: sourceSize.width > 0 ? Math.min(parent.width / sourceSize.width, parent.height / sourceSize.height) : 1
                                     width: sourceSize.width > 0 ? sourceSize.width * k : parent.width
                                     height: sourceSize.width > 0 ? sourceSize.height * k : parent.height
-                                    captureSource: preview.visible ? th.modelData : null
+                                    captureSource: preview.capturing ? th.modelData : null
                                     live: true
                                 }
                             }
