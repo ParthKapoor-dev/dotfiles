@@ -14,6 +14,7 @@ Template syntax:  {{ path.to.token | filter | filter(arg, arg) }}
   colour fmt : hex  hexa  strip  stripa  rgb (r,g,b ints)  rgba (css)  css  hypr
   numbers    : num  int  round  mul(x)  add(x)
   any value  : lua  json  quote  upper  lower  default(x)
+  paths      : tilde ($HOME/... -> ~/..., for config lines that live in the git repo)
   args are numbers, "strings", or token paths.  `.` is the whole token tree;
   `_.output`, `_.out`, `_.state`, `_.home`, `_.preset`, `_.name` are runtime vars.
 Python 3 stdlib only.
@@ -179,6 +180,8 @@ FILTERS = {
     "upper": lambda v: str(v).upper(),
     "lower": lambda v: str(v).lower(),
     "default": lambda v, d: d if v is None else v,
+    # paths: keep the user's home out of tracked files (ghostty, kitty, fuzzel expand ~)
+    "tilde": lambda v: "~" + str(v)[len(HOME):] if str(v) == HOME or str(v).startswith(HOME + "/") else str(v),
 }
 
 

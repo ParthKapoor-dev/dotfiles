@@ -2,6 +2,7 @@
   "_comment": [
     "theme target manifest. Add an app = drop a template in templates/ + add one entry here; no code changes.",
     "Fields: name (unique), template (relative to templates/, optional), output (relative to ~/.local/state/nox/out/ unless absolute/~),",
+    "        Lines written into files that live in the git repo use {{ _.output | tilde }}: no absolute home path gets committed.",
     "        enabled (default true; `--only name` runs a disabled target), check (json|lua|css|ini|keyvalue|text, used by `nox theme check`),",
     "        apply: list of hooks run by `nox theme apply` (all string fields are templates; {{ _.output }} = this target's rendered file).",
     "Hook types: write{path,content} | copy{path[,from]} | symlink{path[,to]} | line{path,match(regex),line} (replace first match or append)",
@@ -234,7 +235,7 @@
           "type": "line",
           "path": "~/.config/ghostty/config",
           "match": "^config-file\\s*=.*nox",
-          "line": "config-file = ?{{ _.output }}"
+          "line": "config-file = ?{{ _.output | tilde }}"
         }
       ],
       "reload": {
@@ -253,7 +254,7 @@
           "type": "line",
           "path": "~/.config/kitty/kitty.conf",
           "match": "^include\\s+.*nox",
-          "line": "include {{ _.output }}"
+          "line": "include {{ _.output | tilde }}"
         }
       ],
       "reload": {
@@ -272,7 +273,7 @@
           "type": "line",
           "path": "~/.config/fuzzel/fuzzel.ini",
           "match": "^include\\s*=",
-          "line": "include={{ _.output }}"
+          "line": "include={{ _.output | tilde }}"
         }
       ]
     },
@@ -322,7 +323,7 @@
           "type": "line",
           "path": "~/.config/btop/btop.conf",
           "match": "^color_theme\\s*=",
-          "line": "color_theme = \"{{ _.home }}/.config/btop/themes/nox.theme\""
+          "line": "color_theme = \"nox\""
         }
       ]
     },

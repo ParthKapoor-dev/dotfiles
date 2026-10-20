@@ -11,13 +11,15 @@ compinit
 # bindkey -e
 
 # Add this to ~/.zshrc
-eval "$(starship init zsh)"
+command -v starship >/dev/null && eval "$(starship init zsh)"
 
-# Enable zsh-autosuggestions
-source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
-
-# Enable zsh-syntax-highlighting
-source ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+# Plugins: a clone in ~/.zsh wins, else the Arch packages (zsh-autosuggestions, zsh-syntax-highlighting)
+for _p in zsh-autosuggestions zsh-syntax-highlighting; do
+  for _f in ~/.zsh/$_p/$_p.zsh /usr/share/zsh/plugins/$_p/$_p.zsh; do
+    [ -r "$_f" ] && { source "$_f"; break; }
+  done
+done
+unset _p _f
 
 # Fix Ctrl + Left/Right and Ctrl + W behavior in Kitty and Zsh
 autoload -U select-word-style
@@ -69,10 +71,10 @@ alias ca="claude agents"
 alias y="yazi"
 
 
-eval "$(fzf --zsh)"
+command -v fzf >/dev/null && eval "$(fzf --zsh)"
 
 export PATH=$HOME/.local/bin:$PATH
-export PATH="$PATH:$(go env GOPATH)/bin"
+command -v go >/dev/null && export PATH="$PATH:$(go env GOPATH)/bin"
 export PATH="$HOME/bin:$PATH"
 export PATH="/opt/flutter/bin:$PATH"
 export PATH="/opt/android-studio/bin:$PATH"
@@ -84,19 +86,19 @@ export NVM_DIR="$HOME/.nvm"
 
 
 # bun completions
-[ -s "/home/parth/.bun/_bun" ] && source "/home/parth/.bun/_bun"
+[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
 
 # bun
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 export PATH="$HOME/.local/bin:$PATH"
-export ENCORE_INSTALL="/home/parth/.encore"
+export ENCORE_INSTALL="$HOME/.encore"
 export PATH="$ENCORE_INSTALL/bin:$PATH"
 
-eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+[ -x /home/linuxbrew/.linuxbrew/bin/brew ] && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
 # pnpm
-export PNPM_HOME="/home/parth/.local/share/pnpm"
+export PNPM_HOME="$HOME/.local/share/pnpm"
 case ":$PATH:" in
   *":$PNPM_HOME:"*) ;;
   *) export PATH="$PNPM_HOME:$PATH" ;;
@@ -109,7 +111,7 @@ esac
 #   eval "$(ssh-agent -s)"
 # fi
 
-export PATH="/home/parth/.local/bin:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
 
 export EDITOR=nvim
 
@@ -131,8 +133,8 @@ export PATH
 # END QODER_DISPATCHER_PATH v1
 
 # opencode
-export PATH=/home/parth/.opencode/bin:$PATH
+export PATH="$HOME/.opencode/bin:$PATH"
 
 # rhun
-case ":$PATH:" in *":/home/parth/.local/bin:"*) ;; *) export PATH="/home/parth/.local/bin:$PATH" ;; esac
+case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
 # rhun end
