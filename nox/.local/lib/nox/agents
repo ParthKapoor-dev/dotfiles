@@ -8,9 +8,10 @@ usage: nox agents [toggle|open|close]       the overlay (Ctrl+Super+M; IPC targe
        nox agents focus <session-id> [--dry-run]   jump to the session's window (Orca: also its
                                             terminal tab); --dry-run only prints what it would focus
        nox agents prune                     drop ended / dead sessions now
+       nox agents hook [status|install|uninstall]   the status hook in ~/.claude/settings.json
+                                            (install/uninstall keep a backup next to the file)
 
-The state comes from the Claude Code hook ~/.local/lib/nox/agent-hook (install snippet in its
-header): one JSON file per session in $XDG_RUNTIME_DIR/nox/agents. Tokens and cost are read from
+The state comes from the Claude Code hook ~/.local/lib/nox/agent-hook (`nox agents hook install`): one JSON file per session in $XDG_RUNTIME_DIR/nox/agents. Tokens and cost are read from
 the transcripts here, incrementally (byte offsets cached in that directory), never in the hook.
 Cost is the API-list-price equivalent (a subscription pays a flat fee); prices per million
 tokens, overridable in shell.json "agents": { "prices": { "<model-id prefix>": [in, out, cacheRead] },
@@ -265,8 +266,68 @@ def ago(ms):
     return f"{s // 3600}h{s % 3600 // 60:02d}m" if s >= 3600 else f"{s // 60}m{s % 60:02d}s"
 
 
+HOOK = os.path.join(os.path.expanduser("~"), ".local/lib/nox/agent-hook")
+HOOK_EVENTS = ("SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PostToolUseFailure",
+               "PermissionRequest", "PermissionDenied", "Notification", "Stop", "StopFailure",
+               "SubagentStart", "SubagentStop", "SessionEnd")
+
+
+def hook(action):
+    """status (exit 1 = not installed for every event) | install | uninstall. Absolute path on
+    purpose: expai sessions run with another HOME. No matcher = every tool."""
+    path = os.path.expanduser(os.environ.get("NOX_CLAUDE_SETTINGS", "~/.claude/settings.json"))
+    try:
+        with open(path) as f:
+            cfg = json.load(f)
+    except FileNotFoundError:
+        cfg = {}
+    hooks = cfg.get("hooks") or {}
+    def has(ev):
+        return any(h.get("command") == HOOK for g in hooks.get(ev, []) for h in (g.get("hooks") or []))
+    have = [ev for ev in HOOK_EVENTS if has(ev)]
+    if action == "status":
+        if len(have) == len(HOOK_EVENTS):
+            print(f"installed: {HOOK} on all {len(HOOK_EVENTS)} events ({path})")
+            return 0
+        print(f"not installed: {len(have)}/{len(HOOK_EVENTS)} events ({path}); fix: nox agents hook install")
+        return 1
+    if action not in ("install", "uninstall"):
+        print("usage: nox agents hook [status|install|uninstall]", file=sys.stderr)
+        return 2
+    for ev in list(hooks) if action == "uninstall" else HOOK_EVENTS:
+        groups = [dict(g, hooks=[h for h in (g.get("hooks") or []) if h.get("command") != HOOK])
+                  for g in hooks.get(ev, [])]
+        groups = [g for g in groups if g["hooks"]]
+        if action == "install":
+            groups.append({"hooks": [{"type": "command", "command": HOOK, "timeout": 5}]})
+        if groups:
+            hooks[ev] = groups
+        else:
+            hooks.pop(ev, None)
+    if hooks:
+        cfg["hooks"] = hooks
+    else:
+        cfg.pop("hooks", None)
+    real = os.path.realpath(path)
+    os.makedirs(os.path.dirname(real), exist_ok=True)
+    if os.path.exists(real):
+        bak = real + ".bak-nox-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        with open(real) as a, open(bak, "w") as b:
+            b.write(a.read())
+        print("backup:", bak)
+    tmp = real + ".nox-tmp"
+    with open(tmp, "w") as f:
+        json.dump(cfg, f, indent=2)
+        f.write("\n")
+    os.replace(tmp, real)
+    print(("installed " if action == "install" else "removed ") + HOOK, "in", path)
+    return 0
+
+
 def main(argv):
     cmd = argv[0] if argv else "toggle"
+    if cmd == "hook":
+        return hook(argv[1] if len(argv) > 1 else "status")
     if cmd in ("toggle", "open", "close"):
         os.execvp(QS[0], QS + [cmd])
     if cmd == "usage":

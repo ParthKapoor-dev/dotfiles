@@ -10,7 +10,7 @@ MODULES="theme shell layout shot record wallpaper dpms battery phone hypr greete
 usage() {
     cat <<'EOF'
 usage: nox <command> [args]
-  theme  [render|check|diff|apply|switch <look>|revert [ts]|targets|get <path>|<look>]
+  theme  [render|check|diff|status|apply|switch <look>|revert [ts]|targets|get <path>|<look>]
   shell  start|stop|restart|status|log [-f]     (qs -c nox)
   ipc    <target> <function> [args]             (qs -c nox ipc call ...)
   toggle launcher|cc|nc|dnd|overview|session|dock|cheatsheet|clipboard|widgets|agents
