@@ -44,7 +44,10 @@ Variants {
             anchors.fill: parent
             fillMode: win.mode
             asynchronous: true
-            cache: false
+            // shared with Wallpaper.screenCopy (and Mission Control's backdrop): same url, size and
+            // fill = one decode instead of two (-20 MB). Unreferenced big images still leave the
+            // pixmap cache at once, so a replaced wallpaper is not kept.
+            cache: true
             smooth: true
             sourceSize.width: win.screen ? win.screen.width * (win.screen.devicePixelRatio ?? 1) : 0
             sourceSize.height: win.screen ? win.screen.height * (win.screen.devicePixelRatio ?? 1) : 0
