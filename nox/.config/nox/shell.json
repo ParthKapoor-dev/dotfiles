@@ -3,7 +3,7 @@
   "modules": {
     "bar": true, "dock": true, "controlCenter": true, "launcher": true, "osd": true, "notifications": true,
     "wallpaper": true, "corners": true, "overview": true, "session": true, "polkit": true, "clipboard": true, "cheatsheet": true,
-    "switcher": true, "notes": true, "agents": true, "shot": true, "ask": true, "voice": true
+    "switcher": true, "notes": true, "agents": true, "shot": true, "ask": true, "voice": true, "shelf": true
   },
   "terminal": ["ghostty"],
   "bar": {
@@ -69,12 +69,13 @@
     }
   },
   "screenshot": {
-    "_comment": "Card after every capture (nox shot region|screen|window|all, modules/shot). The capture is only on the clipboard (and in $XDG_RUNTIME_DIR/nox-shot) until Save copies it to ~/Pictures/Screenshots. card.actions: save | folder (after save) | annotate | copy | pin | phone | upload | delete (discard, or Trash once saved); phone shows only while the phone link is up. annotate: argv with {file} (default nox shot annotate: satty, the card comes back with the result). upload.service: 0x0 (public, secret URL, deleted after `expires` hours) | none (hides the button) | any name with upload.command = argv using {file} / {expires}, first URL on stdout is copied. Upload always asks first unless upload.confirm is false.",
-    "card": { "enabled": true, "timeout": 8000, "position": "bottom-right", "width": 300, "actions": ["save", "folder", "annotate", "copy", "pin", "phone", "upload", "delete"] },
+    "_comment": "Card after every capture (nox shot region|screen|window|all, modules/shot). The capture is only on the clipboard (and in $XDG_RUNTIME_DIR/nox-shot) until Save copies it to ~/Pictures/Screenshots. card.actions: save | folder (after save) | annotate | copy | pin | shelf (park it on the drop shelf) | phone | upload | delete (discard, or Trash once saved); phone shows only while the phone link is up. annotate: argv with {file} (default nox shot annotate: satty, the card comes back with the result). upload.service: 0x0 (public, secret URL, deleted after `expires` hours) | none (hides the button) | any name with upload.command = argv using {file} / {expires}, first URL on stdout is copied. Upload always asks first unless upload.confirm is false.",
+    "card": { "enabled": true, "timeout": 8000, "position": "bottom-right", "width": 300, "actions": ["save", "folder", "annotate", "copy", "pin", "shelf", "phone", "upload", "delete"] },
     "upload": { "service": "0x0", "expires": 24, "confirm": true }
   },
   "ask": { "_comment": "Circle to Ask (Super+Shift+A, `nox ask`, IPC target ask; modules.ask: false turns it off). model: Claude Code model id or alias (claude-sonnet-5-5: ~1 s to the first token; opus: ~0.5 s slower). claude: path to the Claude Code CLI. extraArgs: more `claude -p` flags. timeout: ms to the first token before it gives up. agent: what Send to agent opens: \"claude\", \"codex\", \"gemini\", \"opencode\", or a command array with {prompt} / {image} / {keep} placeholders. agentDir: where it starts (\"auto\" = a path in the circled window's title, else ~). systemPrompt: replaces the built-in one (modules/ask/AskSession.qml).", "model": "claude-sonnet-5-5", "claude": "~/.local/bin/claude", "extraArgs": [], "timeout": 45000, "agent": "claude",
     "agentDir": "~/code/sandbox/void" },
+  "shelf": { "_comment": "Drop shelf (modules/shelf; Super+Shift+D, `nox shelf`, IPC target shelf; modules.shelf: false turns it off): drag files, text, images or links to the screen edge to park them, drag them out into any app later. side: right | left. expireHours: items leave the shelf this long after they were parked (only the shelf's own stored text / link / image files are deleted, never a file parked by path). moveOut: true = an item leaves the shelf once an app takes it (the footer toggle keeps a runtime choice in ~/.local/state/nox/shelf/index.json).", "side": "right", "expireHours": 24, "moveOut": true },
   "recorder": { "directory": "~/Videos", "args": [] },
   "nightLight": { "temperature": 4500 },
   "stats": { "_comment": "bar widget 'stats' (widgets.stats.show: cpu | mem | temp | net). Sampled from /proc + /sys every interval ms; thermalZone: auto or a /sys/class/thermal zone number.", "interval": 2000, "thermalZone": "auto" },

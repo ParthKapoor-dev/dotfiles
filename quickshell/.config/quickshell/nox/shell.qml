@@ -27,6 +27,7 @@ import qs.modules.notes
 import qs.modules.agents
 import qs.modules.ask
 import qs.modules.voice
+import qs.modules.shelf
 
 ShellRoot {
     LazyLoader { active: Config.loaded && Config.moduleEnabled("bar"); component: Bar {} }
@@ -57,6 +58,9 @@ ShellRoot {
     // Circle to Ask: freeze the screen, circle anything, Claude answers beside it (Super+Shift+A,
     // `nox ask`, IPC target ask; shell.json "ask")
     LazyLoader { active: Config.loaded && Config.moduleEnabled("ask"); component: Ask {} }
+    // Drop shelf: drag anything to the right screen edge to park it, drag it out into any app later
+    // (Super+Shift+D, `nox shelf`, IPC target shelf; shell.json "shelf"; store in services/Shelf)
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("shelf"); component: ShelfView {} }
     // clock / date / now playing on the empty side of the wallpaper (desktopWidgets.enabled,
     // `nox widgets on|off`; services/DesktopWidgets)
     LazyLoader { active: Config.loaded && DesktopWidgets.ready && DesktopWidgets.enabled; component: Widgets {} }

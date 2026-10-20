@@ -33,7 +33,8 @@ Singleton {
             "agents": true,
             "shot": true,
             "ask": true,
-            "voice": true
+            "voice": true,
+            "shelf": true
         },
         "terminal": [
             "ghostty"
