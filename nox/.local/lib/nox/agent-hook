@@ -189,6 +189,9 @@ PreToolUse) J_EV='
                  desc: ((($p.tool_input.questions // [])[0].question // $p.tool_input.plan // "") | cut(200)),
                  at: $now}
         | status("needs-you") | .since = $now
+      # subagent tool calls (agent_id set) report under the same session id: they must not
+      # wipe out a question / permission the main agent is waiting on
+      elif $p.agent_id != null and .status == "needs-you" then .
       else .perm = null | status("working") end' ;;
 PermissionRequest) J_EV='
     .perm = {tool: $p.tool_name, cmd: arg($p), desc: (($p.tool_input.description // "") | cut(200)), at: $now}
@@ -221,8 +224,10 @@ PostToolUse | PostToolUseFailure | PermissionDenied) J_EV='
         | (if ($r | type) == "object" then (($r.stdout // "") + "\n" + ($r.stderr // "")) else ($r | tostring) end) as $out
         | if ($out | contains("/pull/")) then (($out | prurl) as $u | if $u then .turn.pr = $u else . end) else . end
        else . end)
-    | .perm = null
-    | if $no or ($p.is_interrupt == true) then status("done") else status("working") end' ;;
+    | if $p.agent_id != null and .status == "needs-you"
+        and (.perm.tool // "") != ($p.tool_name // "") then .     # a subagent finishing a tool
+      else .perm = null
+        | if $no or ($p.is_interrupt == true) then status("done") else status("working") end end' ;;
 Stop) J_EV='
     (($p.last_assistant_message // "") | firstline | cut(160)) as $say
     | (if $say != "" then push({k: "say", a: $say}) | .summary = $say else . end)
