@@ -9,7 +9,7 @@
     "screens": [],
     "left": ["logo", "appName", "menus", "workspaces", "layout"],
     "center": [],
-    "right": ["usage", "agents", "recording", "dnd", "tray", "hubstaff", "stats", "phone", "network", "bluetooth", "battery", "search", "controlCenter", "clock"]
+    "right": ["usage", "agents", "recording", "dnd", "tray", "hubstaff", "stats", "phone", "network", "bluetooth", "battery", "controlCenter", "clock"]
   },
   "widgets": {
     "logo": {
