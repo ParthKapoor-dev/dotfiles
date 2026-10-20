@@ -2,7 +2,7 @@
 
 My whole Arch Linux desktop in one repo: **Hyprland 0.56** (Lua config), my own **Quickshell 0.3.2**
 shell (`qs -c nox`: bar, dock, launcher, control center, notifications, overview, Mission Control
-for coding agents, Circle to Ask, voice typing, Notes...), one CLI (`nox`), a token-based theme
+for coding agents, Circle to Ask, voice typing, a drop shelf, Notes...), one CLI (`nox`), a token-based theme
 engine that themes every app from one file, and the apps, binds and settings I use. It is my
 personal system, not a distro: my looks, keys and apps are meant to be in here. It is public so I
 (or you) can clone it on a fresh install, run one script and get the same desktop.
@@ -79,6 +79,7 @@ One entry point for everything; `nox help <command>` shows each module's own hel
 | `nox hypr status\|check\|on` | the Hyprland Lua config (`check` = `--verify-config`) |
 | `nox layout`, `nox workspaces` (`ws`), `nox dpms` | tiling layouts, saved sessions, screen power |
 | `nox shot`, `nox record`, `nox ask` | screenshots + OCR + pins, screen recording, Circle to Ask |
+| `nox shelf add\|list\|open\|undo\|clear` | the drop shelf: park files, text, images, links at the screen edge (Super+Shift+D) |
 | `nox wallpaper`, `nox activity`, `nox notes`, `nox files` | wallpaper + slideshow + prep, commit grid, Notes, Dolphin menu |
 | `nox voice`, `nox phone`, `nox agents`, `nox battery` | dictation, KDE Connect phone link, coding agents, charge limit |
 | `nox greeter` | the login screen (sync, test, install, on/off) |

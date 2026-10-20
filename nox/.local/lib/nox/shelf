@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# nox shelf - the drop shelf: a parking spot for files, text, images and links between apps
+# (the shell's modules/shelf). Drag anything to the right screen edge to park it, drag it out into
+# any app later; Super+Shift+D opens / closes it.
+#
+#   nox shelf add <file|folder>...   park files by reference (nothing is copied or moved)
+#   nox shelf add -                  park the text on stdin (kept as a small file in the shelf's
+#                                    own folder, ~/.local/state/nox/shelf/items)
+#   nox shelf add <https://...>      park a link
+#   nox shelf list                   id, kind, name, path or URL, minutes left, ok | missing
+#   nox shelf open|close|toggle      show / hide the shelf (toggle = Super+Shift+D)
+#   nox shelf remove <id>...         take items off the shelf (your files stay where they are)
+#   nox shelf undo                   put back what the last remove / clear / drag-out took off
+#   nox shelf clear                  empty the shelf
+#   nox shelf status                 count, state, side, expiry, move-out
+#
+# Items expire after shell.json shelf.expireHours (24) and are then taken off; only the shelf's
+# own stored text / link / image files are ever deleted, never a file you parked by path.
+# Config: ~/.config/nox/shell.json "shelf": side (right | left), expireHours, moveOut (true = an
+# item leaves the shelf when you drag it into an app). Nothing is logged.
+set -uo pipefail
+read -ra QS <<< "${NOX_QS:-qs -c nox}"
+STATE="${NOX_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/nox}"
+ITEMS="$STATE/shelf/items"
+
+die() { echo "nox shelf: $*" >&2; exit 1; }
+alive() { "${QS[@]}" ipc show >/dev/null 2>&1 || die "the shell is not running (nox shell start)"; }
+ipc() { "${QS[@]}" ipc call shelf "$@"; }
+usage() { sed -n '2,/^[^#]/{/^[^#]/d;s/^# \{0,1\}//;p}' "$0"; }
+
+cmd="${1:-status}"
+[ $# -gt 0 ] && shift
+case "$cmd" in
+    add)
+        [ $# -gt 0 ] || die "usage: nox shelf add <file|folder|url>... | -"
+        alive
+        rc=0
+        for a in "$@"; do
+            if [ "$a" = - ]; then
+                umask 077; mkdir -p "$ITEMS" || die "can't create $ITEMS"
+                f="$ITEMS/text-$(date +%Y%m%d-%H%M%S)-$$.txt"
+                cat > "$f"
+                if [ ! -s "$f" ] || ! grep -q '[^[:space:]]' "$f"; then rm -f -- "$f"; echo "nox shelf: nothing on stdin" >&2; rc=1; continue; fi
+                [ "$(ipc adopt "$f")" = true ] || { rm -f -- "$f"; rc=1; }
+            elif [[ "$a" =~ ^https?:// ]]; then
+                [ "$(ipc addLink "$a" "")" = true ] || rc=1
+            else
+                [ -e "$a" ] || { echo "nox shelf: no such file: $a" >&2; rc=1; continue; }
+                [ "$(ipc add "$(readlink -f -- "$a")")" = true ] || rc=1
+            fi
+        done
+        exit $rc ;;
+    list | open | close | toggle | status | undo | clear)
+        alive
+        out=$(ipc "$cmd") || exit 1
+        case "$cmd" in
+            list) [ -z "$out" ] || printf '%s\n' "$out" ;;
+            undo) echo "put back $out item(s)" ;;
+            clear) echo "cleared $out item(s)" ;;
+            status) printf '%s\n' "$out" ;;
+        esac ;;
+    remove | rm)
+        [ $# -gt 0 ] || die "usage: nox shelf remove <id>...   (ids: nox shelf list)"
+        alive
+        rc=0
+        for id in "$@"; do [ "$(ipc remove "$id")" = true ] || { echo "nox shelf: no item $id" >&2; rc=1; }; done
+        exit $rc ;;
+    -h | --help | help) usage ;;
+    *) echo "nox shelf: unknown command '$cmd' (try: nox shelf help)" >&2; exit 2 ;;
+esac

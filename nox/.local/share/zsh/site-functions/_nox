@@ -21,6 +21,7 @@ _nox() {
         'phone:KDE Connect phone link'
         'agents:coding agents (Mission Control)'
         'voice:voice typing'
+        'shelf:drop shelf (park files, text, links between apps)'
         'status:hypr + shell + theme + idle at a glance'
         'help:show help'
     )
@@ -62,6 +63,13 @@ _nox() {
         phone) (( CURRENT == 3 )) && _values subcommand status send clip ring commands pair on off logs build ;;
         agents) if (( CURRENT == 3 )); then _values subcommand toggle grid list usage focus turn diff send repos start answer prune hook
                 elif [[ ${words[3]} == hook ]]; then _values action status install uninstall; fi ;;
+        shelf)
+            if (( CURRENT == 3 )); then _values subcommand add list open close toggle remove undo clear status help
+            elif [[ ${words[3]} == add ]]; then _alternative 'files:file:_files' 'stdin:stdin:(-)'
+            elif [[ ${words[3]} == (remove|rm) ]]; then
+                local -a ids; ids=(${${(f)"$(nox shelf list 2>/dev/null | cut -f1)"}})
+                (( ${#ids} )) && _values -w item $ids
+            fi ;;
         workspaces|ws)
             local sdir=${XDG_STATE_HOME:-$HOME/.local/state}/nox/sessions
             local -a sess; sess=(${${(f)"$(print -l $sdir/*.json(N:t:r))"}})
@@ -70,8 +78,8 @@ _nox() {
                 if [[ ${words[CURRENT]} == -* ]]; then _values -w option --workspace --notify --quiet --timeout --no-focus --dry-run
                 elif (( ${#sess} )); then _values -w session $sess; fi
             fi ;;
-        ipc) (( CURRENT == 3 )) && _values target launcher controlCenter notifications overview cheatsheet session dock popup wallpaper action hud layout polkit ;;
-        help) (( CURRENT == 3 )) && _values command theme shell layout shot record wallpaper dpms hypr workspaces detect doctor update phone agents voice ;;
+        ipc) (( CURRENT == 3 )) && _values target launcher controlCenter notifications overview cheatsheet session dock popup wallpaper action hud layout polkit shelf ;;
+        help) (( CURRENT == 3 )) && _values command theme shell layout shot record wallpaper dpms hypr workspaces detect doctor update phone agents voice shelf ;;
     esac
 }
 
