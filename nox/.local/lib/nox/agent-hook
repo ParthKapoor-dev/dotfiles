@@ -194,8 +194,12 @@ PreToolUse) J_EV='
       elif $p.agent_id != null and .status == "needs-you" then .
       else .perm = null | status("working") end' ;;
 PermissionRequest) J_EV='
-    .perm = {tool: $p.tool_name, cmd: arg($p), desc: (($p.tool_input.description // "") | cut(200)), at: $now}
-    | status("needs-you") | .since = $now' ;;
+    (if ($p.tool_name | test("^(AskUserQuestion|ExitPlanMode)$")) then
+       {tool: (if $p.tool_name == "ExitPlanMode" then "Plan" else "Question" end), cmd: "",
+        desc: ((($p.tool_input.questions // [])[0].question // $p.tool_input.plan // "") | cut(200))}
+     else {tool: $p.tool_name, cmd: arg($p), desc: (($p.tool_input.description // "") | cut(200))} end) as $q
+    | .perm = ($q + {at: (.perm.at // $now)})
+    | status("needs-you") | .since = (if .status == "needs-you" and .since then .since else $now end)' ;;
 Notification) J_EV='
     if ($p.notification_type // "") | test("permission|elicitation") then
       (if .perm == null then .perm = {tool: "", cmd: "", desc: (($p.message // "") | cut(200)), at: $now} else . end)
