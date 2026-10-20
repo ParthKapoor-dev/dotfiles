@@ -1,0 +1,12 @@
+{
+  "name": "nox-notes",
+  "private": true,
+  "description": "nox Notes editor bundle (Milkdown Crepe). Build: npm ci && npm run build -> ../nox/.local/lib/nox/notes-app/web",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@milkdown/crepe": "7.22.3",
+    "esbuild": "0.28.2"
+  }
+}

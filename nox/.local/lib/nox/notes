@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# nox notes - the floating markdown notepad (Ctrl+Super+S): notes-app/ (GTK + WebKit + Milkdown Crepe)
+# usage: nox notes [toggle|show|hide|new|open <file>|qt <cmd>]
+#   toggle     show it, or hide it when it is on screen (default)
+#   show/hide  hiding parks the window on the special:notes workspace (unpinned: Hyprland won't
+#              move a pinned window); showing brings it to the current desktop, pinned, focused,
+#              so it keeps its place and size. The first show starts the app (centred by the rule).
+#   new        show it with a new note           open <file>  show it with that note (~/Notes/*.md)
+#   qt <cmd>   the older notepad built into the shell (qs ipc: toggle|open|hide|create)
+# Notes are plain .md files in ~/Notes. The app runs on GTK3 + webkit2gtk-4.1 + python-gobject;
+# if those are missing it falls back to the shell's notepad.
+set -euo pipefail
+HERE="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+APP="$HERE/notes-app/app.py"
+CLASS="dev.nox.Notes"
+
+client() {   # "address workspace-name" of the Notes window, or nothing
+    hyprctl -j clients 2>/dev/null | jq -r --arg c "$CLASS" 'map(select(.class == $c)) | first | select(.) | "\(.address) \(.workspace.name)"'
+}
+d() { hyprctl dispatch "$1" >/dev/null; }
+
+launch() {
+    if ! python3 -c 'import gi; gi.require_version("WebKit2", "4.1"); from gi.repository import WebKit2' 2>/dev/null; then
+        echo "nox notes: webkit2gtk-4.1 / python-gobject missing, using the shell's notepad" >&2
+        exec qs -c nox ipc call notes "${QT_CMD:-toggle}"
+    fi
+    setsid -f python3 "$APP" "$@" >/dev/null 2>&1 </dev/null
+}
+
+show() {
+    local addr="$1" ws
+    ws=$(hyprctl -j activeworkspace | jq -r '.id')
+    d "hl.dsp.window.move({ workspace = $ws, follow = false, window = \"address:$addr\" })"
+    d "hl.dsp.window.pin({ action = \"enable\", window = \"address:$addr\" })"
+    d "hl.dsp.focus({ window = \"address:$addr\" })"
+}
+hide() {
+    local addr="$1"
+    d "hl.dsp.window.pin({ action = \"disable\", window = \"address:$addr\" })"
+    d "hl.dsp.window.move({ workspace = \"special:notes\", follow = false, window = \"address:$addr\" })"
+}
+
+cmd="${1:-toggle}"
+[ $# -gt 0 ] && shift
+read -r addr wsname <<<"$(client || true)" || true
+
+case "$cmd" in
+    toggle)
+        if [ -z "${addr:-}" ]; then launch
+        elif [ "$wsname" = "special:notes" ]; then show "$addr"
+        else hide "$addr"; fi ;;
+    show)
+        if [ -z "${addr:-}" ]; then launch; else show "$addr"; fi ;;
+    hide)
+        [ -n "${addr:-}" ] && hide "$addr" ;;
+    new)
+        QT_CMD=create
+        if [ -z "${addr:-}" ]; then launch --new; else show "$addr"; python3 "$APP" --new; fi ;;
+    open)
+        [ $# -ge 1 ] || { echo "usage: nox notes open <file>" >&2; exit 2; }
+        f="$(readlink -f -- "$1")"
+        if [ -z "${addr:-}" ]; then launch --open "$f"; else show "$addr"; python3 "$APP" --open "$f"; fi ;;
+    qt)
+        exec qs -c nox ipc call notes "${1:-toggle}" ;;
+    -h | --help | help)
+        sed -n '2,/^[^#]/{/^[^#]/d;s/^# \{0,1\}//;p}' "$0" ;;
+    *)
+        echo "nox notes: unknown command '$cmd' (toggle|show|hide|new|open <file>|qt <cmd>)" >&2; exit 2 ;;
+esac

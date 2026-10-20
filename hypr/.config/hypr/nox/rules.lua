@@ -27,7 +27,10 @@ local window_rules = {
     { match = { class = "^(blueberry\\.py)$" }, float = true },
     { match = { class = "^(guifetch)$" }, float = true },
     { match = { class = "^(pavucontrol)$" }, float = true, size = SIZE_45, center = true },
-    -- nox Notes (Ctrl+Super+S): floating, pinned = shown on every desktop, centred
+    -- nox Notes (Ctrl+Super+S, nox notes): floating, pinned = shown on every desktop, centred on its
+    -- first show; later shows keep where you left it (hidden = parked on special:notes)
+    { match = { class = "^(dev\\.nox\\.Notes)$" }, float = true, pin = true, center = true, size = "(monitor_w*.56) (monitor_h*.68)" },
+    -- the shell's older notepad (nox notes qt): floating, pinned = shown on every desktop, centred
     { match = { class = "^(org\\.quickshell)$", title = "^(Notes)$" }, float = true, pin = true, center = true, size = "(monitor_w*.56) (monitor_h*.68)" },
     -- screenshot annotation (nox shot annotate): a floating sheet over the desktop
     { match = { class = "^(org\\.satty\\.satty|swappy)$" }, float = true, size = SIZE_85, center = true },
