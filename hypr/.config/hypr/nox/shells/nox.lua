@@ -33,6 +33,7 @@ P.IPC = {
     dock           = "dock toggle",             -- live
     wallpaper_set  = "wallpaper set",           -- planned (+ <path>; used by nox wallpaper)
     layout_changed = "layout changed",          -- planned (+ <name>; sent by nox/layouts.lua)
+    agents         = "agents toggle",           -- live (Mission Control for coding agents)
 }
 
 -- GlobalShortcut names (appid "nox"), dispatched as global "nox:<name>"
@@ -154,6 +155,8 @@ function P.binds(ctx)
     local rest = {
         { "SUPER + Tab", X(ipc("overview")), desc = "Open overview" },
         { "CTRL + SUPER + S", X("nox notes toggle"), desc = "Show or hide Notes" },
+        -- Super+Shift+M / Super+Alt+M are mute / mic mute (binds/system.lua)
+        { "CTRL + SUPER + M", X(ipc("agents")), desc = "Agent mission control" },
         -- Alt+Tab window switcher (most recently used); releasing Alt switches. The Alt release is a
         -- release bind (fires when Alt_L / Alt_R comes up, whatever was pressed in between) and
         -- non-consuming + transparent so apps still see Alt (menus, Alt+key shortcuts)
@@ -227,8 +230,8 @@ function P.layer_rules(ctx)
         { match = { namespace = "^nox:notifications$" }, animation = "fade" },
         -- 0.5: lower values blur the soft card shadows (orange halo on Ember wallpaper)
         -- full-screen / static surfaces: no blur, no compositor animation (they animate themselves)
-        { match = { namespace = "^nox:(wallpaper|corners|overview|widgets)$" }, blur = false },
-        { match = { namespace = "^nox:(corners|overview|session|polkit|widgets)$" }, no_anim = true },
+        { match = { namespace = "^nox:(wallpaper|corners|overview|widgets|agents)$" }, blur = false },
+        { match = { namespace = "^nox:(corners|overview|session|polkit|widgets|agents)$" }, no_anim = true },
     }
 end
 

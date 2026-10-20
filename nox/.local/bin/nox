@@ -5,7 +5,7 @@
 set -euo pipefail
 LIB="${NOX_LIB:-$(cd "$(dirname "$(readlink -f "$0")")/../lib/nox" && pwd)}"
 QS=(qs -c nox)
-MODULES="theme shell layout shot record wallpaper dpms battery phone hypr greeter workspaces activity notes files"
+MODULES="theme shell layout shot record wallpaper dpms battery phone hypr greeter workspaces activity notes files agents"
 
 usage() {
     cat <<'EOF'
@@ -13,7 +13,7 @@ usage: nox <command> [args]
   theme  [render|check|diff|apply|switch <look>|revert [ts]|targets|get <path>|<look>]
   shell  start|stop|restart|status|log [-f]     (qs -c nox)
   ipc    <target> <function> [args]             (qs -c nox ipc call ...)
-  toggle launcher|cc|nc|dnd|overview|session|dock|cheatsheet|clipboard|widgets
+  toggle launcher|cc|nc|dnd|overview|session|dock|cheatsheet|clipboard|widgets|agents
   widgets [status|on|off|toggle|left|right|auto|reset]   (desktop clock column; shell.json desktopWidgets)
   layout next|prev|set <name>|get
   shot   region|screen|window|all|copy|ocr|annotate|save|pin <file>
@@ -29,6 +29,7 @@ usage: nox <command> [args]
   activity [refresh|show] [--source github|local]   (commit grid for the desktop widget)
   notes  [toggle|show|hide|new|open <file>|start|quit|qt <cmd>]   (floating markdown notepad, ~/Notes)
   files  terminal|copypath|ocr|webp|png|jpg|half|strip <file>...   (Dolphin right-click nox menu)
+  agents [toggle|list|usage|focus <id>|prune]   (coding agents: Mission Control, Ctrl+Super+M)
   status                                        (hypr + shell + theme + idle at a glance)
   help [command]
 EOF
@@ -44,7 +45,7 @@ module_help() {
 cmd="${1:-help}"
 [ $# -gt 0 ] && shift
 case "$cmd" in
-    theme | shell | layout | shot | record | wallpaper | dpms | battery | phone | hypr | greeter | workspaces | activity | notes | files) exec "$LIB/$cmd" "$@" ;;
+    theme | shell | layout | shot | record | wallpaper | dpms | battery | phone | hypr | greeter | workspaces | activity | notes | files | agents) exec "$LIB/$cmd" "$@" ;;
     ws) exec "$LIB/workspaces" "$@" ;;
     ipc)
         [ $# -ge 2 ] || { echo "usage: nox ipc <target> <function> [args]   (targets: qs -c nox ipc show)" >&2; exit 2; }
@@ -56,8 +57,8 @@ case "$cmd" in
             nc) exec "${QS[@]}" ipc call notifications toggle ;;
             dnd) exec "${QS[@]}" ipc call notifications toggleDnd ;;
             clipboard) exec "${QS[@]}" ipc call launcher clipboard ;;
-            overview | session | dock | cheatsheet | widgets) exec "${QS[@]}" ipc call "$1" toggle ;;
-            *) echo "nox toggle: unknown panel '${1:-}' (launcher|cc|nc|dnd|overview|session|dock|cheatsheet|clipboard|widgets)" >&2; exit 2 ;;
+            overview | session | dock | cheatsheet | widgets | agents) exec "${QS[@]}" ipc call "$1" toggle ;;
+            *) echo "nox toggle: unknown panel '${1:-}' (launcher|cc|nc|dnd|overview|session|dock|cheatsheet|clipboard|widgets|agents)" >&2; exit 2 ;;
         esac ;;
     widgets)
         # on/off + side are runtime picks (~/.local/state/nox/widgets.json); reset = back to shell.json

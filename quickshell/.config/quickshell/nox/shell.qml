@@ -23,6 +23,7 @@ import qs.modules.shot
 import qs.modules.desktop
 import qs.modules.switcher
 import qs.modules.notes
+import qs.modules.agents
 
 ShellRoot {
     LazyLoader { active: Config.loaded && Config.moduleEnabled("bar"); component: Bar {} }
@@ -39,6 +40,8 @@ ShellRoot {
     LazyLoader { active: Config.loaded && Config.opt.modules?.switcher !== false; component: Switcher {} }
     // floating markdown notepad (Ctrl+Super+S; on unless modules.notes is false)
     LazyLoader { active: Config.loaded && Config.opt.modules?.notes !== false; component: Notes {} }
+    // coding agents at a glance (Ctrl+Super+M, `nox agents`, IPC target agents; on unless modules.agents is false)
+    LazyLoader { active: Config.loaded && Config.opt.modules?.agents !== false; component: AgentsView {} }
     LazyLoader { active: Config.loaded && Config.moduleEnabled("session"); component: Session {} }
     // keyboard shortcuts sheet (on unless modules.cheatsheet is false)
     LazyLoader { active: Config.loaded && Config.opt.modules?.cheatsheet !== false; component: Cheatsheet {} }
