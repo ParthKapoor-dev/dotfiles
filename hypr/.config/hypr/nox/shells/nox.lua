@@ -88,8 +88,9 @@ P.execs = {
     -- link names for the history: a copied <a href>Name</a> (Teamwork, Jira, Slack) stores only the
     -- URL in cliphist; this keeps URL -> Name (~/.local/state/nox/clip-titles.json)
     "wl-paste --type text/html --watch ~/.local/lib/nox/clip-title",
-    -- Notes (Ctrl+Super+S) waits hidden on special:notes, so the first show is instant
-    "nox notes start",
+    -- Notes (Ctrl+Super+S) is not started at login any more: kept hidden it held ~230 MB all day;
+    -- the first Ctrl+Super+S starts it (~1 s), later toggles are instant. Uncomment to preload:
+    -- "nox notes start",
     -- polkit: nox's polkit module is the agent. If it is not there yet,
     -- uncomment the KDE agent (polkit-kde-agent is installed):
     -- "/usr/lib/polkit-kde-authentication-agent-1",
