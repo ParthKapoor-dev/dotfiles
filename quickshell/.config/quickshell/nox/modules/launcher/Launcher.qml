@@ -159,6 +159,11 @@ Scope {
         const runs = excl ? [{ x: excl, q: text.slice(excl.prefix.length).replace(/^\s+/, ""), prefixed: true }]
                           : all.filter(x => !x.prefixOnly && !x.p.fallback).map(x => ({ x, q: text.trim(), prefixed: false }));
         prefixed = excl ? { p: excl.p, prefix: excl.prefix, q: runs[0].q } : null;
+        // providers with joinPrefix share the winner's prefix (the agent launcher next to the palette):
+        // queried first, they only answer on their own pattern
+        if (excl && !excl.p.nested)
+            for (const x of all.filter(x => x !== excl && x.p.joinPrefix && x.prefix === excl.prefix).reverse())
+                runs.unshift({ x, q: runs[runs.length - 1].q, prefixed: true });
         // fallback providers (web search): unprefixed, they run after all the others and only
         // when those found fewer than options.fallbackBelow rows (default 3), so they stay last
         if (!excl && text.trim())

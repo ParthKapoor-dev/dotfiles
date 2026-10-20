@@ -36,6 +36,9 @@ import Quickshell
 // row limit is not applied, the provider caps its own list).
 // Two-level providers: `property bool nested` (true while a sub-level is shown) + `function back()`;
 // while its prefix is typed and nested, Esc and Backspace on an empty query call back() (footer: "Back").
+// Shared prefixes: `property bool joinPrefix` (true = when another provider's prefix is typed and it
+// is the same as this one's, this one is queried too, before it; it should answer only on its own
+// pattern). The agent launcher uses it to live next to the command palette on ">".
 // Per-provider shell.json options understood by the launcher itself: enabled, prefix, prefixOnly, limit (0 = all), title.
 Singleton {
     readonly property var registry: ({
@@ -53,7 +56,8 @@ Singleton {
         "phone": "Phone.qml",
         "web": "WebSearch.qml",
         "files": "Files.qml",
-        "palette": "Palette.qml"
+        "palette": "Palette.qml",
+        "agent": "Agent.qml"
     })
     function url(id) {
         const f = registry[id];

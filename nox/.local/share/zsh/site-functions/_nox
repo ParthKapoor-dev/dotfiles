@@ -60,7 +60,7 @@ _nox() {
         doctor) _values -w option --summary ;;
         update) _values -w option --check --no-pull --migrate --mark-done ;;
         phone) (( CURRENT == 3 )) && _values subcommand status send clip ring commands pair on off logs build ;;
-        agents) if (( CURRENT == 3 )); then _values subcommand toggle list usage focus prune hook
+        agents) if (( CURRENT == 3 )); then _values subcommand toggle grid list usage focus turn diff send repos start answer prune hook
                 elif [[ ${words[3]} == hook ]]; then _values action status install uninstall; fi ;;
         workspaces|ws)
             local sdir=${XDG_STATE_HOME:-$HOME/.local/state}/nox/sessions
