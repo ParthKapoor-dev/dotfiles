@@ -33,7 +33,8 @@ Item {
     property string claudeBin: String(opts.claude ?? (home + "/.local/bin/claude")).replace(/^~(?=\/|$)/, home)
     readonly property string dir: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/nox-ask"
     readonly property string keepDir: dir + "/keep"
-    readonly property string modelLabel: String(model).replace(/^claude-/, "").replace(/-\d.*$/, "")
+    // "claude-sonnet-5-5" -> "sonnet 5.5"; aliases ("sonnet") stay as they are
+    readonly property string modelLabel: String(model).replace(/^claude-/, "").replace(/-(\d+)-(\d+)(-\d{8})?$/, " $1.$2").replace(/-(\d+)(-\d{8})?$/, " $1")
     readonly property string systemPrompt: opts.systemPrompt ?? [
         "You are Circle to Ask on the user's Linux desktop. The user circled part of their screen; the image is that region, cropped. Answer about what is in it.",
         "- Lead with the answer. No preamble, no restating the question, no sign-off.",
