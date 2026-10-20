@@ -4,6 +4,7 @@
     "Fields: name (unique), template (relative to templates/, optional), output (relative to ~/.local/state/nox/out/ unless absolute/~),",
     "        Lines written into files that live in the git repo use {{ _.output | tilde }}: no absolute home path gets committed.",
     "        enabled (default true; `--only name` runs a disabled target), check (json|lua|css|ini|keyvalue|text, used by `nox theme check`),",
+    "        tokens: \"base\" renders from tokens.json alone (no preset, no local.json), e.g. a committed fallback,",
     "        apply: list of hooks run by `nox theme apply` (all string fields are templates; {{ _.output }} = this target's rendered file).",
     "Hook types: write{path,content} | copy{path[,from]} | symlink{path[,to]} | line{path,match(regex),line} (replace first match or append)",
     "            | ini{path, from_output?, values?{section:{key:val}}, exclude_sections?[]} | gsettings{schema,key,value(GVariant text)}",
@@ -15,6 +16,15 @@
       "name": "tokens-lua",
       "template": "tokens.lua",
       "output": "../tokens.lua",
+      "check": "lua",
+      "apply": []
+    },
+    {
+      "name": "hypr-base",
+      "_comment": "Hyprland's token fallback (hypr/nox/base.lua, committed): the base look from tokens.json, used under the live tokens.lua; regenerated whenever tokens.json changes",
+      "template": "hypr/base.lua",
+      "output": "~/.config/hypr/nox/base.lua",
+      "tokens": "base",
       "check": "lua",
       "apply": []
     },

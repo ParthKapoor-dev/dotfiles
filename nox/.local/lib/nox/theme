@@ -295,12 +295,22 @@ def read_out(path):
         return f.read()
 
 
+def base_tokens():
+    """tokens.json alone: no preset, no local.json (targets with "tokens": "base")."""
+    return load_json(os.path.join(CONF, "tokens.json"))
+
+
 def render(tokens, preset, targets, quiet=False, write=True):
     """Render every target's template; return {name: (ctx, output_path)}.
     write=False keeps the text in memory (_MEM) and records outdated outputs in STALE."""
     result = {}
+    base = None
     for t in targets:
-        ctx, out = target_ctx(tokens, preset, t)
+        if t.get("tokens") == "base":
+            base = base or base_tokens()
+            ctx, out = target_ctx(base, None, t)
+        else:
+            ctx, out = target_ctx(tokens, preset, t)
         if t.get("template"):
             src = os.path.join(CONF, "templates", t["template"])
             with open(src) as f:
