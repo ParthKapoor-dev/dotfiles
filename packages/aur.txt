@@ -1,0 +1,15 @@
+# nox desktop: AUR packages. Installed by install.sh only when an AUR helper (paru or yay) is
+# present; otherwise it prints them. Same format as pacman.txt.
+
+## fonts the looks use (tokens.json font.*, presets/*.json)
+otf-geist                       # Ember (base look): UI + numerals
+ttf-geist-mono                  # Ember: mono + labels
+ttf-material-symbols-variable-git   # shell icon font (Rounded; Telemetry uses Sharp)
+apple-fonts                     # SF Pro / SF Mono: the sequoia preset
+ttf-twemoji                     # emoji fallback (fontconfig); Apple Color Emoji is manual, see optional.txt
+
+## cursor: tokens theme.cursor is "macOS" (optional.txt); Hyprland falls back to Bibata-Modern-Classic
+bibata-cursor-theme-bin | /usr/share/icons/Bibata-Modern-Classic
+
+## fallbacks bound in hypr/nox/shells/nox.lua when the shell is not running
+wlogout                         # Ctrl+Alt+Delete session menu fallback

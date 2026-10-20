@@ -1,0 +1,45 @@
+# nox desktop: optional extras, grouped. install.sh offers each group at its own prompt
+# (`./install.sh --only extras`); nothing here is needed for the desktop to start.
+# Same format as pacman.txt; repo or AUR is decided per package (AUR needs paru/yay).
+# A "manual:" line is not a package: install.sh prints it as an instruction.
+
+## greeter: the nox login screen on greetd (`nox greeter install` + `nox greeter on`, sudo)
+greetd
+greetd-tuigreet                 # fallback greeter (`nox greeter off`)
+
+## voice: local dictation, whisper.cpp built with Vulkan (`nox voice setup`)
+base-devel
+cmake
+vulkan-headers
+vulkan-icd-loader
+shaderc                         # glslc for the ggml Vulkan shaders
+
+## phone: kdeconnect-rs phone link built from source (`nox phone build`)
+rustup | rust
+base-devel
+pkgconf
+
+## extras: activity widget, Circle to Ask, wallpaper upscaling
+github-cli                      # desktop activity widget, source "github" (falls back to local git)
+unzip                           # realesrgan release zip (nox wallpaper prep upscaler)
+manual: Claude Code CLI `claude` (Circle to Ask, voice smartTidy, agents): https://claude.com/claude-code
+manual: realesrgan-ncnn-vulkan release zip from github.com/xinntao/Real-ESRGAN, unpacked into ~/.local/share/nox/realesrgan
+
+## look: icon/cursor themes and fonts the tokens name but that are not required
+whitesur-icon-theme | /usr/share/icons/WhiteSur-dark     # tokens theme.icons (skipped with a warning when missing)
+apple_cursor | /usr/share/icons/macOS                    # tokens theme.cursor
+darkly-bin                      # Qt widget style (kdeglobals widgetStyle=Darkly)
+manual: Doto font (Telemetry preset numerals): fonts.google.com/specimen/Doto -> ~/.local/share/fonts/doto
+manual: Apple Color Emoji: AppleColorEmoji.ttf -> ~/.local/share/fonts (fontconfig prefers it)
+
+## apps: personal apps the dock pins and binds (shell.json dock.pinned, hypr/nox/binds/apps.lua)
+zen-browser-bin
+helium-browser-bin
+chromium
+slack-desktop
+stably-orca-bin
+pavucontrol-qt                  # Ctrl+Super+V
+systemsettings                  # Super+I
+bluetui                         # zsh alias bt
+fastfetch                       # zsh alias ff
+manual: Zed (zed.dev/install.sh -> ~/.local/zed.app), Hubstaff (hubstaff.com installer)

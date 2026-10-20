@@ -1,0 +1,90 @@
+# nox desktop: official-repo packages (pacman). Read by install.sh (`./install.sh --only packages`)
+# and `nox doctor`.
+#
+# Format: one entry per line; `#` starts a comment.
+#   pkg              install pkg
+#   pkg | other      either one satisfies the entry (the first one is installed)
+#   pkg | ~/path     an existing path also satisfies it (something installed by hand)
+# Only what this desktop uses; derived from the commands the scripts, the Lua config and the
+# QML call. Personal apps and build tools are in optional.txt.
+
+## bootstrap: install.sh, stow, nox CLI (bash + python3 stdlib), theme check (luac)
+git
+stow
+jq
+python
+lua
+curl
+
+## compositor: Hyprland 0.56 (Lua config), idle, lock, night light, colour picker, portals
+hyprland
+hypridle
+hyprlock
+hyprsunset
+hyprpicker
+xdg-desktop-portal
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+xdg-desktop-portal-kde          # FileChooser portal (xdg-desktop-portal/hyprland-portals.conf)
+polkit                          # the shell is the polkit agent (modules/polkit)
+gnome-keyring                   # secrets; unlocked at login by PAM (see README, greeter)
+
+## shell: Quickshell 0.3.2 (`qs -c nox`) and the Qt bits its QML uses
+quickshell
+qt6-svg
+qt6-imageformats                # webp/avif wallpapers and previews
+qt6-wayland
+plasma-integration              # QT_QPA_PLATFORMTHEME=kde (hypr/nox/env.lua)
+
+## desktop services the bar / control center talk to
+pipewire
+pipewire-pulse
+wireplumber
+libpulse                        # pactl
+playerctl
+brightnessctl
+upower                          # battery widget + charge limit (nox battery)
+networkmanager
+bluez
+bluez-utils
+libnotify                       # notify-send (nox CLI)
+
+## shell helpers: clipboard, screenshots, OCR, recording, launcher fallback
+wl-clipboard
+cliphist
+grim
+slurp
+hyprshot                        # frozen region shots (nox shot)
+satty                           # screenshot annotate (themed by nox theme)
+wf-recorder
+tesseract
+tesseract-data-eng
+imagemagick                     # magick: wallpaper prep, greeter wallpaper, Dolphin "nox" menu
+cava                            # desktop widget audio bars
+fuzzel                          # fallback launcher / emoji picker when the shell is down
+
+## apps the binds and the theme target
+ghostty                         # $TERMINAL
+kitty
+dolphin                         # Super+E (+ nox right-click service menus)
+kio-extras
+ffmpegthumbs
+electron43                      # Notes app (Ctrl+Super+S; nox notes)
+btop
+neovim
+
+## terminal: zsh + prompt + CLI tools .zshrc uses
+zsh
+starship
+tmux
+eza
+fzf
+yazi
+zsh-autosuggestions | ~/.zsh/zsh-autosuggestions
+zsh-syntax-highlighting | ~/.zsh/zsh-syntax-highlighting
+
+## fonts + GTK theme from the repos (more fonts in aur.txt)
+ttf-jetbrains-mono-nerd         # terminal font
+noto-fonts
+otf-monaspace | ~/.local/share/fonts/Monaspace   # `nv` Neovim window (nvim/ghostty.conf)
+adw-gtk-theme                   # tokens theme.gtk = adw-gtk3-dark (adw-gtk-theme-git provides it)
