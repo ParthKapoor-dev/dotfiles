@@ -15,6 +15,12 @@ _nox() {
         'dpms:screen power'
         'hypr:check / activate the Hyprland Lua config'
         'workspaces:save / restore open apps and window layout'
+        'detect:machine values into git-ignored local files'
+        'doctor:check the whole setup, with fixes'
+        'update:pull, migrate, re-stow, re-theme'
+        'phone:KDE Connect phone link'
+        'agents:coding agents (Mission Control)'
+        'voice:voice typing'
         'status:hypr + shell + theme + idle at a glance'
         'help:show help'
     )
@@ -30,7 +36,7 @@ _nox() {
         theme)
             if (( CURRENT == 3 )); then
                 _alternative \
-                    'subs:subcommand:(render check diff apply switch revert targets get)' \
+                    'subs:subcommand:(render check diff status apply switch revert targets get)' \
                     "looks:look:(${looks[*]})"
             elif [[ ${words[3]} == switch ]]; then
                 _values look $looks
@@ -50,6 +56,12 @@ _nox() {
             elif [[ ${words[3]} == set ]]; then _files; else _values option --all; fi ;;
         dpms) (( CURRENT == 3 )) && _values action on off toggle ;;
         hypr) (( CURRENT == 3 )) && _values subcommand status check on off ;;
+        detect) _values -w option --yes --print --check --get ;;
+        doctor) _values -w option --summary ;;
+        update) _values -w option --check --no-pull --migrate --mark-done ;;
+        phone) (( CURRENT == 3 )) && _values subcommand status send clip ring commands pair on off logs build ;;
+        agents) if (( CURRENT == 3 )); then _values subcommand toggle list usage focus prune hook
+                elif [[ ${words[3]} == hook ]]; then _values action status install uninstall; fi ;;
         workspaces|ws)
             local sdir=${XDG_STATE_HOME:-$HOME/.local/state}/nox/sessions
             local -a sess; sess=(${${(f)"$(print -l $sdir/*.json(N:t:r))"}})
@@ -59,7 +71,7 @@ _nox() {
                 elif (( ${#sess} )); then _values -w session $sess; fi
             fi ;;
         ipc) (( CURRENT == 3 )) && _values target launcher controlCenter notifications overview cheatsheet session dock popup wallpaper action hud layout polkit ;;
-        help) (( CURRENT == 3 )) && _values command theme shell layout shot record wallpaper dpms hypr workspaces ;;
+        help) (( CURRENT == 3 )) && _values command theme shell layout shot record wallpaper dpms hypr workspaces detect doctor update phone agents voice ;;
     esac
 }
 
