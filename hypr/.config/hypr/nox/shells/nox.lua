@@ -50,6 +50,7 @@ P.GLOBAL = {
     switcher_alt        = "switcherAlt",                    -- live (Alt_L release = switch)
     voice_hold          = "voiceHold",                      -- live (hold Super+Shift+Space = voice typing)
     voice_release       = "voiceRelease",                   -- live (any Space release ends a hold)
+    shelf               = "shelfToggle",                    -- live (Super+Shift+D, drop shelf)
 }
 
 -- exits != 0 only when no nox instance answers (`ipc call` to a missing
@@ -138,7 +139,8 @@ P.gestures = {
 -- Super+keypad -/+ zoom (ii ipc)     in-process cursor zoom (same 1..3 clamp)
 -- New: Super+Alt+D Do Not Disturb, Alt+Print window shot, Shift+Print monitor shot,
 -- Ctrl+Super+Space command palette (launcher ">": actions, toggles, binds with their keys),
--- hold Super+Shift+Space voice typing (Super+Space = launcher, Super+Alt+Space = float are taken).
+-- hold Super+Shift+Space voice typing (Super+Space = launcher, Super+Alt+Space = float are taken),
+-- Super+Shift+D drop shelf (Super+D = maximize).
 -- (Super+Space launcher and Super+Alt+N Control Center live in binds/custom.lua.)
 ---------------------------------------------------------------------------
 function P.binds(ctx)
@@ -200,6 +202,8 @@ function P.binds(ctx)
         { "SHIFT + Print", X("nox shot screen"), locked = true, desc = "Screenshot monitor" },
         { "ALT + Print", X("nox shot window"), locked = true, desc = "Screenshot window" },
         { "CTRL + Print", X("nox shot all"), locked = true, desc = "Screenshot all monitors" },
+        -- drop shelf (modules/shelf): park things dragged to the screen edge; this pins it open / closes it
+        { "SUPER + SHIFT + D", G("shelf"), desc = "Drop shelf: open / close" },
         { "SUPER + SHIFT + A", X(ipc("ask") .. " || pidof slurp || " .. HS .. "/snip_to_search.sh"), desc = "Circle to Ask: ask Claude about a screen region" },
         { "SUPER + SHIFT + X", X("nox shot ocr"), desc = "OCR region to clipboard" },
         { "SUPER + SHIFT + T", X("nox shot ocr"), desc = "OCR region to clipboard" },
@@ -243,6 +247,8 @@ function P.layer_rules(ctx)
         -- full-screen / static surfaces: no blur, no compositor animation (they animate themselves)
         { match = { namespace = "^nox:(wallpaper|corners|overview|widgets|agents|ask)$" }, blur = false },
         { match = { namespace = "^nox:(corners|overview|session|polkit|widgets|agents|ask)$" }, no_anim = true },
+        -- drop shelf: slides itself; soft shadow + accent glow stay out of the blur
+        { match = { namespace = "^nox:shelf$" }, no_anim = true, ignore_alpha = padded },
     }
 end
 
