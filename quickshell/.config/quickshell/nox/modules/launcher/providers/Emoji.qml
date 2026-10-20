@@ -6,8 +6,8 @@ import qs.services
 
 // Emoji picker. Prefix "." (Super+. = `qs -c nox ipc call launcher emoji`). Data: assets/emoji.tsv
 // (emoji, name, group, keywords; Unicode 17, no skin-tone variants), read on the first query.
-// Empty query = recently used first, then the full list in Unicode order. Enter = copy to the
-// clipboard, and type it into the focused app when wtype is installed.
+// Empty query = recently used first, then the full list in Unicode order. Enter = paste into the
+// window you were typing in (clipboard + Ctrl+V, Ctrl+Shift+V in terminals); Shift+Enter = copy only.
 // Shown as a tile grid (the launcher's grid mode, result.section = the grid section): empty query =
 // "Frequently Used" + every group in full, a search = one "Results" section with every match.
 // options.grid: false = the old list rows (options.limit then caps both lists).
@@ -62,13 +62,12 @@ Item {
             section,
             glyph: x.e,
             type: x.group.replace(/ &.*$/, ""),
-            actLabel: "Copy",
+            actLabel: "Paste",
             highlight: at < 0 ? [] : Array.from({ length: q.length }, (_, i) => at + i),
             score,
-            run: () => {
-                Frecency.record("emoji", x.e);
-                Quickshell.execDetached(["sh", "-c", "printf %s \"$1\" | wl-copy; if command -v wtype >/dev/null; then sleep 0.15; wtype -- \"$1\"; fi", "sh", x.e]);
-            }
+            // paste into the window you were typing in (clipboard + Ctrl+V, as pinned snippets do)
+            run: () => { Frecency.record("emoji", x.e); Pins.paste({ text: x.e }); },
+            alt: () => { Frecency.record("emoji", x.e); Pins.copy({ text: x.e }); }, altLabel: "Copy"
         };
     }
 
