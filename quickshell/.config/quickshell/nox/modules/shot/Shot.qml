@@ -21,6 +21,8 @@ import qs.services
 //             to the file and reopens this card with the result)
 //   copy      image -> clipboard again
 //   pin       floating always-on-top copy (ShotPin.qml); any number at once
+//   shelf     park it on the drop shelf (modules/shelf; a copy the shelf owns while unsaved, the file
+//             itself once saved); only while modules.shelf is on
 //   phone     nox phone send <file>; only while the phone link is up and the phone reachable
 //   upload    screenshot.upload (below); asks first, then copies the link. service "none" hides it
 //   delete    unsaved: discard the capture; saved: move the file to the Trash (gio trash)
@@ -61,13 +63,14 @@ Scope {
     readonly property string upLabel: up.label ?? (up.command ? "your upload host" : services[upService]?.label ?? upService)
     readonly property bool canUpload: upService !== "none" && upCommand !== null
 
-    readonly property var actionIds: cardOpts.actions ?? ["save", "folder", "annotate", "copy", "pin", "phone", "upload", "delete"]
+    readonly property var actionIds: cardOpts.actions ?? ["save", "folder", "annotate", "copy", "pin", "shelf", "phone", "upload", "delete"]
     readonly property var actionDefs: ({
         save: { icon: "download", label: "Save to Screenshots", show: () => !root.saved },
         folder: { icon: "folder", label: "Show in folder", show: () => root.saved },
         annotate: { icon: "edit", label: "Annotate", show: () => true },
         copy: { icon: "clip", label: "Copy", show: () => true },
         pin: { icon: "push_pin", label: "Pin on screen", show: () => true },
+        shelf: { icon: "move_to_inbox", label: "Park on the Shelf", show: () => Config.moduleEnabled("shelf") },
         phone: { icon: "phone", label: "Send to " + (Phone.device?.name ?? "phone"), show: () => Phone.available && Phone.connected },
         upload: { icon: "cloud_upload", label: "Upload to " + root.upLabel, show: () => root.canUpload },
         delete: { icon: "trash", label: root.saved ? "Move to Trash" : "Discard", show: () => true }
@@ -122,6 +125,11 @@ Scope {
             break;
         case "pin":
             pin(f);
+            dismiss();
+            break;
+        case "shelf":
+            // an unsaved capture lives in $XDG_RUNTIME_DIR (gone at logout): the shelf keeps a copy
+            if (saved) Shelf.addPaths([f]); else Shelf.addCopy(f);
             dismiss();
             break;
         case "upload":
