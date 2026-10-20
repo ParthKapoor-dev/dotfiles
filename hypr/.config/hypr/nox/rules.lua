@@ -28,7 +28,7 @@ local window_rules = {
     { match = { class = "^(guifetch)$" }, float = true },
     { match = { class = "^(pavucontrol)$" }, float = true, size = SIZE_45, center = true },
     -- Dolphin's dialogs float centred instead of tiling next to it
-    { match = { class = "^(org\\.kde\\.dolphin)$", title = "^(Properties for .*|Open With.*|Configure.*|Create New .*|New Folder.*|Rename .*|Extracting.*|Compressing.*|Moving.*|Copying.*|Deleting.*|Information.*)$" }, float = true, center = true },
+    { match = { class = "^(org\\.kde\\.dolphin)$", title = "^(Properties for .*|Open With.*|Configure.*|Create New .*|New Folder.*|Rename .*|Extracting.*|Compressing.*|Moving.*|Deleting.*|Information.*)$" }, float = true, center = true },
     -- nox Notes (Ctrl+Super+S, nox notes): floating, pinned = shown on every desktop, centred on its
     -- first show; later shows keep where you left it (hidden = parked on special:notes). Started
     -- hidden at login (`nox notes start`, initial title "Notes·") it maps straight onto special:notes
