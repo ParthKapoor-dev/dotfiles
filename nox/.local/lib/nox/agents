@@ -18,10 +18,15 @@ usage: nox agents [toggle|open|close|grid]  the bar panel (Ctrl+Super+M; IPC tar
                                             (the shell then pastes into the window), 4 = refused
                                             (the session waits on a permission prompt / ended)
        nox agents repos [--json]            git repos under agents.roots (recent first)
-       nox agents start [--mode ghostty|orca] [--dry-run] <dir> TASK...   start Claude there:
-                                            ghostty = a new Ghostty window, inside tmux (-L
-                                            nox-agents) unless agents.tmux is false; orca = a new
-                                            Orca worktree with the agent (falls back to Ghostty)
+       nox agents start [--mode background|ghostty|orca] [--dry-run] <dir> TASK...   start Claude:
+                                            background (default) = no window: a detached tmux
+                                            session (-L nox-agents), open it later with Jump in
+                                            the panel or `nox agents attach`; ghostty = a new
+                                            Ghostty window, inside tmux unless agents.tmux is
+                                            false; orca = a new Orca worktree with the agent
+                                            (falls back to background)
+       nox agents attach [<session-id>|<tmux-name>]  attach this terminal to a background agent
+                                            (no argument = list them)
        nox agents answer <session-id> <choice>      the answer-backend seam: runs
                                             ~/.local/lib/nox/agent-answer if present, else exit 3
        nox agents prune                     drop ended / dead sessions now
@@ -380,14 +385,17 @@ def start(argv):
     d, task = os.path.realpath(expand(rest[0])), " ".join(rest[1:]).strip()
     if not os.path.isdir(d) or not task:
         return emit({"ok": False, "error": "no such directory" if not os.path.isdir(d) else "empty task"}, 1)
-    mode = mode or shell_opts().get("launch") or "ghostty"
-    note = ""
+    mode = mode or shell_opts().get("launch") or "background"
+    if mode == "background" and not which("tmux"):
+        mode, note = "ghostty", "tmux isn't installed · started in Ghostty"
+    else:
+        note = ""
     if mode == "orca":
         cli = orca_cli()
         code, out, err = run([cli, "repo", "show", "--repo", "path:" + d, "--json"], timeout=6)
         if code != 0:
-            note = "Orca: %s isn't an Orca repo (or Orca isn't running) · started in Ghostty" % os.path.basename(d)
-            mode = "ghostty"
+            note = "Orca: %s isn't an Orca repo (or Orca isn't running) · started in the background" % os.path.basename(d)
+            mode = "background" if which("tmux") else "ghostty"
         else:
             name = slug(task) + "-" + os.urandom(2).hex()
             cmd = [cli, "worktree", "create", "--repo", "path:" + d, "--name", name, "--agent", "claude",
@@ -402,25 +410,31 @@ def start(argv):
             if code == 0:
                 return emit({"ok": True, "mode": "orca", "worktree": (res.get("worktree") or {}).get("path") or name,
                              "handle": res.get("agentTerminalHandle") or (res.get("startupTerminal") or {}).get("handle")})
-            note = "Orca couldn't start it (%s) · started in Ghostty" % ((err or out).strip().splitlines() or ["error"])[-1][:120]
-            mode = "ghostty"
+            note = "Orca couldn't start it (%s) · started in the background" % ((err or out).strip().splitlines() or ["error"])[-1][:120]
+            mode = "background" if which("tmux") else "ghostty"
     # ghostty: the task goes through a 0600 file, so no terminal re-parses it
     ldir = os.path.join(RUN, "launch")
     os.makedirs(ldir, mode=0o700, exist_ok=True)
     tf = os.path.join(ldir, "%d-%s.task" % (time.time() * 1000, os.urandom(3).hex()))
     name = os.path.basename(d) + "-" + os.urandom(2).hex()
-    argv = term_argv(d, [os.path.join(LIB, "agents"), "run", d, tf, name], title=os.path.basename(d) + " · claude")
+    inner = [os.path.join(LIB, "agents"), "run", d, tf, name]
+    if mode == "background":
+        argv = inner + ["--detached"]
+    else:
+        argv = term_argv(d, inner, title=os.path.basename(d) + " · claude")
     if dry:
-        return emit({"ok": True, "mode": "ghostty", "tmux": shell_opts().get("tmux", True) is not False, "argv": argv, "note": note})
+        return emit({"ok": True, "mode": mode, "tmux": mode == "background" or shell_opts().get("tmux", True) is not False, "argv": argv, "note": note})
     fd = os.open(tf, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "w") as f:
         f.write(task)
     spawn(argv, cwd=d)
-    return emit({"ok": True, "mode": "ghostty", "session": name, "note": note})
+    return emit({"ok": True, "mode": mode, "session": name, "note": note,
+                 "attach": "nox agents attach " + name if mode == "background" else None})
 
 
-def run_in_terminal(d, tf, name):
-    """Inside the new terminal: a clean env, then claude (in tmux unless agents.tmux is false)."""
+def run_in_terminal(d, tf, name, detached=False):
+    """Inside the new terminal: a clean env, then claude (in tmux unless agents.tmux is false).
+    detached: no terminal at all, a background tmux session (Jump / `nox agents attach` opens it)."""
     try:
         with open(tf) as f:
             task = f.read()
@@ -435,10 +449,43 @@ def run_in_terminal(d, tf, name):
     except OSError:
         os.chdir(HOME)
     argv = agent_cmd() + ([task] if task else [])
+    conf = os.path.join(LIB, "agents-tmux.conf")
+    if detached:
+        os.execvp("tmux", ["tmux", "-L", TMUX_SOCK, "-f", conf, "new-session", "-d", "-x", "200", "-y", "50",
+                           "-s", name, "-c", os.getcwd(), "--"] + argv)
     if shell_opts().get("tmux", True) is not False and which("tmux"):
-        conf = os.path.join(LIB, "agents-tmux.conf")
         os.execvp("tmux", ["tmux", "-L", TMUX_SOCK, "-f", conf, "new-session", "-s", name, "-c", os.getcwd(), "--"] + argv)
     os.execvp(argv[0], argv)
+
+
+def attach(argv):
+    """Attach the calling terminal to a background agent's tmux session (or list them)."""
+    if not which("tmux"):
+        print("nox agents attach: tmux isn't installed", file=sys.stderr); return 1
+    code, out, _ = run(["tmux", "-L", TMUX_SOCK, "list-sessions", "-F", "#{session_name}\t#{session_attached}\t#{pane_current_path}"], timeout=5)
+    names = [l.split("\t") for l in out.splitlines() if l.strip()] if code == 0 else []
+    if not argv:
+        if not names:
+            print("no background agents"); return 0
+        for n, att, cwd in names:
+            print("%-28s %s  %s" % (n, "attached" if att != "0" else "detached", cwd.replace(HOME, "~")))
+        return 0
+    want = argv[0]
+    target = want if any(n[0] == want for n in names) else None
+    if not target:   # a session id: its tmux pane, from the status hook's state
+        try:
+            with open(os.path.join(RUN, want + ".json")) as f:
+                s = json.load(f)
+            target = (s.get("tmux") or {}).get("session") or None
+            sock = (s.get("tmux") or {}).get("sock")
+        except (OSError, ValueError):
+            s, sock = None, None
+        if s and sock and not target:
+            c2, o2, _ = run(["tmux", "-S", sock, "display-message", "-p", "-t", (s.get("tmux") or {}).get("pane", ""), "#{session_name}"], timeout=5)
+            target = o2.strip() or None
+    if not target:
+        print("nox agents attach: no background agent %r (nox agents attach = list)" % want, file=sys.stderr); return 1
+    os.execvp("tmux", ["tmux", "-L", TMUX_SOCK, "attach-session", "-t", target])
 
 
 # ---- reply ----
@@ -703,18 +750,21 @@ def focus(sid, dry=False, quiet=False):
             proj = (s.get("project") or "").lower()
             target = next((c for c in cands if proj and proj in (c.get("title") or "").lower()), cands[0])
             break
-    if not target and s.get("kind") == "orca":
-        target = next((c for c in clients if (c.get("class") or "").lower() == "orca"), None)
     orca = s.get("orca") or {}
+    # shown in an Orca pane: kind "orca", or any session that recorded an Orca terminal handle
+    # (a background Claude job watched from Orca has kind "claude" but still lives in that pane)
+    in_orca = s.get("kind") == "orca" or bool(orca.get("handle"))
+    if not target and in_orca:
+        target = next((c for c in clients if (c.get("class") or "").lower() == "orca"), None)
     reattach = bool(tname and not attached and not target)
     if dry:
         print(json.dumps({"window": target and {k: target.get(k) for k in ("address", "class", "pid", "workspace", "at", "size")},
-                          "orca": orca.get("handle") if s.get("kind") == "orca" else None, "bg": s.get("bg", False),
+                          "orca": orca.get("handle") if in_orca else None, "bg": s.get("bg", False),
                           "tmux": tname or None, "reattach": reattach}))
         return 0 if target or reattach else 1
     if target:
         hypr_dispatch('hl.dsp.focus({ window = "address:%s" })' % target["address"])
-    if orca.get("handle") and s.get("kind") == "orca":
+    if orca.get("handle") and in_orca:
         try:
             subprocess.run([orca_cli(s), "terminal", "switch", "--terminal", orca["handle"]], stdout=subprocess.DEVNULL,
                            stderr=subprocess.DEVNULL, timeout=4)
@@ -843,7 +893,9 @@ def main(argv):
     if cmd == "start":
         return start(argv[1:])
     if cmd == "run" and len(argv) >= 4:
-        run_in_terminal(argv[1], argv[2], argv[3])
+        run_in_terminal(argv[1], argv[2], argv[3], detached="--detached" in argv[4:])
+    if cmd == "attach":
+        return attach(argv[1:])
         return 1
     if cmd == "answer" and len(argv) > 2:
         return answer(argv[1], argv[2])

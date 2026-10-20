@@ -46,7 +46,14 @@ Singleton {
     readonly property string popupId: "bar:agents"
     readonly property bool panelOpen: Panels.popup === popupId
     property bool gridOpen: false
-    readonly property bool open: panelOpen || gridOpen     // something on screen shows the sessions
+    property bool gridVisible: false     // AgentsView: the grid's window is really mapped
+    // something on screen shows the sessions (notifications hold back only then). gridOpen alone
+    // is not enough: a grid that never mapped, or was torn down without closeGrid(), left it true
+    // and silenced every notification
+    readonly property bool open: panelOpen || (gridOpen && gridVisible)
+    onGridVisibleChanged: if (!gridVisible && gridOpen && !gridHold.running) gridOpen = false
+    Timer { id: gridHold; interval: 1500 }     // the grid maps a moment after gridOpen turns on
+    onGridOpenChanged: if (gridOpen) gridHold.restart()
     property string focusId: ""          // item to select on open
     property string replyId: ""          // open the reply box on this session (panel)
     property int openSerial: 0           // bumps on every show() (the panel re-selects)
@@ -355,7 +362,9 @@ Singleton {
         if (open) return false;
         const dur = (s.turn?.end ?? 0) - (s.turn?.at ?? 0);
         if (dur < (opts.notifyDoneAfter ?? 20) * 1000) return false;
-        // you're looking at it: no notification
+        // you're looking at it: no notification. Not for Orca: one Orca window holds every Orca
+        // session, so "Orca is focused" says nothing about whether you see this one
+        if (s.kind === "orca") return true;
         const pid = Hyprland.activeToplevel?.lastIpcObject?.pid ?? -1;
         return !(s.chain ?? []).includes(pid);
     }

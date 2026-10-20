@@ -179,7 +179,15 @@ UserPromptSubmit) J_EV='
 PreToolUse) J_EV='
     (if ($p.tool_name | test("^(TodoWrite|TaskCreate|TaskUpdate|TaskList|TaskGet|ToolSearch)$")) then .
      else push({k: "tool", n: $p.tool_name, a: arg($p), id: $p.tool_use_id, s: "run", sub: ($p.agent_id != null)}) end)
-    | .perm = null | status("working")' ;;
+    # a question for the user (AskUserQuestion) or a plan to approve (ExitPlanMode) waits on you
+    # exactly like a permission prompt; PostToolUse clears it again
+    | if ($p.tool_name | test("^(AskUserQuestion|ExitPlanMode)$")) then
+        .perm = {tool: (if $p.tool_name == "ExitPlanMode" then "Plan" else "Question" end),
+                 cmd: "",
+                 desc: ((($p.tool_input.questions // [])[0].question // $p.tool_input.plan // "") | cut(200)),
+                 at: $now}
+        | status("needs-you") | .since = $now
+      else .perm = null | status("working") end' ;;
 PermissionRequest) J_EV='
     .perm = {tool: $p.tool_name, cmd: arg($p), desc: (($p.tool_input.description // "") | cut(200)), at: $now}
     | status("needs-you") | .since = $now' ;;

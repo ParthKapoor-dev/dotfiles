@@ -31,7 +31,7 @@ Scope {
         function focus(id: string): void { Agents.show(id); }
         function reply(id: string): void { Agents.show(id, true); }
         function answer(id: string, choice: string): void { Agents.answer(id, choice); }
-        function status(): string { return "sessions=" + Agents.alive.length + " working=" + Agents.working + " needs=" + Agents.needsYou + " errors=" + Agents.errors; }
+        function status(): string { return "sessions=" + Agents.alive.length + " working=" + Agents.working + " needs=" + Agents.needsYou + " errors=" + Agents.errors + " panel=" + Agents.panelOpen + " grid=" + Agents.gridOpen + "/" + Agents.gridVisible; }
     }
 
     // ---- jump to pane ----
@@ -129,6 +129,7 @@ Scope {
     PanelWindow {
         id: win
         visible: false
+        onVisibleChanged: Agents.gridVisible = visible
         screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
         color: "transparent"
         WlrLayershell.namespace: "nox:agents"
