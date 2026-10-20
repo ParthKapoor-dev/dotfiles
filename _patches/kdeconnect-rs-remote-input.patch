@@ -1,0 +1,1587 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 05e2b32..a260b2a 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -1050,7 +1050,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "cosmic-ext-connect-applet"
+-version = "0.9.0"
++version = "0.10.0"
+ dependencies = [
+  "anyhow",
+  "ashpd 0.13.12",
+@@ -2918,6 +2918,7 @@ dependencies = [
+  "ron",
+  "serde",
+  "serde_json",
++ "tempfile",
+  "tokio",
+  "tracing",
+  "tracing-appender",
+@@ -2925,6 +2926,7 @@ dependencies = [
+  "varlink",
+  "wayland-client",
+  "wayland-protocols",
++ "wayland-protocols-misc",
+  "wayland-protocols-wlr",
+  "zbus",
+ ]
+diff --git a/Cargo.toml b/Cargo.toml
+index da4ee52..59ffe8d 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -52,6 +52,8 @@ calloop-wayland-source = "0.4.1"
+ wayland-client = "0.31.14"
+ wayland-protocols = { version = "0.32.13", features = ["client", "staging"] }
+ wayland-protocols-wlr = { version = "0.3.12", features = ["client"] }
++wayland-protocols-misc = { version = "0.3.12", features = ["client"] }
++tempfile = "3.27.0"
+ 
+ kdeconnect-core = { path = "kdeconnect-core" }
+ kdeconnect-dbus-client = { path = "kdeconnect-dbus-client" }
+diff --git a/kdeconnect-core/src/config.rs b/kdeconnect-core/src/config.rs
+index d0afab5..93d8dbc 100644
+--- a/kdeconnect-core/src/config.rs
++++ b/kdeconnect-core/src/config.rs
+@@ -18,13 +18,16 @@ pub const DEVICE_ID_STORE: &str = "device_id";
+ /// Packet types we can RECEIVE from the phone (phone's outgoingCapabilities must overlap these).
+ /// The phone checks this list before sending unsolicited data (battery, SMS messages, etc.).
+ ///
+-/// NOTE: mousepad/remote-input is deliberately absent here and from
+-/// OUTGOING_CAPABILITIES below. There's no actual implementation behind
+-/// it — plugins/mousepad.rs is just a bare data struct, with no packet
+-/// dispatch anywhere in kdeconnect-service — and Remote Input also needs
+-/// compositor RDP support COSMIC doesn't provide yet (same reason it's in
+-/// plugin_config.rs's disabled-by-default set). Re-add kdeconnect.mousepad.request/keyboardstate here once
+-/// there's a real implementation to back it.
++/// Remote Input (kdeconnect.mousepad.request) is backed by
++/// plugins/mousepad.rs (packet -> input actions) and kdeconnect-service's
++/// remote_input.rs, which injects through the wlroots-style
++/// zwlr_virtual_pointer_v1 / zwp_virtual_keyboard_v1 protocols (Hyprland,
++/// Sway, river...). On a compositor without those globals the packets are
++/// received and dropped with a warning. Advertising this also makes the
++/// Android Presentation plugin available: its next/previous/fullscreen keys
++/// are plain mousepad requests. kdeconnect.presenter (the laser-pointer
++/// overlay) is NOT advertised: there is no overlay implementation, and
++/// "presenter" stays in plugin_config.rs's disabled-by-default set.
+ const INCOMING_CAPABILITIES: &[&str] = &[
+     "kdeconnect.battery",
+     "kdeconnect.clipboard",
+@@ -32,6 +35,7 @@ const INCOMING_CAPABILITIES: &[&str] = &[
+     "kdeconnect.connectivity_report",
+     "kdeconnect.contacts.response_uids_timestamps",
+     "kdeconnect.contacts.response_vcards",
++    "kdeconnect.mousepad.request",
+     "kdeconnect.mpris",
+     "kdeconnect.mpris.request",
+     "kdeconnect.notification",
+@@ -50,6 +54,10 @@ const OUTGOING_CAPABILITIES: &[&str] = &[
+     "kdeconnect.contacts.request_all_uids_timestamps",
+     "kdeconnect.contacts.request_vcards_by_uid",
+     "kdeconnect.findmyphone.request",
++    // Remote Input: keyboardstate is what the official desktop advertises;
++    // echo is the reply to a request carrying sendAck.
++    "kdeconnect.mousepad.echo",
++    "kdeconnect.mousepad.keyboardstate",
+     "kdeconnect.mpris",
+     "kdeconnect.mpris.request",
+     "kdeconnect.notification.request",
+diff --git a/kdeconnect-core/src/event.rs b/kdeconnect-core/src/event.rs
+index c3ffd71..50648c1 100644
+--- a/kdeconnect-core/src/event.rs
++++ b/kdeconnect-core/src/event.rs
+@@ -3,6 +3,7 @@ use tokio::io::AsyncRead;
+ 
+ use crate::{
+     device::{Device, DeviceId, DeviceState, PairState},
++    plugins::mousepad::MousePadRequest,
+     plugins::mpris::{Mpris, MprisAction, MprisRequest},
+     plugins::sms::SmsMessages,
+     protocol::ProtocolPacket,
+@@ -103,4 +104,7 @@ pub enum ConnectionEvent {
+     /// the whole way to the UI (same as SMS thumbnails) rather than
+     /// decoding here only to re-encode for the D-Bus signal/cache.
+     ContactPhotosReceived(HashMap<String, String>),
++    /// Phone -> `kdeconnect.mousepad.request` (Remote Input / presenter
++    /// slide keys), already parsed. The service injects it as local input.
++    MousePadRequest((DeviceId, MousePadRequest)),
+ }
+diff --git a/kdeconnect-core/src/lib.rs b/kdeconnect-core/src/lib.rs
+index f283d34..381d98b 100644
+--- a/kdeconnect-core/src/lib.rs
++++ b/kdeconnect-core/src/lib.rs
+@@ -161,7 +161,7 @@ impl KdeConnectCore {
+ 
+         match event {
+             CoreEvent::PacketReceived { device, packet } => {
+-                info!("[core] packet received from device: {}", device);
++                debug!("[core] packet received from device: {}", device);
+                 if let Some(device_obj) = self.device_manager.get_device(&device).await {
+                     self.plugin_registry
+                         .dispatch(
+@@ -291,6 +291,15 @@ impl KdeConnectCore {
+ 
+                 self.pending_pair.lock().await.remove(&id);
+ 
++                // Seed the dispatch gate from the persisted per-device
++                // disabled set. Without this the registry only learned about
++                // disabled plugins on a SetPluginEnabled toggle, so after a
++                // daemon restart every plugin was treated as enabled.
++                let disabled = plugin_config::load_disabled_plugins(&id.0).await;
++                self.plugin_registry
++                    .set_device_disabled(&id.0, disabled)
++                    .await;
++
+                 if device.pair_state == crate::device::PairState::Paired {
+                     let guard = self.writer_map.lock().await;
+                     if let Some(sender) = guard.get(&id) {
+@@ -304,6 +313,19 @@ impl KdeConnectCore {
+                     // Send our local command list so the Android app shows
+                     // the Run Command option (requires canAddCommand: true).
+                     plugins::run_command::send_command_list(&id, self.event_tx.clone()).await;
++
++                    // Remote Input: tell the phone we accept keyboard input,
++                    // as the official desktop's MousepadPlugin::connected()
++                    // does.
++                    if self.plugin_registry.is_plugin_enabled(&id.0, "mousepad").await {
++                        let guard = self.writer_map.lock().await;
++                        if let Some(sender) = guard.get(&id) {
++                            let _ = sender.send(ProtocolPacket::new(
++                                PacketType::MousePadKeyboardState,
++                                serde_json::json!({ "state": true }),
++                            ));
++                        }
++                    }
+                     
+                     if self.plugin_registry.is_plugin_enabled(&id.0, "systemvolume").await {
+                         plugins::systemvolume::on_device_connect(id.clone(), self.event_tx.clone());
+@@ -314,7 +336,7 @@ impl KdeConnectCore {
+                 self.broadcast_conn_event(conn_event);
+             }
+             TransportEvent::IncomingPacket { addr, id, raw } => {
+-                info!("[core] incoming packet.");
++                debug!("[core] incoming packet.");
+                 match serde_json::from_str::<ProtocolPacket>(&raw) {
+                     Ok(pkt) => {
+                         if let PacketType::Pair = pkt.packet_type {
+diff --git a/kdeconnect-core/src/plugin_config.rs b/kdeconnect-core/src/plugin_config.rs
+index 0ccaa94..2cb8197 100644
+--- a/kdeconnect-core/src/plugin_config.rs
++++ b/kdeconnect-core/src/plugin_config.rs
+@@ -23,9 +23,10 @@ pub async fn load_disabled_plugins(device_id: &str) -> HashSet<String> {
+         Ok(json) => serde_json::from_str::<HashSet<String>>(&json).unwrap_or_default(),
+         Err(_) => {
+             // No config yet — seed with plugins disabled by default.
+-            // Remote Input and Presentation Mode require compositor RDP support
+-            // which COSMIC does not yet provide.
+-            HashSet::from(["mousepad".to_string(), "presenter".to_string()])
++            // Presentation Mode's laser pointer (kdeconnect.presenter) needs
++            // an overlay window that isn't implemented. Remote Input
++            // ("mousepad") is implemented via Wayland virtual input.
++            HashSet::from(["presenter".to_string()])
+         }
+     }
+ }
+diff --git a/kdeconnect-core/src/plugin_interface.rs b/kdeconnect-core/src/plugin_interface.rs
+index 158f088..bce82df 100644
+--- a/kdeconnect-core/src/plugin_interface.rs
++++ b/kdeconnect-core/src/plugin_interface.rs
+@@ -57,15 +57,15 @@ pub(crate) fn packet_plugin_id(pt: &PacketType) -> Option<&'static str> {
+         | PacketType::SmsRequestAttachment => Some("sms"),
+         PacketType::SystemVolume | PacketType::SystemVolumeRequest => Some("systemvolume"),
+         PacketType::Telephony | PacketType::TelephonyRequestMute => Some("telephony"),
++        PacketType::MousePadEcho
++        | PacketType::MousePadKeyboardState
++        | PacketType::MousePadRequest => Some("mousepad"),
++        PacketType::Presenter => Some("presenter"),
+         // Core / unmanaged packets are never gated
+         PacketType::Identity
+         | PacketType::Pair
+         | PacketType::Lock
+         | PacketType::LockRequest
+-        | PacketType::MousePadEcho
+-        | PacketType::MousePadKeyboardState
+-        | PacketType::MousePadRequest
+-        | PacketType::Presenter
+         | PacketType::Sftp
+         | PacketType::SftpRequest
+         | PacketType::Unknown(_) => None,
+@@ -125,7 +125,16 @@ impl PluginRegistry {
+         }
+ 
+         let body = packet.body.clone();
+-        info!("[dispatch] packet type: {:?}", packet.packet_type);
++        // Remote-input packets arrive at touch rate (tens per second);
++        // keep them out of the info-level journal.
++        if matches!(
++            packet.packet_type,
++            PacketType::MousePadRequest | PacketType::Presenter
++        ) {
++            debug!("[dispatch] packet type: {:?}", packet.packet_type);
++        } else {
++            info!("[dispatch] packet type: {:?}", packet.packet_type);
++        }
+         let connection_tx = tx;
+         let mpris_connection_tx = mpris_tx;
+         let payload_info = packet.payload_transfer_info;
+@@ -272,6 +281,39 @@ impl PluginRegistry {
+                     clipboard.received_connect_packet(connection_tx).await;
+                 }
+             }
++            PacketType::MousePadRequest => {
++                let request = plugins::mousepad::MousePadRequest::from_body(&body);
++                if request.send_ack {
++                    let echo = ProtocolPacket::new(
++                        PacketType::MousePadEcho,
++                        plugins::mousepad::MousePadRequest::ack_body(&body),
++                    );
++                    let _ = core_tx.send(CoreEvent::SendPacket {
++                        device: device.device_id.clone(),
++                        packet: echo,
++                    });
++                }
++                if request.is_high_rate() {
++                    debug!("[mousepad] {:?}", request);
++                } else {
++                    // Never log typed text: it can be a password.
++                    debug!(
++                        "[mousepad] command (key: {} chars, specialKey: {})",
++                        request.key.chars().count(),
++                        request.special_key
++                    );
++                }
++                let _ = connection_tx.send(ConnectionEvent::MousePadRequest((
++                    device.device_id.clone(),
++                    request,
++                )));
++            }
++            PacketType::Presenter => {
++                // Laser-pointer overlay (kdeconnect.presenter dx/dy/stop) is
++                // not implemented; the presenter's slide keys arrive as
++                // kdeconnect.mousepad.request and are handled above.
++                debug!("[presenter] pointer packet ignored (not implemented)");
++            }
+             PacketType::MousePadKeyboardState => {
+                 if let Ok(keyboard_state) =
+                     serde_json::from_value::<plugins::mousepad::KeyboardState>(body)
+diff --git a/kdeconnect-core/src/plugins/mousepad.rs b/kdeconnect-core/src/plugins/mousepad.rs
+index 9103934..bf059e3 100644
+--- a/kdeconnect-core/src/plugins/mousepad.rs
++++ b/kdeconnect-core/src/plugins/mousepad.rs
+@@ -1,6 +1,515 @@
++//! Remote Input (`kdeconnect.mousepad.*`): the phone acts as a touchpad and
++//! keyboard.
++//!
++//! This module is the protocol half only: it turns a
++//! `kdeconnect.mousepad.request` body into a list of abstract
++//! [`InputAction`]s, with the same precedence and defaults as the official
++//! desktop (kdeconnect-kde `plugins/mousepad/waylandremoteinput.cpp`). The
++//! service turns those actions into Wayland virtual-pointer / virtual-keyboard
++//! requests (kdeconnect-service `remote_input.rs`).
++
+ use serde::{Deserialize, Serialize};
++use serde_json::Value;
++
++/// linux/input-event-codes.h pointer buttons.
++pub const BTN_LEFT: u32 = 0x110;
++pub const BTN_RIGHT: u32 = 0x111;
++pub const BTN_MIDDLE: u32 = 0x112;
++
++/// linux/input-event-codes.h key codes used by the special-key table.
++pub mod keys {
++    pub const KEY_ESC: u32 = 1;
++    pub const KEY_BACKSPACE: u32 = 14;
++    pub const KEY_TAB: u32 = 15;
++    pub const KEY_ENTER: u32 = 28;
++    pub const KEY_LEFTCTRL: u32 = 29;
++    pub const KEY_LEFTSHIFT: u32 = 42;
++    pub const KEY_LEFTALT: u32 = 56;
++    pub const KEY_F1: u32 = 59;
++    pub const KEY_F2: u32 = 60;
++    pub const KEY_F3: u32 = 61;
++    pub const KEY_F4: u32 = 62;
++    pub const KEY_F5: u32 = 63;
++    pub const KEY_F6: u32 = 64;
++    pub const KEY_F7: u32 = 65;
++    pub const KEY_F8: u32 = 66;
++    pub const KEY_F9: u32 = 67;
++    pub const KEY_F10: u32 = 68;
++    pub const KEY_SCROLLLOCK: u32 = 70;
++    pub const KEY_F11: u32 = 87;
++    pub const KEY_F12: u32 = 88;
++    pub const KEY_SYSRQ: u32 = 99;
++    pub const KEY_LINEFEED: u32 = 101;
++    pub const KEY_HOME: u32 = 102;
++    pub const KEY_UP: u32 = 103;
++    pub const KEY_PAGEUP: u32 = 104;
++    pub const KEY_LEFT: u32 = 105;
++    pub const KEY_RIGHT: u32 = 106;
++    pub const KEY_END: u32 = 107;
++    pub const KEY_DOWN: u32 = 108;
++    pub const KEY_PAGEDOWN: u32 = 109;
++    pub const KEY_DELETE: u32 = 111;
++    pub const KEY_LEFTMETA: u32 = 125;
++}
++
++use keys::*;
++
++/// `specialKey` → evdev key code. Index is the protocol value; keep in sync
++/// with `SpecialKeysMap` in kdeconnect-kde and `KeyListenerView.SpecialKeysMap`
++/// in kdeconnect-android. 0 (and 3 on Android, which sends Enter as 12) is
++/// unused/invalid.
++pub const SPECIAL_KEYS: [u32; 33] = [
++    0,              // 0  invalid
++    KEY_BACKSPACE,  // 1
++    KEY_TAB,        // 2
++    KEY_LINEFEED,   // 3
++    KEY_LEFT,       // 4
++    KEY_UP,         // 5
++    KEY_RIGHT,      // 6
++    KEY_DOWN,       // 7
++    KEY_PAGEUP,     // 8
++    KEY_PAGEDOWN,   // 9
++    KEY_HOME,       // 10
++    KEY_END,        // 11
++    KEY_ENTER,      // 12
++    KEY_DELETE,     // 13
++    KEY_ESC,        // 14
++    KEY_SYSRQ,      // 15
++    KEY_SCROLLLOCK, // 16
++    KEY_LEFTCTRL,   // 17
++    KEY_LEFTALT,    // 18
++    KEY_LEFTSHIFT,  // 19
++    KEY_LEFTMETA,   // 20
++    KEY_F1,         // 21
++    KEY_F2,         // 22
++    KEY_F3,         // 23
++    KEY_F4,         // 24
++    KEY_F5,         // 25
++    KEY_F6,         // 26
++    KEY_F7,         // 27
++    KEY_F8,         // 28
++    KEY_F9,         // 29
++    KEY_F10,        // 30
++    KEY_F11,        // 31
++    KEY_F12,        // 32
++];
++
++/// Map a protocol `specialKey` value to an evdev key code.
++pub fn special_key_code(special_key: i64) -> Option<u32> {
++    if special_key <= 0 {
++        return None;
++    }
++    SPECIAL_KEYS
++        .get(special_key as usize)
++        .copied()
++        .filter(|code| *code != 0)
++}
++
++#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
++pub struct Modifiers {
++    pub ctrl: bool,
++    pub alt: bool,
++    pub shift: bool,
++    pub super_: bool,
++}
++
++impl Modifiers {
++    pub fn any(&self) -> bool {
++        self.ctrl || self.alt || self.shift || self.super_
++    }
++
++    /// The evdev codes of the modifier keys that are held, in press order.
++    pub fn key_codes(&self) -> Vec<u32> {
++        let mut codes = Vec::new();
++        if self.ctrl {
++            codes.push(KEY_LEFTCTRL);
++        }
++        if self.alt {
++            codes.push(KEY_LEFTALT);
++        }
++        if self.shift {
++            codes.push(KEY_LEFTSHIFT);
++        }
++        if self.super_ {
++            codes.push(KEY_LEFTMETA);
++        }
++        codes
++    }
++}
++
++/// One `kdeconnect.mousepad.request` body. Parsed leniently, like the Qt
++/// `np.get<T>(key, default)` calls upstream: a missing or mistyped field
++/// takes its default instead of rejecting the whole packet.
++#[derive(Clone, Debug, Default, PartialEq)]
++pub struct MousePadRequest {
++    pub dx: f64,
++    pub dy: f64,
++    pub x: Option<f64>,
++    pub y: Option<f64>,
++    pub single_click: bool,
++    pub double_click: bool,
++    pub middle_click: bool,
++    pub right_click: bool,
++    pub single_hold: bool,
++    pub single_release: bool,
++    pub scroll: bool,
++    pub key: String,
++    pub special_key: i64,
++    pub modifiers: Modifiers,
++    pub send_ack: bool,
++}
++
++fn get_bool(body: &Value, key: &str) -> bool {
++    match body.get(key) {
++        Some(Value::Bool(b)) => *b,
++        Some(Value::Number(n)) => n.as_f64().is_some_and(|v| v != 0.0),
++        Some(Value::String(s)) => s.eq_ignore_ascii_case("true"),
++        _ => false,
++    }
++}
++
++fn get_f64(body: &Value, key: &str) -> Option<f64> {
++    match body.get(key) {
++        Some(Value::Number(n)) => n.as_f64().filter(|v| v.is_finite()),
++        Some(Value::String(s)) => s.trim().parse::<f64>().ok().filter(|v| v.is_finite()),
++        _ => None,
++    }
++}
++
++impl MousePadRequest {
++    pub fn from_body(body: &Value) -> Self {
++        Self {
++            dx: get_f64(body, "dx").unwrap_or(0.0),
++            dy: get_f64(body, "dy").unwrap_or(0.0),
++            x: get_f64(body, "x"),
++            y: get_f64(body, "y"),
++            single_click: get_bool(body, "singleclick"),
++            double_click: get_bool(body, "doubleclick"),
++            middle_click: get_bool(body, "middleclick"),
++            right_click: get_bool(body, "rightclick"),
++            single_hold: get_bool(body, "singlehold"),
++            single_release: get_bool(body, "singlerelease"),
++            scroll: get_bool(body, "scroll"),
++            key: body
++                .get("key")
++                .and_then(Value::as_str)
++                .unwrap_or_default()
++                .to_string(),
++            special_key: get_f64(body, "specialKey").map_or(0, |v| v as i64),
++            modifiers: Modifiers {
++                ctrl: get_bool(body, "ctrl"),
++                alt: get_bool(body, "alt"),
++                shift: get_bool(body, "shift"),
++                super_: get_bool(body, "super"),
++            },
++            send_ack: get_bool(body, "sendAck"),
++        }
++    }
++
++    /// The actions this request asks for, in the order they must be
++    /// injected. Mirrors `WaylandRemoteInput::handlePacket` upstream: the
++    /// first matching click/hold/scroll/key field wins; a request with none
++    /// of those is a relative pointer motion.
++    pub fn actions(&self) -> Vec<InputAction> {
++        let click = |button| {
++            [
++                InputAction::Button { button, pressed: true },
++                InputAction::Button { button, pressed: false },
++            ]
++        };
+ 
++        let is_command = self.single_click
++            || self.double_click
++            || self.middle_click
++            || self.right_click
++            || self.single_hold
++            || self.single_release
++            || self.scroll
++            || !self.key.is_empty()
++            || self.special_key != 0;
++
++        if !is_command {
++            if self.dx != 0.0 || self.dy != 0.0 {
++                return vec![InputAction::Motion {
++                    dx: self.dx,
++                    dy: self.dy,
++                }];
++            }
++            // Absolute `x`/`y` positioning has no in-tree sender (the
++            // Android app only sends deltas) and needs output geometry to
++            // map onto; ignore it, like an empty packet.
++            return Vec::new();
++        }
++
++        if self.single_click {
++            click(BTN_LEFT).to_vec()
++        } else if self.double_click {
++            [click(BTN_LEFT), click(BTN_LEFT)].concat()
++        } else if self.middle_click {
++            click(BTN_MIDDLE).to_vec()
++        } else if self.right_click {
++            click(BTN_RIGHT).to_vec()
++        } else if self.single_hold {
++            vec![InputAction::Button {
++                button: BTN_LEFT,
++                pressed: true,
++            }]
++        } else if self.single_release {
++            vec![InputAction::Button {
++                button: BTN_LEFT,
++                pressed: false,
++            }]
++        } else if self.scroll {
++            // KDE Connect's vertical sign is the opposite of Wayland's
++            // (positive dy = scroll up); horizontal matches. Same inversion
++            // upstream applies before handing the delta to libei.
++            if self.dx == 0.0 && self.dy == 0.0 {
++                return Vec::new();
++            }
++            vec![InputAction::Scroll {
++                horizontal: self.dx,
++                vertical: -self.dy,
++            }]
++        } else {
++            let special = special_key_code(self.special_key);
++            if special.is_none() && self.key.is_empty() {
++                return Vec::new();
++            }
++            let mods = self.modifiers;
++            let mut out = Vec::new();
++            for code in mods.key_codes() {
++                out.push(InputAction::Key { code, pressed: true });
++            }
++            if mods.any() {
++                out.push(InputAction::SetModifiers(mods));
++            }
++            if let Some(code) = special {
++                out.push(InputAction::Key { code, pressed: true });
++                out.push(InputAction::Key { code, pressed: false });
++            } else {
++                out.push(InputAction::Text(self.key.clone()));
++            }
++            if mods.any() {
++                out.push(InputAction::SetModifiers(Modifiers::default()));
++            }
++            for code in mods.key_codes().into_iter().rev() {
++                out.push(InputAction::Key { code, pressed: false });
++            }
++            out
++        }
++    }
++
++    /// Body of the `kdeconnect.mousepad.echo` reply sent when the request
++    /// carried `sendAck`: the request echoed back with `isAck: true`.
++    pub fn ack_body(body: &Value) -> Value {
++        let mut echo = body.clone();
++        if let Value::Object(map) = &mut echo {
++            map.remove("sendAck");
++            map.insert("isAck".into(), Value::Bool(true));
++        }
++        echo
++    }
++
++    /// True for the high-rate packets (pointer motion / scroll) that should
++    /// not be logged above debug level.
++    pub fn is_high_rate(&self) -> bool {
++        self.key.is_empty()
++            && self.special_key == 0
++            && !(self.single_click
++                || self.double_click
++                || self.middle_click
++                || self.right_click
++                || self.single_hold
++                || self.single_release)
++    }
++}
++
++/// Abstract input action, independent of the injection backend.
++#[derive(Clone, Debug, PartialEq)]
++pub enum InputAction {
++    /// Relative pointer motion in (unaccelerated) pixels.
++    Motion { dx: f64, dy: f64 },
++    /// Pointer button (`BTN_*`) press or release.
++    Button { button: u32, pressed: bool },
++    /// Continuous scroll in Wayland convention (positive = down / right).
++    Scroll { horizontal: f64, vertical: f64 },
++    /// Key press/release by evdev key code.
++    Key { code: u32, pressed: bool },
++    /// Set the logical modifier state for the following key events.
++    SetModifiers(Modifiers),
++    /// Type arbitrary Unicode text (one key press/release per character).
++    Text(String),
++}
++
++/// `kdeconnect.mousepad.keyboardstate`, desktop → phone: whether the desktop
++/// can receive keyboard input. The official desktop sends it on connect.
+ #[derive(Debug, Default, Deserialize, Serialize)]
+ pub struct KeyboardState {
+-    state: Option<bool>,
++    pub state: Option<bool>,
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use serde_json::json;
++
++    fn actions(body: Value) -> Vec<InputAction> {
++        MousePadRequest::from_body(&body).actions()
++    }
++
++    #[test]
++    fn motion() {
++        assert_eq!(
++            actions(json!({"dx": 3.5, "dy": -2})),
++            vec![InputAction::Motion { dx: 3.5, dy: -2.0 }]
++        );
++        assert!(actions(json!({})).is_empty());
++        assert!(actions(json!({"dx": 0, "dy": 0})).is_empty());
++        // absolute positioning is not supported
++        assert!(actions(json!({"x": 0.5, "y": 0.5})).is_empty());
++    }
++
++    #[test]
++    fn clicks() {
++        let press = |button| InputAction::Button { button, pressed: true };
++        let release = |button| InputAction::Button { button, pressed: false };
++        assert_eq!(
++            actions(json!({"singleclick": true})),
++            vec![press(BTN_LEFT), release(BTN_LEFT)]
++        );
++        assert_eq!(
++            actions(json!({"doubleclick": true})),
++            vec![press(BTN_LEFT), release(BTN_LEFT), press(BTN_LEFT), release(BTN_LEFT)]
++        );
++        assert_eq!(
++            actions(json!({"middleclick": true})),
++            vec![press(BTN_MIDDLE), release(BTN_MIDDLE)]
++        );
++        assert_eq!(
++            actions(json!({"rightclick": true})),
++            vec![press(BTN_RIGHT), release(BTN_RIGHT)]
++        );
++        assert_eq!(actions(json!({"singlehold": true})), vec![press(BTN_LEFT)]);
++        assert_eq!(actions(json!({"singlerelease": true})), vec![release(BTN_LEFT)]);
++        // a click packet never also moves the pointer
++        assert_eq!(
++            actions(json!({"singleclick": true, "dx": 5, "dy": 5})),
++            vec![press(BTN_LEFT), release(BTN_LEFT)]
++        );
++        // false flags are ignored
++        assert_eq!(
++            actions(json!({"singleclick": false, "dx": 1})),
++            vec![InputAction::Motion { dx: 1.0, dy: 0.0 }]
++        );
++    }
++
++    #[test]
++    fn scroll_inverts_vertical() {
++        assert_eq!(
++            actions(json!({"scroll": true, "dx": 0.0, "dy": 7.5})),
++            vec![InputAction::Scroll { horizontal: 0.0, vertical: -7.5 }]
++        );
++        assert_eq!(
++            actions(json!({"scroll": true, "dx": -4, "dy": 0})),
++            vec![InputAction::Scroll { horizontal: -4.0, vertical: 0.0 }]
++        );
++        assert!(actions(json!({"scroll": true})).is_empty());
++    }
++
++    #[test]
++    fn special_keys() {
++        assert_eq!(special_key_code(0), None);
++        assert_eq!(special_key_code(-1), None);
++        assert_eq!(special_key_code(1), Some(KEY_BACKSPACE));
++        assert_eq!(special_key_code(12), Some(KEY_ENTER));
++        assert_eq!(special_key_code(14), Some(KEY_ESC));
++        assert_eq!(special_key_code(9), Some(KEY_PAGEDOWN));
++        assert_eq!(special_key_code(25), Some(KEY_F5));
++        assert_eq!(special_key_code(32), Some(KEY_F12));
++        assert_eq!(special_key_code(33), None);
++
++        assert_eq!(
++            actions(json!({"specialKey": 4})),
++            vec![
++                InputAction::Key { code: KEY_LEFT, pressed: true },
++                InputAction::Key { code: KEY_LEFT, pressed: false },
++            ]
++        );
++        // out-of-range special key: nothing, and no stray motion either
++        assert!(actions(json!({"specialKey": 99, "dx": 3})).is_empty());
++    }
++
++    #[test]
++    fn modifiers_wrap_special_key() {
++        // Android "close window" = alt + F4
++        assert_eq!(
++            actions(json!({"alt": true, "specialKey": 24})),
++            vec![
++                InputAction::Key { code: KEY_LEFTALT, pressed: true },
++                InputAction::SetModifiers(Modifiers { alt: true, ..Default::default() }),
++                InputAction::Key { code: KEY_F4, pressed: true },
++                InputAction::Key { code: KEY_F4, pressed: false },
++                InputAction::SetModifiers(Modifiers::default()),
++                InputAction::Key { code: KEY_LEFTALT, pressed: false },
++            ]
++        );
++    }
++
++    #[test]
++    fn text_with_and_without_modifiers() {
++        assert_eq!(
++            actions(json!({"key": "héllo ✓"})),
++            vec![InputAction::Text("héllo ✓".into())]
++        );
++        let mods = Modifiers { ctrl: true, shift: true, ..Default::default() };
++        assert_eq!(
++            actions(json!({"key": "c", "ctrl": true, "shift": true})),
++            vec![
++                InputAction::Key { code: KEY_LEFTCTRL, pressed: true },
++                InputAction::Key { code: KEY_LEFTSHIFT, pressed: true },
++                InputAction::SetModifiers(mods),
++                InputAction::Text("c".into()),
++                InputAction::SetModifiers(Modifiers::default()),
++                InputAction::Key { code: KEY_LEFTSHIFT, pressed: false },
++                InputAction::Key { code: KEY_LEFTCTRL, pressed: false },
++            ]
++        );
++        // specialKey wins over key
++        assert_eq!(
++            actions(json!({"key": "x", "specialKey": 12})),
++            vec![
++                InputAction::Key { code: KEY_ENTER, pressed: true },
++                InputAction::Key { code: KEY_ENTER, pressed: false },
++            ]
++        );
++    }
++
++    #[test]
++    fn lenient_parsing() {
++        let req = MousePadRequest::from_body(&json!({
++            "dx": "1.5", "dy": null, "singleclick": 1, "key": 5,
++            "specialKey": 12.0, "super": true, "sendAck": true
++        }));
++        assert_eq!(req.dx, 1.5);
++        assert_eq!(req.dy, 0.0);
++        assert!(req.single_click);
++        assert_eq!(req.key, "");
++        assert_eq!(req.special_key, 12);
++        assert!(req.modifiers.super_);
++        assert!(req.send_ack);
++    }
++
++    #[test]
++    fn ack_echoes_body() {
++        let echo = MousePadRequest::ack_body(&json!({"key": "a", "sendAck": true}));
++        assert_eq!(echo, json!({"key": "a", "isAck": true}));
++    }
++
++    #[test]
++    fn high_rate_classification() {
++        assert!(MousePadRequest::from_body(&json!({"dx": 1})).is_high_rate());
++        assert!(MousePadRequest::from_body(&json!({"scroll": true, "dy": 1})).is_high_rate());
++        assert!(!MousePadRequest::from_body(&json!({"singleclick": true})).is_high_rate());
++        assert!(!MousePadRequest::from_body(&json!({"key": "a"})).is_high_rate());
++    }
+ }
+diff --git a/kdeconnect-core/src/transport.rs b/kdeconnect-core/src/transport.rs
+index 72258e2..492a64e 100644
+--- a/kdeconnect-core/src/transport.rs
++++ b/kdeconnect-core/src/transport.rs
+@@ -575,6 +575,8 @@ async fn filtered_identity_for_device(device_id: &str) -> Identity {
+                                    "kdeconnect.contacts.response_vcards"],                                  &["kdeconnect.contacts.request_all_uids_timestamps",
+                                                                                                               "kdeconnect.contacts.request_vcards_by_uid"]),
+         ("findmyphone",         &[],                                                                        &["kdeconnect.findmyphone.request"]),
++        ("mousepad",            &["kdeconnect.mousepad.request"],                                           &["kdeconnect.mousepad.echo",
++                                                                                                              "kdeconnect.mousepad.keyboardstate"]),
+         ("mpris",               &["kdeconnect.mpris", "kdeconnect.mpris.request"],                          &["kdeconnect.mpris", "kdeconnect.mpris.request"]),
+         ("notification",        &["kdeconnect.notification"],                                               &["kdeconnect.notification.request"]),
+         ("ping",                &["kdeconnect.ping"],                                                       &["kdeconnect.ping"]),
+diff --git a/kdeconnect-service/Cargo.toml b/kdeconnect-service/Cargo.toml
+index 43c8ccd..e165c20 100755
+--- a/kdeconnect-service/Cargo.toml
++++ b/kdeconnect-service/Cargo.toml
+@@ -30,3 +30,5 @@ calloop-wayland-source = { workspace = true }
+ wayland-client = { workspace = true }
+ wayland-protocols = { workspace = true }
+ wayland-protocols-wlr = { workspace = true }
++wayland-protocols-misc = { workspace = true }
++tempfile = { workspace = true }
+diff --git a/kdeconnect-service/src/clipboard.rs b/kdeconnect-service/src/clipboard.rs
+index a878797..53f4906 100644
+--- a/kdeconnect-service/src/clipboard.rs
++++ b/kdeconnect-service/src/clipboard.rs
+@@ -767,7 +767,7 @@ pub fn start() -> Result<(ClipboardHandle, mpsc::UnboundedReceiver<ClipboardEven
+     Ok((handle, event_receiver))
+ }
+ 
+-fn connect_to_host_compositor() -> Result<Connection> {
++pub(crate) fn connect_to_host_compositor() -> Result<Connection> {
+     if let Ok(raw_fd) = std::env::var("X_PRIVILEGED_WAYLAND_SOCKET") {
+         if let Ok(raw_fd) = raw_fd.parse::<i32>() {
+             // The panel owns the inherited descriptor. Duplicate it so this
+diff --git a/kdeconnect-service/src/dbus_interface.rs b/kdeconnect-service/src/dbus_interface.rs
+index 00bcee1..0f355bd 100755
+--- a/kdeconnect-service/src/dbus_interface.rs
++++ b/kdeconnect-service/src/dbus_interface.rs
+@@ -950,9 +950,17 @@ impl KdeConnectService {
+         let broadcast_tx_clone = broadcast_tx.clone();
+         let sms_cache_for_service = sms_cache.clone();
+ 
++        let remote_input = Arc::new(crate::remote_input::RemoteInput::new());
++
+         tokio::spawn(async move {
+             debug!("Event handler started");
+             while let Some(event) = event_receiver.recv().await {
++                // Remote input is latency-sensitive and high-rate: hand it
++                // straight to the injection worker, no D-Bus round trips.
++                if let ConnectionEvent::MousePadRequest((_device_id, request)) = &event {
++                    remote_input.submit(request.actions());
++                    continue;
++                }
+                 if let Err(e) = Self::handle_event(
+                     &conn_clone,
+                     event,
+diff --git a/kdeconnect-service/src/main.rs b/kdeconnect-service/src/main.rs
+index 94a205e..04fe5b2 100755
+--- a/kdeconnect-service/src/main.rs
++++ b/kdeconnect-service/src/main.rs
+@@ -6,6 +6,7 @@ use tracing::info;
+ 
+ mod clipboard;
+ mod dbus_interface;
++mod remote_input;
+ mod varlink_server;
+ 
+ #[tokio::main]
+diff --git a/kdeconnect-service/src/remote_input.rs b/kdeconnect-service/src/remote_input.rs
+new file mode 100644
+index 0000000..344d54a
+--- /dev/null
++++ b/kdeconnect-service/src/remote_input.rs
+@@ -0,0 +1,723 @@
++//! Remote Input backend: injects the phone's touchpad / keyboard actions
++//! (`kdeconnect.mousepad.request`, parsed by kdeconnect-core's
++//! `plugins::mousepad`) into the Wayland session.
++//!
++//! Uses the wlroots-family virtual input protocols, which Hyprland, Sway and
++//! river expose to ordinary clients:
++//! - `zwlr_virtual_pointer_v1` for relative motion, buttons and scrolling;
++//! - `zwp_virtual_keyboard_v1` for keys and text.
++//!
++//! A virtual keyboard brings its own XKB keymap, so arbitrary Unicode text is
++//! typed the way `wtype` does it: every character gets a keycode whose only
++//! keysym is that character (`U<hex>`), and the keymap is re-uploaded when new
++//! characters show up. Special keys (arrows, F-keys, Enter, modifiers...) keep
++//! their real evdev keycodes and standard keysyms in every keymap version.
++//!
++//! Like the clipboard worker, this runs on its own Wayland connection and
++//! calloop thread. Nothing touches the compositor until the first remote
++//! input packet arrives, and the virtual devices are created on first use.
++
++use anyhow::{Context, Result, anyhow};
++use calloop::{EventLoop, channel};
++use calloop_wayland_source::WaylandSource;
++use kdeconnect_core::plugins::mousepad::{InputAction, Modifiers, keys::*};
++use std::{
++    io::Write,
++    os::fd::AsFd,
++    sync::Mutex,
++    time::{Duration, Instant},
++};
++use tracing::{debug, info, warn};
++use wayland_client::{
++    Connection, Dispatch, Proxy, QueueHandle, delegate_noop,
++    protocol::{wl_pointer, wl_registry, wl_seat},
++};
++use wayland_protocols_misc::zwp_virtual_keyboard_v1::client::{
++    zwp_virtual_keyboard_manager_v1::ZwpVirtualKeyboardManagerV1,
++    zwp_virtual_keyboard_v1::ZwpVirtualKeyboardV1,
++};
++use wayland_protocols_wlr::virtual_pointer::v1::client::{
++    zwlr_virtual_pointer_manager_v1::ZwlrVirtualPointerManagerV1,
++    zwlr_virtual_pointer_v1::ZwlrVirtualPointerV1,
++};
++
++/// Multiplier from the phone's scroll delta (phone pixels after its own
++/// sensitivity setting) to Wayland continuous axis units. 1.0 makes a
++/// two-finger swipe behave roughly like a laptop touchpad.
++const SCROLL_SCALE: f64 = 1.0;
++
++/// `wl_keyboard.keymap_format.xkb_v1`
++const KEYMAP_FORMAT_XKB_V1: u32 = 1;
++const KEY_STATE_RELEASED: u32 = 0;
++const KEY_STATE_PRESSED: u32 = 1;
++
++/// Real-modifier bits as indexed by every XKB keymap (Shift, Lock, Control,
++/// Mod1..Mod5); the generated keymap maps Alt_L→Mod1 and Super_L→Mod4.
++const MOD_SHIFT: u32 = 1 << 0;
++const MOD_CONTROL: u32 = 1 << 2;
++const MOD_MOD1: u32 = 1 << 3;
++const MOD_MOD4: u32 = 1 << 6;
++
++pub fn modifier_mask(mods: Modifiers) -> u32 {
++    let mut mask = 0;
++    if mods.shift {
++        mask |= MOD_SHIFT;
++    }
++    if mods.ctrl {
++        mask |= MOD_CONTROL;
++    }
++    if mods.alt {
++        mask |= MOD_MOD1;
++    }
++    if mods.super_ {
++        mask |= MOD_MOD4;
++    }
++    mask
++}
++
++// ---------------------------------------------------------------------------
++// Keymap
++// ---------------------------------------------------------------------------
++
++/// Keys present in every keymap version, at their real evdev codes.
++const FIXED_KEYS: &[(u32, &str)] = &[
++    (KEY_ESC, "Escape"),
++    (KEY_BACKSPACE, "BackSpace"),
++    (KEY_TAB, "Tab"),
++    (KEY_ENTER, "Return"),
++    (KEY_LEFTCTRL, "Control_L"),
++    (KEY_LEFTSHIFT, "Shift_L"),
++    (KEY_LEFTALT, "Alt_L"),
++    (KEY_F1, "F1"),
++    (KEY_F2, "F2"),
++    (KEY_F3, "F3"),
++    (KEY_F4, "F4"),
++    (KEY_F5, "F5"),
++    (KEY_F6, "F6"),
++    (KEY_F7, "F7"),
++    (KEY_F8, "F8"),
++    (KEY_F9, "F9"),
++    (KEY_F10, "F10"),
++    (KEY_SCROLLLOCK, "Scroll_Lock"),
++    (KEY_F11, "F11"),
++    (KEY_F12, "F12"),
++    // KEY_SYSRQ is the Print Screen key on PC keyboards; Android sends it
++    // for KEYCODE_SYSRQ (also labelled PrtSc).
++    (KEY_SYSRQ, "Print"),
++    (KEY_LINEFEED, "Linefeed"),
++    (KEY_HOME, "Home"),
++    (KEY_UP, "Up"),
++    (KEY_PAGEUP, "Prior"),
++    (KEY_LEFT, "Left"),
++    (KEY_RIGHT, "Right"),
++    (KEY_END, "End"),
++    (KEY_DOWN, "Down"),
++    (KEY_PAGEDOWN, "Next"),
++    (KEY_DELETE, "Delete"),
++    (KEY_LEFTMETA, "Super_L"),
++];
++
++/// evdev codes handed out to typed characters. XKB keycodes are evdev + 8 and
++/// must stay ≤ 255 for X11/Xwayland clients, so 128..=247 (120 slots), well
++/// clear of every fixed key above.
++const DYNAMIC_FIRST: u32 = 128;
++const DYNAMIC_LAST: u32 = 247;
++const DYNAMIC_CAPACITY: usize = (DYNAMIC_LAST - DYNAMIC_FIRST + 1) as usize;
++
++/// One run of key taps; `keymap`, when set, must be uploaded first.
++#[derive(Debug, PartialEq)]
++pub struct TextChunk {
++    pub keymap: Option<String>,
++    pub codes: Vec<u32>,
++}
++
++/// The virtual keyboard's keymap: the fixed keys plus a growing table of
++/// typed characters (cleared when it runs out of keycodes).
++#[derive(Debug, Default)]
++pub struct VirtualKeymap {
++    chars: Vec<char>,
++}
++
++impl VirtualKeymap {
++    pub fn new() -> Self {
++        Self::default()
++    }
++
++    /// Characters typed with a fixed key instead of a dynamic keysym.
++    fn fixed_code_for_char(c: char) -> Option<u32> {
++        match c {
++            '\n' | '\r' => Some(KEY_ENTER),
++            '\t' => Some(KEY_TAB),
++            '\u{8}' => Some(KEY_BACKSPACE),
++            '\u{1b}' => Some(KEY_ESC),
++            '\u{7f}' => Some(KEY_DELETE),
++            _ => None,
++        }
++    }
++
++    /// XKB keysym name for a printable character. Control characters have no
++    /// keysym (xkbcommon rejects U0000-U001F and U007F-U009F).
++    pub fn keysym_name(c: char) -> Option<String> {
++        let cp = c as u32;
++        if cp < 0x20 || (0x7f..=0x9f).contains(&cp) {
++            return None;
++        }
++        Some(format!("U{cp:04X}"))
++    }
++
++    /// Plan typing `text`: the key codes to tap, split into chunks whenever
++    /// the keymap must be (re)uploaded first. Existing character slots never
++    /// move, so a chunk's keymap stays valid for keys planned earlier in the
++    /// same chunk; only a reset (table full) starts a new chunk.
++    pub fn plan(&mut self, text: &str) -> Vec<TextChunk> {
++        let mut chunks = Vec::new();
++        let mut codes = Vec::new();
++        let mut dirty = false;
++
++        for c in text.chars() {
++            if let Some(code) = Self::fixed_code_for_char(c) {
++                codes.push(code);
++                continue;
++            }
++            if Self::keysym_name(c).is_none() {
++                continue;
++            }
++            let slot = match self.chars.iter().position(|&known| known == c) {
++                Some(slot) => slot,
++                None => {
++                    if self.chars.len() == DYNAMIC_CAPACITY {
++                        chunks.push(TextChunk {
++                            keymap: dirty.then(|| self.render()),
++                            codes: std::mem::take(&mut codes),
++                        });
++                        self.chars.clear();
++                    }
++                    self.chars.push(c);
++                    dirty = true;
++                    self.chars.len() - 1
++                }
++            };
++            codes.push(DYNAMIC_FIRST + slot as u32);
++        }
++
++        if !codes.is_empty() || dirty {
++            chunks.push(TextChunk {
++                keymap: dirty.then(|| self.render()),
++                codes,
++            });
++        }
++        chunks
++    }
++
++    /// Render the keymap in XKB text format (v1).
++    pub fn render(&self) -> String {
++        let mut entries: Vec<(u32, String)> = FIXED_KEYS
++            .iter()
++            .map(|(code, sym)| (*code, (*sym).to_string()))
++            .collect();
++        for (slot, c) in self.chars.iter().enumerate() {
++            if let Some(name) = Self::keysym_name(*c) {
++                entries.push((DYNAMIC_FIRST + slot as u32, name));
++            }
++        }
++
++        let mut out = String::with_capacity(4096 + entries.len() * 48);
++        out.push_str("xkb_keymap {\nxkb_keycodes \"kdeconnect\" {\n");
++        out.push_str("    minimum = 8;\n    maximum = 255;\n");
++        for (code, _) in &entries {
++            let xkb = code + 8;
++            out.push_str(&format!("    <K{xkb}> = {xkb};\n"));
++        }
++        out.push_str("};\n");
++        out.push_str("xkb_types \"kdeconnect\" { include \"complete\" };\n");
++        out.push_str("xkb_compatibility \"kdeconnect\" { include \"complete\" };\n");
++        out.push_str("xkb_symbols \"kdeconnect\" {\n");
++        for (code, sym) in &entries {
++            out.push_str(&format!("    key <K{}> {{ [ {sym} ] }};\n", code + 8));
++        }
++        out.push_str(&format!(
++            "    modifier_map Shift {{ <K{}> }};\n",
++            KEY_LEFTSHIFT + 8
++        ));
++        out.push_str(&format!(
++            "    modifier_map Control {{ <K{}> }};\n",
++            KEY_LEFTCTRL + 8
++        ));
++        out.push_str(&format!(
++            "    modifier_map Mod1 {{ <K{}> }};\n",
++            KEY_LEFTALT + 8
++        ));
++        out.push_str(&format!(
++            "    modifier_map Mod4 {{ <K{}> }};\n",
++            KEY_LEFTMETA + 8
++        ));
++        out.push_str("};\n};\n");
++        out
++    }
++}
++
++// ---------------------------------------------------------------------------
++// Wayland worker
++// ---------------------------------------------------------------------------
++
++struct WorkerState {
++    connection: Connection,
++    seat: Option<wl_seat::WlSeat>,
++    pointer_manager: Option<ZwlrVirtualPointerManagerV1>,
++    keyboard_manager: Option<ZwpVirtualKeyboardManagerV1>,
++    pointer: Option<ZwlrVirtualPointerV1>,
++    keyboard: Option<ZwpVirtualKeyboardV1>,
++    keymap: VirtualKeymap,
++    mods: u32,
++    epoch: Instant,
++}
++
++impl WorkerState {
++    fn time(&self) -> u32 {
++        self.epoch.elapsed().as_millis() as u32
++    }
++
++    fn ensure_pointer(&mut self, qh: &QueueHandle<Self>) -> Option<ZwlrVirtualPointerV1> {
++        if self.pointer.is_none() {
++            let manager = self.pointer_manager.as_ref()?;
++            let pointer = manager.create_virtual_pointer(self.seat.as_ref(), qh, ());
++            info!("[remote input] virtual pointer created");
++            self.pointer = Some(pointer);
++        }
++        self.pointer.clone()
++    }
++
++    fn ensure_keyboard(&mut self, qh: &QueueHandle<Self>) -> Option<ZwpVirtualKeyboardV1> {
++        if self.keyboard.is_none() {
++            let manager = self.keyboard_manager.as_ref()?;
++            let seat = self.seat.as_ref()?;
++            let keyboard = manager.create_virtual_keyboard(seat, qh, ());
++            // The protocol requires a keymap before the first key event.
++            let keymap = self.keymap.render();
++            if let Err(error) = upload_keymap(&keyboard, &keymap) {
++                warn!("[remote input] cannot upload keymap: {error:#}");
++                keyboard.destroy();
++                return None;
++            }
++            info!("[remote input] virtual keyboard created");
++            self.keyboard = Some(keyboard);
++        }
++        self.keyboard.clone()
++    }
++
++    fn key(&self, keyboard: &ZwpVirtualKeyboardV1, code: u32, pressed: bool) {
++        let state = if pressed {
++            KEY_STATE_PRESSED
++        } else {
++            KEY_STATE_RELEASED
++        };
++        keyboard.key(self.time(), code, state);
++    }
++
++    fn run(&mut self, actions: Vec<InputAction>, qh: &QueueHandle<Self>) {
++        for action in actions {
++            match action {
++                InputAction::Motion { dx, dy } => {
++                    let Some(pointer) = self.ensure_pointer(qh) else { return };
++                    pointer.motion(self.time(), dx, dy);
++                    pointer.frame();
++                }
++                InputAction::Button { button, pressed } => {
++                    let Some(pointer) = self.ensure_pointer(qh) else { return };
++                    let state = if pressed {
++                        wl_pointer::ButtonState::Pressed
++                    } else {
++                        wl_pointer::ButtonState::Released
++                    };
++                    pointer.button(self.time(), button, state);
++                    pointer.frame();
++                }
++                InputAction::Scroll {
++                    horizontal,
++                    vertical,
++                } => {
++                    let Some(pointer) = self.ensure_pointer(qh) else { return };
++                    let time = self.time();
++                    pointer.axis_source(wl_pointer::AxisSource::Continuous);
++                    if vertical != 0.0 {
++                        pointer.axis(
++                            time,
++                            wl_pointer::Axis::VerticalScroll,
++                            vertical * SCROLL_SCALE,
++                        );
++                    }
++                    if horizontal != 0.0 {
++                        pointer.axis(
++                            time,
++                            wl_pointer::Axis::HorizontalScroll,
++                            horizontal * SCROLL_SCALE,
++                        );
++                    }
++                    pointer.frame();
++                }
++                InputAction::Key { code, pressed } => {
++                    let Some(keyboard) = self.ensure_keyboard(qh) else { return };
++                    self.key(&keyboard, code, pressed);
++                }
++                InputAction::SetModifiers(mods) => {
++                    let Some(keyboard) = self.ensure_keyboard(qh) else { return };
++                    self.mods = modifier_mask(mods);
++                    keyboard.modifiers(self.mods, 0, 0, 0);
++                }
++                InputAction::Text(text) => {
++                    let Some(keyboard) = self.ensure_keyboard(qh) else { return };
++                    for chunk in self.keymap.plan(&text) {
++                        if let Some(keymap) = chunk.keymap {
++                            if let Err(error) = upload_keymap(&keyboard, &keymap) {
++                                warn!("[remote input] cannot upload keymap: {error:#}");
++                                return;
++                            }
++                            // A new keymap may reset the compositor's
++                            // modifier state; restore the requested one.
++                            keyboard.modifiers(self.mods, 0, 0, 0);
++                        }
++                        for code in chunk.codes {
++                            self.key(&keyboard, code, true);
++                            self.key(&keyboard, code, false);
++                        }
++                    }
++                }
++            }
++        }
++        if let Err(error) = self.connection.flush() {
++            warn!("[remote input] flush failed: {error}");
++        }
++    }
++}
++
++/// Hand a keymap to the compositor through an unlinked temp file
++/// (NUL-terminated, as wl_keyboard keymaps are).
++fn upload_keymap(keyboard: &ZwpVirtualKeyboardV1, keymap: &str) -> Result<()> {
++    let mut file = tempfile::tempfile().context("cannot create keymap file")?;
++    file.write_all(keymap.as_bytes())
++        .and_then(|_| file.write_all(&[0]))
++        .and_then(|_| file.flush())
++        .context("cannot write keymap file")?;
++    keyboard.keymap(
++        KEYMAP_FORMAT_XKB_V1,
++        file.as_fd(),
++        keymap.len() as u32 + 1,
++    );
++    // The fd is duplicated into the request; ours can close now.
++    Ok(())
++}
++
++impl Dispatch<wl_registry::WlRegistry, ()> for WorkerState {
++    fn event(
++        state: &mut Self,
++        registry: &wl_registry::WlRegistry,
++        event: wl_registry::Event,
++        _: &(),
++        _: &Connection,
++        qh: &QueueHandle<Self>,
++    ) {
++        let wl_registry::Event::Global {
++            name,
++            interface,
++            version,
++        } = event
++        else {
++            return;
++        };
++        if interface == wl_seat::WlSeat::interface().name && state.seat.is_none() {
++            state.seat = Some(registry.bind(name, version.min(7), qh, ()));
++        } else if interface == ZwlrVirtualPointerManagerV1::interface().name {
++            state.pointer_manager = Some(registry.bind(name, version.min(2), qh, ()));
++        } else if interface == ZwpVirtualKeyboardManagerV1::interface().name {
++            state.keyboard_manager = Some(registry.bind(name, version.min(1), qh, ()));
++        }
++    }
++}
++
++delegate_noop!(WorkerState: ignore wl_seat::WlSeat);
++delegate_noop!(WorkerState: ZwlrVirtualPointerManagerV1);
++delegate_noop!(WorkerState: ZwlrVirtualPointerV1);
++delegate_noop!(WorkerState: ZwpVirtualKeyboardManagerV1);
++delegate_noop!(WorkerState: ZwpVirtualKeyboardV1);
++
++/// Connect and spawn the worker thread. Returns the command sender.
++fn spawn_worker() -> Result<channel::Sender<Vec<InputAction>>> {
++    let connection = crate::clipboard::connect_to_host_compositor()?;
++    let mut event_queue = connection.new_event_queue::<WorkerState>();
++    let qh = event_queue.handle();
++    connection.display().get_registry(&qh, ());
++
++    let mut state = WorkerState {
++        connection: connection.clone(),
++        seat: None,
++        pointer_manager: None,
++        keyboard_manager: None,
++        pointer: None,
++        keyboard: None,
++        keymap: VirtualKeymap::new(),
++        mods: 0,
++        epoch: Instant::now(),
++    };
++    event_queue
++        .roundtrip(&mut state)
++        .context("failed to enumerate Wayland globals")?;
++
++    if state.pointer_manager.is_none() && state.keyboard_manager.is_none() {
++        return Err(anyhow!(
++            "the compositor advertises neither zwlr_virtual_pointer_manager_v1 nor zwp_virtual_keyboard_manager_v1"
++        ));
++    }
++    if state.pointer_manager.is_none() {
++        warn!("[remote input] no zwlr_virtual_pointer_manager_v1: pointer input disabled");
++    }
++    if state.keyboard_manager.is_none() || state.seat.is_none() {
++        warn!("[remote input] no zwp_virtual_keyboard_manager_v1 or seat: keyboard input disabled");
++    }
++
++    let (sender, receiver) = channel::channel::<Vec<InputAction>>();
++    std::thread::Builder::new()
++        .name("kdeconnect-remote-input".to_string())
++        .spawn(move || {
++            let mut event_loop: EventLoop<WorkerState> = match EventLoop::try_new() {
++                Ok(event_loop) => event_loop,
++                Err(error) => {
++                    warn!("[remote input] cannot create event loop: {error}");
++                    return;
++                }
++            };
++            let handle = event_loop.handle();
++            if let Err(error) = WaylandSource::new(connection, event_queue).insert(handle.clone())
++            {
++                warn!("[remote input] cannot register Wayland source: {error}");
++                return;
++            }
++            if let Err(error) = handle.insert_source(receiver, move |event, _, state| {
++                if let channel::Event::Msg(actions) = event {
++                    state.run(actions, &qh);
++                }
++            }) {
++                warn!("[remote input] cannot register command source: {error}");
++                return;
++            }
++            info!("[remote input] Wayland virtual input worker started");
++            if let Err(error) = event_loop.run(None, &mut state, |_| {}) {
++                warn!("[remote input] worker stopped: {error}");
++            }
++        })
++        .context("failed to spawn remote input thread")?;
++    Ok(sender)
++}
++
++/// Lazily-started handle to the worker. Restarts it (at most every few
++/// seconds) if the Wayland connection was lost.
++#[derive(Default)]
++pub struct RemoteInput {
++    inner: Mutex<Inner>,
++}
++
++#[derive(Default)]
++struct Inner {
++    sender: Option<channel::Sender<Vec<InputAction>>>,
++    last_attempt: Option<Instant>,
++}
++
++const RETRY_INTERVAL: Duration = Duration::from_secs(5);
++
++impl RemoteInput {
++    pub fn new() -> Self {
++        Self::default()
++    }
++
++    pub fn submit(&self, actions: Vec<InputAction>) {
++        if actions.is_empty() {
++            return;
++        }
++        let Ok(mut inner) = self.inner.lock() else {
++            return;
++        };
++        let actions = match inner.sender.as_ref() {
++            Some(sender) => match sender.send(actions) {
++                Ok(()) => return,
++                Err(std::sync::mpsc::SendError(actions)) => {
++                    warn!("[remote input] worker gone, reconnecting");
++                    inner.sender = None;
++                    actions
++                }
++            },
++            None => actions,
++        };
++
++        if inner
++            .last_attempt
++            .is_some_and(|at| at.elapsed() < RETRY_INTERVAL)
++        {
++            debug!("[remote input] unavailable, dropping input");
++            return;
++        }
++        inner.last_attempt = Some(Instant::now());
++        match spawn_worker() {
++            Ok(sender) => {
++                let _ = sender.send(actions);
++                inner.sender = Some(sender);
++            }
++            Err(error) => warn!("[remote input] unavailable: {error:#}"),
++        }
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn modifier_masks() {
++        assert_eq!(modifier_mask(Modifiers::default()), 0);
++        assert_eq!(
++            modifier_mask(Modifiers { ctrl: true, ..Default::default() }),
++            0b100
++        );
++        assert_eq!(
++            modifier_mask(Modifiers {
++                ctrl: true,
++                alt: true,
++                shift: true,
++                super_: true
++            }),
++            0b0100_1101
++        );
++    }
++
++    #[test]
++    fn keysym_names() {
++        assert_eq!(VirtualKeymap::keysym_name('a').as_deref(), Some("U0061"));
++        assert_eq!(VirtualKeymap::keysym_name(' ').as_deref(), Some("U0020"));
++        assert_eq!(VirtualKeymap::keysym_name('é').as_deref(), Some("U00E9"));
++        assert_eq!(VirtualKeymap::keysym_name('✓').as_deref(), Some("U2713"));
++        assert_eq!(VirtualKeymap::keysym_name('😀').as_deref(), Some("U1F600"));
++        assert_eq!(VirtualKeymap::keysym_name('\u{1}'), None);
++        assert_eq!(VirtualKeymap::keysym_name('\u{85}'), None);
++    }
++
++    #[test]
++    fn plan_assigns_stable_slots() {
++        let mut keymap = VirtualKeymap::new();
++        let chunks = keymap.plan("abca");
++        assert_eq!(chunks.len(), 1);
++        assert!(chunks[0].keymap.is_some());
++        assert_eq!(chunks[0].codes, vec![128, 129, 130, 128]);
++
++        // Known characters: no upload needed.
++        let chunks = keymap.plan("cab");
++        assert_eq!(
++            chunks,
++            vec![TextChunk { keymap: None, codes: vec![130, 128, 129] }]
++        );
++
++        // One new character: upload, old slots unchanged.
++        let chunks = keymap.plan("ad");
++        assert_eq!(chunks.len(), 1);
++        assert_eq!(chunks[0].codes, vec![128, 131]);
++        let rendered = chunks[0].keymap.as_ref().unwrap();
++        assert!(rendered.contains("key <K139> { [ U0064 ] };"));
++        assert!(rendered.contains("key <K136> { [ U0061 ] };"));
++    }
++
++    #[test]
++    fn plan_uses_fixed_keys_and_skips_control_chars() {
++        let mut keymap = VirtualKeymap::new();
++        let chunks = keymap.plan("a\nb\t\u{1}");
++        assert_eq!(chunks.len(), 1);
++        assert_eq!(chunks[0].codes, vec![128, KEY_ENTER, 129, KEY_TAB]);
++
++        // Only fixed keys: nothing to upload.
++        let chunks = keymap.plan("\r\n");
++        assert_eq!(
++            chunks,
++            vec![TextChunk { keymap: None, codes: vec![KEY_ENTER, KEY_ENTER] }]
++        );
++        assert!(keymap.plan("").is_empty());
++        assert!(keymap.plan("\u{1}\u{2}").is_empty());
++    }
++
++    #[test]
++    fn plan_resets_when_full() {
++        let mut keymap = VirtualKeymap::new();
++        // 130 distinct CJK characters: more than the 120 dynamic slots.
++        let text: String = (0..130u32)
++            .map(|i| char::from_u32(0x4E00 + i).unwrap())
++            .collect();
++        let chunks = keymap.plan(&text);
++        assert_eq!(chunks.len(), 2);
++        assert_eq!(chunks[0].codes.len(), DYNAMIC_CAPACITY);
++        assert_eq!(chunks[1].codes.len(), 10);
++        assert_eq!(chunks[1].codes[0], DYNAMIC_FIRST);
++        assert!(chunks.iter().all(|chunk| chunk.keymap.is_some()));
++        assert!(
++            chunks
++                .iter()
++                .flat_map(|chunk| &chunk.codes)
++                .all(|code| (DYNAMIC_FIRST..=DYNAMIC_LAST).contains(code))
++        );
++        // After the reset only the last 10 characters are known.
++        let last: String = text.chars().skip(120).collect();
++        assert_eq!(keymap.plan(&last)[0].keymap, None);
++    }
++
++    #[test]
++    fn rendered_keymap_shape() {
++        let mut keymap = VirtualKeymap::new();
++        keymap.plan("Hé");
++        let text = keymap.render();
++        assert!(text.contains("<K22> = 22;")); // BackSpace (evdev 14)
++        assert!(text.contains("key <K36> { [ Return ] };"));
++        assert!(text.contains("key <K136> { [ U0048 ] };"));
++        assert!(text.contains("key <K137> { [ U00E9 ] };"));
++        assert!(text.contains("modifier_map Control { <K37> };"));
++        assert!(text.contains("modifier_map Mod4 { <K133> };"));
++        // every keycode within the X11-compatible range
++        for line in text.lines().filter(|l| l.contains("> = ")) {
++            let code: u32 = line
++                .trim()
++                .trim_end_matches(';')
++                .rsplit(' ')
++                .next()
++                .unwrap()
++                .parse()
++                .unwrap();
++            assert!((8..=255).contains(&code), "{line}");
++        }
++    }
++
++    /// Compiles generated keymaps with the system xkbcommon (`xkbcli`), the
++    /// same library the compositor uses. Skipped when xkbcli is missing.
++    #[test]
++    fn keymap_compiles_with_xkbcommon() {
++        let Ok(dir) = tempfile::tempdir() else { return };
++        let mut keymap = VirtualKeymap::new();
++        keymap.plan("Hello, wörld! ✓ 😀 ~`'\"\\{}[]<>");
++        let path = dir.path().join("keymap.xkb");
++        std::fs::write(&path, keymap.render()).unwrap();
++        let output = match std::process::Command::new("xkbcli")
++            .arg("compile-keymap")
++            // v1: the format zwp_virtual_keyboard_v1 hands to the compositor
++            .args(["--input-format", "1", "--keymap"])
++            .arg(&path)
++            .output()
++        {
++            Ok(output) => output,
++            Err(_) => {
++                eprintln!("xkbcli not installed; skipping");
++                return;
++            }
++        };
++        assert!(
++            output.status.success(),
++            "xkbcli failed: {}",
++            String::from_utf8_lossy(&output.stderr)
++        );
++        let compiled = String::from_utf8_lossy(&output.stdout);
++        for sym in ["U2713", "U1F600", "odiaeresis", "BackSpace", "Super_L"] {
++            assert!(compiled.contains(sym), "{sym} missing from compiled keymap");
++        }
++    }
++}

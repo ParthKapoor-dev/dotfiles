@@ -10,9 +10,13 @@
 #   nox phone pair          pairing instructions + ask reachable unpaired phones to pair
 #   nox phone on|off        start/stop the daemon for this session (does not enable it at login)
 #   nox phone logs [-f]     daemon journal
+#   nox phone build [--status|--no-install]   build the daemon: clone cosmic-utils/kdeconnect at
+#                           the pinned commit, apply base0/_patches/kdeconnect-rs-remote-input.patch,
+#                           cargo build --release -p kdeconnect-service, install to ~/.local/bin
+#                           (restarts the unit if it runs). --status: is the installed one current?
 # Device: shell.json / shell.local.json phone.device (name or id), else the first paired, reachable one.
-# Build/install the daemon: cargo build --release -p kdeconnect-service in a clone of
-# github.com/cosmic-utils/kdeconnect, then install -Dm755 target/release/kdeconnect-service ~/.local/bin/
+# Build/install the daemon: nox phone build (source in ~/.cache/nox/build/kdeconnect-rs; the
+# stamp ~/.local/share/nox/kdeconnect-rs.build records pin + patch hash).
 
 set -uo pipefail
 BUS=io.github.hepp3n.kdeconnect
@@ -62,6 +66,44 @@ need() {
 [ "${1:-}" = "--notify" ] && { NOTIFY=1; shift; }
 cmd="${1:-status}"; [ $# -gt 0 ] && shift
 [ "${1:-}" = "--notify" ] && { NOTIFY=1; shift; }
+
+# ---- build (no D-Bus needed) ----
+KDC_URL=https://github.com/cosmic-utils/kdeconnect
+KDC_PIN=36a44d9f8cfb709e998f9fd6697a7842d90eec9e   # 2026-10: "Merge pull request #119 (tls-role-handshake)"
+KDC_PATCH="$(cd "$(dirname "$(readlink -f "$0")")/../../../.." && pwd)/_patches/kdeconnect-rs-remote-input.patch"
+KDC_STAMP="${XDG_DATA_HOME:-$HOME/.local/share}/nox/kdeconnect-rs.build"
+kdc_want() { printf 'pin %s patch %s' "${KDC_PIN:0:12}" "$(sha256sum "$KDC_PATCH" | cut -c1-12)"; }
+build() {
+    local src="${XDG_CACHE_HOME:-$HOME/.cache}/nox/build/kdeconnect-rs" install=1
+    case "${1:-}" in
+        --status)
+            [ -x "$HOME/.local/bin/kdeconnect-service" ] || { echo "not installed"; return 1; }
+            local have; have=$(head -1 "$KDC_STAMP" 2>/dev/null)
+            if [ "$have" = "$(kdc_want)" ]; then echo "$have"; return 0; fi
+            echo "${have:-no build stamp}; want $(kdc_want)"; return 1 ;;
+        --no-install) install=0 ;;
+        "") ;;
+        *) die "usage: nox phone build [--status|--no-install]" ;;
+    esac
+    command -v cargo >/dev/null || die "cargo missing" "sudo pacman -S rustup && rustup default stable"
+    [ -r "$KDC_PATCH" ] || die "patch missing" "$KDC_PATCH"
+    if [ ! -d "$src/.git" ]; then mkdir -p "${src%/*}"; git clone -q "$KDC_URL" "$src" || die "clone failed" "$KDC_URL"; fi
+    git -C "$src" cat-file -e "$KDC_PIN^{commit}" 2>/dev/null || git -C "$src" fetch -q origin || die "fetch failed"
+    git -C "$src" -c advice.detachedHead=false checkout -q -f "$KDC_PIN" && git -C "$src" clean -q -fd -e target || die "checkout of $KDC_PIN failed"
+    git -C "$src" apply "$KDC_PATCH" || die "patch does not apply to $KDC_PIN" "$KDC_PATCH"
+    echo ":: cargo build --release -p kdeconnect-service in $src"
+    (cd "$src" && cargo build --release -p kdeconnect-service) || die "build failed"
+    [ "$install" = 1 ] || { echo "built: $src/target/release/kdeconnect-service (not installed)"; return 0; }
+    install -Dm755 "$src/target/release/kdeconnect-service" "$HOME/.local/bin/kdeconnect-service.new" &&
+        mv -f "$HOME/.local/bin/kdeconnect-service.new" "$HOME/.local/bin/kdeconnect-service" || die "install failed"
+    mkdir -p "${KDC_STAMP%/*}"; printf '%s
+built %s from %s
+' "$(kdc_want)" "$(date -Is)" "$src" >"$KDC_STAMP"
+    echo "installed ~/.local/bin/kdeconnect-service ($(kdc_want))"
+    if systemctl --user is-active -q "$UNIT"; then systemctl --user restart "$UNIT" && echo "restarted $UNIT"
+    else echo "start it: nox phone on   (at login: systemctl --user enable $UNIT)"; fi
+}
+[ "$cmd" = build ] && { build "$@"; exit $?; }
 
 case "$cmd" in
     status)
@@ -139,5 +181,5 @@ A stale \"$(hostname)\" left from the old KDE Connect daemon can be unpaired in 
         exec journalctl --user -u "$UNIT" -o cat "$@" ;;
     help | -h | --help)
         sed -n '2,/^[^#]/{/^[^#]/d;s/^# \{0,1\}//;p}' "$0" ;;
-    *) echo "nox phone: unknown command '$cmd' (status|send|clip|ring|commands|ping|pair|on|off|logs)" >&2; exit 2 ;;
+    *) echo "nox phone: unknown command '$cmd' (status|send|clip|ring|commands|ping|pair|on|off|logs|build)" >&2; exit 2 ;;
 esac
