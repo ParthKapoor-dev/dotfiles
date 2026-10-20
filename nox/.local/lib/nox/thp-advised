@@ -1,0 +1,26 @@
+#!/usr/bin/env python3
+# thp-advised <command> [args...] - run a command with transparent huge pages limited to the
+# memory it asks for (madvise MADV_HUGEPAGE), like THP mode "madvise" for that process tree only.
+#
+# Why: with THP "always" (the system default here) the nox shell's malloc arenas, one per render
+# thread, and the NVIDIA driver's allocations are backed by 2 MB pages that are mostly empty:
+# measured on the full config right after start, RSS 476 -> 347 MB (anonymous 259 -> 130 MB,
+# AnonHugePages 148 MB -> 0). Nothing it draws changes.
+#
+# PR_SET_THP_DISABLE with PR_THP_DISABLE_EXCEPT_ADVISED (Linux 6.18+) is kept across exec and
+# inherited by children, but programs that request huge pages still get them. On an older kernel
+# the flag is refused and the command runs unchanged (THP as configured system-wide).
+import ctypes
+import os
+import sys
+
+PR_SET_THP_DISABLE = 41
+PR_THP_DISABLE_EXCEPT_ADVISED = 1 << 1
+
+if len(sys.argv) < 2:
+    sys.exit("usage: thp-advised <command> [args...]")
+try:
+    ctypes.CDLL(None, use_errno=True).prctl(PR_SET_THP_DISABLE, 1, PR_THP_DISABLE_EXCEPT_ADVISED, 0, 0)
+except Exception:
+    pass
+os.execvp(sys.argv[1], sys.argv[1:])

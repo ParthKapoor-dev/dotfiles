@@ -78,8 +78,10 @@ P.env = {}
 -- dock, notifications (org.freedesktop.Notifications) and is the polkit agent:
 -- no other notification daemon / polkit agent may run next to it (the first
 -- one to claim the D-Bus name / agent slot wins).
+-- The shell runs under nox's thp-advised (huge pages only where asked for: ~130 MB less RSS
+-- with THP "always"), plain when that helper or python3 is missing.
 P.execs_early = {
-    P.QS,
+    'thp=$HOME/.local/lib/nox/thp-advised; if [ -x "$thp" ] && command -v python3 >/dev/null 2>&1; then exec "$thp" ' .. P.QS .. '; else exec ' .. P.QS .. '; fi',
 }
 
 P.execs = {
