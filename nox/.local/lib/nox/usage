@@ -1,0 +1,229 @@
+#!/usr/bin/env python3
+"""~/.local/lib/nox/usage: plan rate limits (Claude 5-hour / weekly, Codex) for the bar widget "usage".
+
+usage: usage codex      newest Codex CLI rate limits (~/.codex/sessions/**/*.jsonl, read-only)
+                        -> $XDG_RUNTIME_DIR/nox/usage/codex.json; silent no-op without ~/.codex
+       usage show       every source as one JSON object (debugging)
+
+Claude Code has no local file with the plan limits, but it hands them to the status line: the
+statusLine command's stdin JSON carries rate_limits.{five_hour,seven_day}.{used_percentage,
+resets_at (epoch s)} (plan logins only; null for API keys). So each Claude Code statusline
+script imports this file and calls tee(payload, account), which writes
+$XDG_RUNTIME_DIR/nox/usage/<account>.json (one line, atomic) and touches .stamp there (the shell
+watches it). Rewrites only when a number changed or the last write is over 60 s old, so a status
+line that refreshes every second does not churn the file. No network, no credentials, no
+subprocesses: ~1 ms.
+
+Install: add at the very end of the statusline script (after its prints; `d` = the parsed stdin
+JSON; use another account name per config dir, e.g. "expai" for the expai sandbox):
+
+    # nox bar "usage" widget: tee the plan limits (base0 nox/.local/lib/nox/usage). Fail-silent.
+    try:
+        _p = os.path.join(os.environ.get("EXPAI_REAL_HOME") or os.path.expanduser("~"), ".local/lib/nox/usage")
+        _ns = {"__name__": "nox_usage"}
+        exec(compile(open(_p).read(), _p, "exec"), _ns)
+        _ns["tee"](d, "claude")
+    except Exception:
+        pass
+
+File format (both kinds): {"source": "claude"|"codex", "account", "five_hour": {"pct",
+"resets_at"}, "seven_day": {...}, "limits": {<every window by key>: {"pct", "resets_at", ...}},
+"updated" (epoch s the numbers were seen), "model", ...}
+"""
+import json, os, sys, time
+
+RUN = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}", "nox", "usage")
+REWRITE_AFTER = 60          # s: refresh "updated" at most this often while nothing changed
+
+
+def _num(x):
+    return isinstance(x, (int, float)) and not isinstance(x, bool)
+
+
+def _write(name, obj, sig):
+    """Atomic one-line write of RUN/<name>.json + touch .stamp; skipped when sig is unchanged
+    and the file is fresh."""
+    path = os.path.join(RUN, name + ".json")
+    try:
+        with open(path) as f:
+            old = json.load(f)
+        if old.get("_sig") == sig and time.time() - (old.get("_written") or 0) < REWRITE_AFTER:
+            return False
+    except Exception:
+        pass
+    os.makedirs(RUN, mode=0o700, exist_ok=True)
+    obj["_sig"], obj["_written"] = sig, int(time.time())
+    tmp = f"{path}.{os.getpid()}.tmp"
+    with open(tmp, "w") as f:
+        f.write(json.dumps(obj, separators=(",", ":")) + "\n")
+    os.replace(tmp, path)
+    with open(os.path.join(RUN, ".stamp"), "w") as f:
+        f.write(str(time.time()) + "\n")
+    return True
+
+
+# ---- Claude Code (called from the statusline) ----
+def tee(d, account="claude"):
+    rl = (d or {}).get("rate_limits")
+    if not isinstance(rl, dict):
+        return False
+    limits = {}
+    for key, w in rl.items():
+        if not isinstance(w, dict):
+            continue
+        p = w.get("used_percentage", w.get("utilization"))
+        if not _num(p):
+            continue
+        ent = {"pct": round(float(p), 1)}
+        r = w.get("resets_at")
+        if _num(r):
+            ent["resets_at"] = int(r)
+        for k in ("used_usd", "limit_usd", "period"):
+            if k in w:
+                ent[k] = w[k]
+        limits[str(key)] = ent
+    # per-model buckets some versions add as a list ({display_name, utilization, resets_at})
+    for m in rl.get("model_scoped") or []:
+        try:
+            p = m.get("used_percentage", m.get("utilization"))
+            if _num(p):
+                limits["model:" + str(m.get("display_name") or "?")] = {"pct": round(float(p), 1),
+                    **({"resets_at": int(m["resets_at"])} if _num(m.get("resets_at")) else {})}
+        except Exception:
+            pass
+    if not limits:
+        return False
+    model = (d.get("model") or {})
+    sig = json.dumps(limits, sort_keys=True) + "|" + str(model.get("id"))
+    out = {"source": "claude", "account": account,
+           "config_dir": os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"),
+           "five_hour": limits.get("five_hour"), "seven_day": limits.get("seven_day"),
+           "limits": limits, "updated": int(time.time()),
+           "model": model.get("display_name") or "", "model_id": model.get("id") or "",
+           "version": d.get("version") if isinstance(d.get("version"), str) else ""}
+    return _write(account, out, sig)
+
+
+# ---- Codex CLI (called from the shell, at most once a minute) ----
+def _codex_files(root, want=6):
+    """Newest rollout files: walk sessions/YYYY/MM/DD newest-first, stop after `want` files."""
+    found = []
+
+    def kids(p):
+        try:
+            return sorted((e for e in os.scandir(p)), key=lambda e: e.name, reverse=True)
+        except OSError:
+            return []
+    for y in kids(root):
+        for m in kids(y.path) if y.is_dir() else []:
+            for dd in kids(m.path) if m.is_dir() else []:
+                for f in kids(dd.path) if dd.is_dir() else []:
+                    if f.name.endswith(".jsonl"):
+                        try:
+                            found.append((f.stat().st_mtime, f.path))
+                        except OSError:
+                            pass
+                if len(found) >= want:
+                    return sorted(found, reverse=True)
+    return sorted(found, reverse=True)
+
+
+def _codex_last(path, tail=512 * 1024):
+    """Last event in the file with non-null rate_limits -> (rate_limits, event epoch s)."""
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            f.seek(max(0, size - tail))
+            chunk = f.read()
+    except OSError:
+        return None
+    for line in reversed(chunk.splitlines()):
+        if b'"rate_limits":{' not in line:
+            continue
+        try:
+            e = json.loads(line)
+        except Exception:
+            continue
+        p = e.get("payload") or e
+        rl = p.get("rate_limits") or (p.get("info") or {}).get("rate_limits")
+        if not isinstance(rl, dict):
+            continue
+        ts = e.get("timestamp")
+        try:
+            import datetime
+            at = datetime.datetime.fromisoformat(str(ts).replace("Z", "+00:00")).timestamp()
+        except Exception:
+            at = os.path.getmtime(path)
+        return rl, int(at)
+    return None
+
+
+def codex():
+    home = os.environ.get("NOX_CODEX_HOME") or os.path.expanduser("~/.codex")
+    root = os.path.join(home, "sessions")
+    if not os.path.isdir(root):
+        return
+    files = _codex_files(root)
+    if not files:
+        return
+    # nothing new since the last read: keep the file as it is
+    try:
+        with open(os.path.join(RUN, "codex.json")) as f:
+            old = json.load(f)
+        if old.get("src_mtime") == files[0][0] and old.get("src") == files[0][1]:
+            return
+    except Exception:
+        pass
+    for mtime, path in files:
+        got = _codex_last(path)
+        if not got:
+            continue
+        rl, at = got
+        limits = {}
+        for slot in ("primary", "secondary"):
+            w = rl.get(slot)
+            if not isinstance(w, dict) or not _num(w.get("used_percent")):
+                continue
+            mins = w.get("window_minutes") or 0
+            key = "five_hour" if mins == 300 else "seven_day" if mins == 10080 else f"window_{mins}m"
+            ent = {"pct": round(float(w["used_percent"]), 1), "window_minutes": mins}
+            if _num(w.get("resets_at")):
+                ent["resets_at"] = int(w["resets_at"])
+            elif _num(w.get("resets_in_seconds")):
+                ent["resets_at"] = int(at + w["resets_in_seconds"])
+            limits[key] = ent
+        if not limits:
+            continue
+        out = {"source": "codex", "account": "codex", "five_hour": limits.get("five_hour"),
+               "seven_day": limits.get("seven_day"), "limits": limits, "updated": at,
+               "plan": rl.get("plan_type") or rl.get("limit_id") or "", "src": files[0][1],
+               "src_mtime": files[0][0]}
+        _write("codex", out, json.dumps(limits, sort_keys=True) + "|" + str(at) + "|" + files[0][1])
+        return
+
+
+def show():
+    res = {}
+    try:
+        for n in sorted(os.listdir(RUN)):
+            if n.endswith(".json"):
+                with open(os.path.join(RUN, n)) as f:
+                    res[n[:-5]] = json.load(f)
+    except Exception:
+        pass
+    print(json.dumps(res, indent=2))
+
+
+if __name__ == "__main__":
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "show"
+    if cmd == "codex":
+        try:
+            codex()
+        except Exception:
+            pass
+    elif cmd == "show":
+        show()
+    else:
+        print(__doc__.split("\n\n")[1], file=sys.stderr)
+        sys.exit(2)
