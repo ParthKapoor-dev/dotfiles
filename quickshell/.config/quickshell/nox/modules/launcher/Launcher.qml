@@ -636,7 +636,7 @@ Scope {
                                 Text {
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: root.selectable[root.sel]?.item.glyph ?? ""
-                                    font.family: "Twemoji"; font.pixelSize: 18
+                                    font.family: Theme.fontEmoji; font.pixelSize: 18
                                 }
                                 GText {
                                     anchors.verticalCenter: parent.verticalCenter
@@ -904,7 +904,7 @@ Scope {
                     Text {
                         anchors.centerIn: parent
                         text: root.selectable[tile.si]?.item.glyph ?? ""
-                        font.family: "Twemoji"
+                        font.family: Theme.fontEmoji
                         font.pixelSize: Math.round(root.gridTile * 0.44)
                         scale: tile.selected ? 1.1 : 1
                         Behavior on scale { NumberAnimation { duration: Theme.durHover; easing.type: Easing.OutCubic } }
@@ -979,7 +979,7 @@ Scope {
                     color: r.accentSel ? Theme.rgba(Theme.t.color.onAccent, 0.22) : Theme.fill2
                     Glyph { anchors.centerIn: parent; visible: !r.it.glyph; name: r.it.icon ?? "dots"; size: 15; color: r.fg }
                     // literal character (emoji): the UI font's fallback is monochrome, so name the emoji font
-                    Text { anchors.centerIn: parent; visible: !!r.it.glyph; text: r.it.glyph ?? ""; font.family: "Twemoji"; font.pixelSize: 16 }
+                    Text { anchors.centerIn: parent; visible: !!r.it.glyph; text: r.it.glyph ?? ""; font.family: Theme.fontEmoji; font.pixelSize: 16 }
                 }
                 // result.badge: small numbered pill on the icon's corner (slideshow position)
                 Rectangle {

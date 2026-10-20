@@ -286,6 +286,8 @@ Singleton {
     readonly property string fontDisplay: t.font.display
     readonly property string fontMono: t.font.mono
     readonly property string fontIcon: t.font.icon
+    // colour emoji: font.emoji, else Apple's set when installed (~/.local/share/fonts), else Twemoji
+    readonly property string fontEmoji: t.font.emoji ?? (Qt.fontFamilies().indexOf("Apple Color Emoji") >= 0 ? "Apple Color Emoji" : "Twemoji")
     readonly property real fontSize: t.font.size
     readonly property real fontSizeSmall: t.font.sizeSmall
     readonly property real iconSize: t.font.iconSize
