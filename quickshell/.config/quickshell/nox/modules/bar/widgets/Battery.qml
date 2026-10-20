@@ -7,7 +7,7 @@ import qs.services
 
 // Battery (UPower display device). Mock glyph; percentage on hover by default
 // (widgets.battery.showPercent: "hover" | "always" | "never"). tokens ui.meter = "dot-matrix":
-// 5 bars + "87%" in the label font (Telemetry). Popover: %, power source, time, power mode,
+// squared glyph (bolt charging, leaf plugged in, red low, pulsing critical) + "87%" (Telemetry). Popover: %, power source, time, power mode,
 // battery protection (80% charge cap <-> full charge).
 BarButton {
     id: root
@@ -22,12 +22,13 @@ BarButton {
     readonly property bool full: dev?.state === UPowerDeviceState.FullyCharged
     readonly property bool plugged: charging || full || dev?.state === UPowerDeviceState.PendingCharge || !UPower.onBattery
     readonly property bool low: pct <= (options.lowPercent ?? 20) && !plugged
+    readonly property bool critical: pct <= (options.criticalPercent ?? 10) && !plugged
     readonly property string mode: options.showPercent ?? "hover"
     visible: present
     hpad: 7
     active: Panels.popup === popupId
     onClicked: Panels.toggle(popupId)
-    spacing: Theme.dotMatrix ? 5 : 0
+    spacing: Theme.dotMatrix ? 4 : 0
 
     function duration(s) {
         if (!s || s <= 0) return "";
@@ -58,27 +59,40 @@ BarButton {
         anchors.verticalCenter: parent.verticalCenter
         level: root.level; charging: root.charging; low: root.low
     }
-    // dot-matrix (mock telemetry .bdots: 5 bars 4x10, gap 2, + .bpct)
-    Row {
+    // Telemetry: a state mark (bolt = charging, leaf = plugged in and held at the charge cap / full),
+    // the battery glyph squared (red fill = low, pulsing = critical) and the percentage. The mark
+    // sits beside the glyph: inside a 10px-high body it turns to mush
+    Glyph {
+        visible: Theme.dotMatrix && name !== ""
+        anchors.verticalCenter: parent.verticalCenter
+        name: root.charging ? "bolt" : root.plugged ? "leaf" : ""
+        size: 11
+        color: root.charging ? Theme.label : Theme.label2
+    }
+    BatteryGlyph {
         visible: Theme.dotMatrix
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 2
-        Repeater {
-            model: 5
-            Rectangle {
-                required property int index
-                width: 4; height: 10
-                color: index < Math.round(root.level * 5) ? (root.low ? Theme.red : Theme.label) : Theme.fill3
-            }
+        square: Theme.square
+        level: root.level; charging: root.charging; low: root.low
+        badge: ""
+        property real pulse: 1
+        opacity: root.critical ? pulse : 1
+        SequentialAnimation on pulse {
+            running: root.critical
+            loops: Animation.Infinite
+            NumberAnimation { to: 0.35; duration: 700; easing.type: Easing.InOutSine }
+            NumberAnimation { to: 1; duration: 700; easing.type: Easing.InOutSine }
         }
     }
     GText {
         visible: Theme.dotMatrix
         anchors.verticalCenter: parent.verticalCenter
-        text: (root.charging ? "+" : "") + root.pct + "%"
+        text: root.pct + "%"
+        color: root.low ? Theme.red : Theme.label
         font.family: Theme.fontLabel
         font.pixelSize: 11
         font.weight: Font.Medium
+        font.features: ({ "tnum": 1 })
     }
 
     GPopup {
