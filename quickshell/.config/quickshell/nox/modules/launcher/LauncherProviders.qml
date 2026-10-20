@@ -31,6 +31,9 @@ import Quickshell
 //                   re-runs the search and keeps the moved row selected, found by key? (stable id) ?? title) }
 // Footer hints for alt / mark / move show only while the selected result has them.
 // A provider may declare `signal resultsChanged()` (async sources): the launcher re-runs the search.
+// Grid providers: `property bool grid` (true = while its prefix is typed, results show as square tiles
+// of result.glyph in sections of consecutive equal result.section, arrows move in 2D; the launcher's
+// row limit is not applied, the provider caps its own list).
 // Two-level providers: `property bool nested` (true while a sub-level is shown) + `function back()`;
 // while its prefix is typed and nested, Esc and Backspace on an empty query call back() (footer: "Back").
 // Per-provider shell.json options understood by the launcher itself: enabled, prefix, prefixOnly, limit (0 = all), title.

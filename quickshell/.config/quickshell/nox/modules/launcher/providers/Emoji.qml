@@ -8,6 +8,9 @@ import qs.services
 // (emoji, name, group, keywords; Unicode 17, no skin-tone variants), read on the first query.
 // Empty query = recently used first, then the full list in Unicode order. Enter = copy to the
 // clipboard, and type it into the focused app when wtype is installed.
+// Shown as a tile grid (the launcher's grid mode, result.section = the grid section): empty query =
+// "Frequently Used" + every group in full, a search = one "Results" section with every match.
+// options.grid: false = the old list rows (options.limit then caps both lists).
 Item {
     id: root
     property string providerId: "emoji"
@@ -15,6 +18,7 @@ Item {
     property string name: "Emoji"
     property string defaultPrefix: "."
     property bool defaultPrefixOnly: true
+    readonly property bool grid: options.grid ?? true    // launcher: tiles instead of rows, no row limit
     signal resultsChanged()                 // the launcher re-runs the search when this fires
 
     property var entries: []                // [{ e, name, title, group, hay }]
@@ -51,10 +55,11 @@ Item {
         return s;
     }
 
-    function result(x, score, q) {
+    function result(x, score, q, section) {
         const at = q ? x.title.toLowerCase().indexOf(q) : -1;
         return {
             title: x.title,
+            section,
             glyph: x.e,
             type: x.group.replace(/ &.*$/, ""),
             actLabel: "Copy",
@@ -70,20 +75,21 @@ Item {
     function query(text, prefixed) {
         if (!prefixed) return [];
         if (!entries.length) { if (file.path === "") file.path = dataPath; return []; }
-        const limit = options.limit ?? 80;
+        const limit = grid ? entries.length * 2 : options.limit ?? 80;
         const q = text.trim().toLowerCase();
         const out = [];
         if (!q) {
+            // grid: the frequently used ones stay in their groups too (each group is complete)
             const recent = Frecency.top("emoji", options.recent ?? 16).filter(e => byEmoji[e]);
-            recent.forEach((e, i) => out.push(result(byEmoji[e], 1000 - i, "")));
+            recent.forEach((e, i) => out.push(result(byEmoji[e], 1000 - i, "", "Frequently Used")));
             for (let i = 0; i < entries.length && out.length < limit; i++)
-                if (!recent.includes(entries[i].e)) out.push(result(entries[i], -i, ""));
+                if (grid || !recent.includes(entries[i].e)) out.push(result(entries[i], -i, "", entries[i].group));
             return out;
         }
         const terms = q.split(/\s+/);
         for (let i = 0; i < entries.length; i++) {
             const s = rank(entries[i], terms);
-            if (s > 0) out.push(result(entries[i], s + (entries[i].name === q ? 5 : 0) + Frecency.score("emoji", entries[i].e) - i / 100000, q));
+            if (s > 0) out.push(result(entries[i], s + (entries[i].name === q ? 5 : 0) + Frecency.score("emoji", entries[i].e) - i / 100000, q, "Results"));
         }
         return out.sort((a, b) => b.score - a.score).slice(0, limit);
     }

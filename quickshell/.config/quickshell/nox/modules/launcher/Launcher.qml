@@ -17,6 +17,9 @@ import qs.services
 // that support them, Shift+Delete (remove), Ctrl+Enter (mark), Shift+Enter (alt action) and
 // Alt+Up/Alt+Down (reorder).
 // A prefixed provider showing a sub-level (nested) takes Esc / Backspace-on-empty as "back".
+// A prefixed grid provider (emoji) shows square tiles in sections instead of rows: arrows move in
+// 2D, PageUp/PageDown by a screen of rows, Home/End to the first/last tile; the footer names the
+// selected tile.
 // Layer surface namespace nox:launcher; it only exists while open.
 Scope {
     id: root
@@ -32,6 +35,19 @@ Scope {
     property var footerHints: []   // [[prefix, provider name]]
     property var prefixed: null    // { p, prefix, q }: the provider whose prefix is typed, if any
     readonly property bool nested: !!prefixed?.p.nested
+
+    // ---- grid mode (prefixed provider with `grid`): tiles of result.glyph, sectioned by result.section ----
+    readonly property bool gridMode: !!prefixed?.p.grid
+    readonly property int gridGap: 8
+    readonly property int gridWidth: (opts.width ?? 680) - 16
+    // as many columns as fit tiles of at least gridTileMin (8 at the default 680 width)
+    readonly property int gridCols: Math.max(1, Math.floor((gridWidth + gridGap) / ((opts.gridTileMin ?? 72) + gridGap)))
+    readonly property real gridTile: Math.floor((gridWidth - (gridCols - 1) * gridGap) / gridCols)
+    readonly property int gridHeight: opts.gridHeight ?? 432
+    property var gridRows: []      // [{ header, count }, { start, count, tr }]  (grid ListView model)
+    property var tileRows: []      // [{ start, count, row }]: the tile rows only, for Up/Down
+    property var tileRowOf: []     // selectable index -> tileRows index
+    property int gridCol: -1       // sticky column while Up/Down passes shorter rows (-1 = from sel)
 
     // large preview beside the list for results that carry one: an image (result.preview:
     // wallpapers, image files, clipboard images) or text (result.previewText: clipboard text). Text
@@ -97,6 +113,7 @@ Scope {
     }
     Timer { id: hideTimer; interval: Theme.durFade; onTriggered: root.shown = false }
     ListModel { id: rowModel }
+    ListModel { id: gridModel }
 
     // ---- providers (one Loader per configured id; they live as long as the module) ----
     readonly property var providerIds: opts.providers ?? []
@@ -155,7 +172,7 @@ Scope {
             catch (e) { console.warn("nox: launcher provider failed:", run.x.p.providerId, e); continue; }
             // by score; ties keep the provider's order
             res = res.map((it, i) => [it, i]).sort((a, b) => ((b[0].score ?? 0) - (a[0].score ?? 0)) || (a[1] - b[1]))
-                     .map(x => x[0]).slice(0, run.x.limit > 0 ? run.x.limit : undefined);   // limit 0 = all
+                     .map(x => x[0]).slice(0, run.x.limit > 0 && !run.x.p.grid ? run.x.limit : undefined);   // limit 0 = all
             if (!res.length) continue;
             r.push({ header: run.x.title ?? run.x.p.name });
             for (const item of res) {
@@ -167,9 +184,11 @@ Scope {
         // the ListView model only follows the row count: rows read root.rows[index] and update in
         // place. Assigning a new array as the model reset the view on every keystroke (and on every
         // thumbnail a provider finished), which flashed the selection onto row 0 (the header).
-        while (rowModel.count > r.length) rowModel.remove(rowModel.count - 1);
-        while (rowModel.count < r.length) rowModel.append({});
+        const n = gridMode ? 0 : r.length;   // grid mode: the row list stays empty
+        while (rowModel.count > n) rowModel.remove(rowModel.count - 1);
+        while (rowModel.count < n) rowModel.append({});
         selectable = s;
+        layoutGrid();
         sel = keepSel ? Math.min(prevSel, Math.max(0, s.length - 1)) : 0;
         confirming = false;
     }
@@ -177,6 +196,60 @@ Scope {
     function move(d) {
         if (!selectable.length) return;
         sel = (sel + d + selectable.length) % selectable.length;
+        confirming = false;
+        gridCol = -1;
+    }
+
+    // grid mode: consecutive results with the same section become a header + rows of gridCols tiles
+    function layoutGrid() {
+        const g = [], t = [], of = [];
+        if (gridMode) {
+            const s = selectable;
+            for (let i = 0; i < s.length;) {
+                const sec = s[i].item.section ?? "";
+                let j = i;
+                while (j < s.length && (s[j].item.section ?? "") === sec) j++;
+                if (sec !== "") g.push({ header: sec, count: j - i });
+                for (let k = i; k < j; k += gridCols) {
+                    const count = Math.min(gridCols, j - k);
+                    t.push({ start: k, count, row: g.length });
+                    g.push({ start: k, count, tr: t.length - 1 });
+                    for (let c = 0; c < count; c++) of.push(t.length - 1);
+                }
+                i = j;
+            }
+        }
+        tileRows = t;
+        tileRowOf = of;
+        while (gridModel.count > g.length) gridModel.remove(gridModel.count - 1);
+        while (gridModel.count < g.length) gridModel.append({});
+        gridRows = g;
+        gridCol = -1;
+    }
+    // grid mode keys: Left/Right one tile (across sections), Up/Down a row (keeping the column, a
+    // short row clamps it), PageUp/PageDown a screen of rows, Home/End the first/last tile
+    function gridMove(key) {
+        const n = selectable.length;
+        if (!n) return;
+        const tr = tileRowOf[sel] ?? 0;
+        const col = gridCol >= 0 ? gridCol : sel - tileRows[tr].start;
+        const page = Math.max(1, Math.floor(gridHeight / (gridTile + gridGap)) - 1);
+        const toRow = r => {
+            r = Math.max(0, Math.min(tileRows.length - 1, r));
+            if (r === tr) return sel;
+            gridCol = col;
+            return tileRows[r].start + Math.min(col, tileRows[r].count - 1);
+        };
+        let next = sel;
+        if (key === Qt.Key_Left) { next = Math.max(0, sel - 1); gridCol = -1; }
+        else if (key === Qt.Key_Right) { next = Math.min(n - 1, sel + 1); gridCol = -1; }
+        else if (key === Qt.Key_Down) next = tr === tileRows.length - 1 ? n - 1 : toRow(tr + 1);
+        else if (key === Qt.Key_Up) next = tr === 0 ? 0 : toRow(tr - 1);
+        else if (key === Qt.Key_PageDown) next = tr === tileRows.length - 1 ? n - 1 : toRow(tr + page);
+        else if (key === Qt.Key_PageUp) next = tr === 0 ? 0 : toRow(tr - page);
+        else if (key === Qt.Key_Home) { next = 0; gridCol = -1; }
+        else if (key === Qt.Key_End) { next = n - 1; gridCol = -1; }
+        sel = next;
         confirming = false;
     }
     // Ctrl+Enter: result.mark() toggles membership (e.g. in the wallpaper slideshow); the list stays
@@ -411,6 +484,10 @@ Scope {
                                 if (alt && (e.key === Qt.Key_Up || e.key === Qt.Key_Down)) { root.reorderSelected(e.key === Qt.Key_Up ? -1 : 1); e.accepted = true; }
                                 else if (ctrl && (e.key === Qt.Key_Return || e.key === Qt.Key_Enter)) { root.markSelected(); e.accepted = true; }
                                 else if ((e.modifiers & Qt.ShiftModifier) && (e.key === Qt.Key_Return || e.key === Qt.Key_Enter)) { root.altSelected(); e.accepted = true; }
+                                else if (root.gridMode && !(e.modifiers & ~Qt.KeypadModifier)
+                                         && [Qt.Key_Left, Qt.Key_Right, Qt.Key_Up, Qt.Key_Down, Qt.Key_PageUp, Qt.Key_PageDown, Qt.Key_Home, Qt.Key_End].includes(e.key)) {
+                                    root.gridMove(e.key); e.accepted = true;
+                                }
                                 else if (e.key === Qt.Key_Down || e.key === Qt.Key_Tab || (ctrl && e.key === Qt.Key_N)) { root.move(1); e.accepted = true; }
                                 else if (e.key === Qt.Key_Up || e.key === Qt.Key_Backtab || (ctrl && e.key === Qt.Key_P)) { root.move(-1); e.accepted = true; }
                                 else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) { root.runSelected(); e.accepted = true; }
@@ -431,10 +508,10 @@ Scope {
                     }
 
                     // ---- results (mock .ln-res) ----
-                    Rectangle { visible: root.rows.length > 0; width: parent.width; height: Theme.rimWidth; color: Theme.sep }
+                    Rectangle { visible: root.rows.length > 0 || root.gridMode; width: parent.width; height: Theme.rimWidth; color: Theme.sep }
                     ListView {
                         id: list
-                        visible: root.rows.length > 0
+                        visible: root.rows.length > 0 && !root.gridMode
                         x: 8
                         width: parent.width - 16
                         height: Math.min(contentHeight, root.opts.maxHeight ?? 404) + (visible ? 8 : 0)
@@ -460,6 +537,7 @@ Scope {
                         Connections {
                             target: root
                             function onSelChanged() {
+                                if (root.gridMode) return;
                                 const r = root.selectable[root.sel]?.row;
                                 if (r !== undefined) list.positionViewAtIndex(r, ListView.Contain);
                                 if (root.sel === 0) list.positionViewAtBeginning();
@@ -473,6 +551,53 @@ Scope {
                             sourceComponent: !row ? null : row.header !== undefined ? headerRow : row.item.big ? bigRow : itemRow
                             onLoaded: item.modelData = row
                             onRowChanged: if (item && row) item.modelData = row
+                        }
+                    }
+
+                    // ---- grid (grid providers: emoji) - one ListView row per header / row of tiles,
+                    // so only the visible tiles exist; fixed height, so typing never resizes the panel ----
+                    Item {
+                        visible: root.gridMode
+                        width: parent.width
+                        height: visible ? root.gridHeight : 0
+                        GText {
+                            visible: root.selectable.length === 0
+                            anchors.centerIn: parent
+                            text: root.prefixed?.p.entries?.length === 0 ? "Loading…" : "No results"
+                            secondary: true
+                        }
+                        ListView {
+                            id: grid
+                            // 4px wider on each side than the tiles, so the selection ring isn't clipped
+                            x: 4; y: 0
+                            width: root.gridWidth + 8
+                            height: parent.height
+                            topMargin: 4; bottomMargin: 10
+                            clip: true
+                            boundsBehavior: Flickable.StopAtBounds
+                            cacheBuffer: 2 * (root.gridTile + root.gridGap)
+                            model: gridModel
+                            // keep the selected tile in view, with its section header when it's the first row
+                            function reveal() {
+                                const tr = root.tileRows[root.tileRowOf[root.sel] ?? -1];
+                                if (!tr) return;
+                                if (root.sel === 0) { positionViewAtBeginning(); return; }
+                                if (root.gridRows[tr.row - 1]?.header !== undefined) positionViewAtIndex(tr.row - 1, ListView.Contain);
+                                positionViewAtIndex(tr.row, ListView.Contain);
+                            }
+                            Connections {
+                                target: root
+                                function onSelChanged() { if (root.gridMode) grid.reveal(); }
+                                function onGridRowsChanged() { if (root.gridMode && root.sel === 0) grid.positionViewAtBeginning(); }
+                            }
+                            delegate: Loader {
+                                required property int index
+                                readonly property var row: root.gridRows[index] ?? null
+                                width: grid.width
+                                sourceComponent: !row ? null : row.header !== undefined ? gridHeader : tileRow
+                                onLoaded: item.modelData = row
+                                onRowChanged: if (item && row) item.modelData = row
+                            }
                         }
                     }
 
@@ -503,8 +628,25 @@ Scope {
                                 }
                                 return n;
                             }
+                            // grid mode: the selected tile, large, and its name instead of brand + hints
+                            Row {
+                                visible: root.gridMode && root.selectable.length > 0
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 9
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: root.selectable[root.sel]?.item.glyph ?? ""
+                                    font.family: "Twemoji"; font.pixelSize: 18
+                                }
+                                GText {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: Math.min(implicitWidth, footLeft.width - 27)
+                                    text: root.selectable[root.sel]?.item.title ?? ""
+                                }
+                            }
                             Row {
                                 id: brand
+                                visible: !root.gridMode
                                 anchors.verticalCenter: parent.verticalCenter
                                 spacing: 7
                                 LogoGlyph { anchors.verticalCenter: parent.verticalCenter; width: 14; height: 14 }
@@ -524,7 +666,7 @@ Scope {
                                     Hint {
                                         required property var modelData
                                         required property int index
-                                        visible: index < footLeft.fit
+                                        visible: index < footLeft.fit && !root.gridMode
                                         anchors.verticalCenter: parent?.verticalCenter
                                         keysFirst: true
                                         keys: [modelData[0]]
@@ -558,7 +700,7 @@ Scope {
                                 label: "Reorder"
                                 keys: ["alt", "↑", "↓"]
                             }
-                            Hint { label: "Navigate"; keys: ["↑", "↓"] }
+                            Hint { visible: !root.gridMode; label: "Navigate"; keys: ["↑", "↓"] }
                             Hint { label: root.nested ? "Back" : "Close"; keys: ["esc"] }
                         }
                     }
@@ -714,6 +856,64 @@ Scope {
                         anchors.verticalCenter: parent.verticalCenter
                         small: true; secondary: true
                         text: caption.it?.previewTag ?? (caption.it?.type === "Current" ? "Current" : (caption.it?.title ?? "").split("/").slice(-2, -1)[0] ?? "")
+                    }
+                }
+            }
+        }
+    }
+
+    // ---- grid row types: section header ("Smileys & Emotion  171") and a row of tiles ----
+    Component {
+        id: gridHeader
+        Row {
+            property var modelData: null
+            leftPadding: 6; topPadding: 10; bottomPadding: 8
+            spacing: 7
+            SectionLabel { width: implicitWidth; leftPadding: 0; rightPadding: 0; topPadding: 0; bottomPadding: 0; text: parent.modelData?.header ?? "" }
+            SectionLabel { width: implicitWidth; leftPadding: 0; rightPadding: 0; topPadding: 0; bottomPadding: 0; text: parent.modelData?.count ?? ""; color: Theme.label3; font.family: Theme.fontMono }
+        }
+    }
+
+    Component {
+        id: tileRow
+        Item {
+            id: tr
+            property var modelData: null
+            height: root.gridTile + root.gridGap
+            Repeater {
+                model: tr.modelData?.count ?? 0
+                Rectangle {
+                    id: tile
+                    required property int index
+                    readonly property int si: (tr.modelData?.start ?? 0) + index
+                    readonly property bool selected: si === root.sel
+                    x: 4 + index * (root.gridTile + root.gridGap)
+                    width: root.gridTile; height: root.gridTile
+                    radius: Theme.square ? 3 : Math.min(12, Theme.radiusPanel)
+                    color: selected ? Theme.rgba(Theme.t.color.accent, 0.12) : Theme.fill
+                    // the ring: accent, drawn just outside the fill so the tile keeps its size
+                    Rectangle {
+                        anchors.fill: parent; anchors.margins: -3
+                        radius: parent.radius + 3
+                        color: "transparent"
+                        border.width: 2
+                        border.color: root.confirming ? Theme.red : Theme.accent
+                        opacity: tile.selected ? 1 : 0
+                        Behavior on opacity { NumberAnimation { duration: Theme.durHover } }
+                    }
+                    Text {
+                        anchors.centerIn: parent
+                        text: root.selectable[tile.si]?.item.glyph ?? ""
+                        font.family: "Twemoji"
+                        font.pixelSize: Math.round(root.gridTile * 0.44)
+                        scale: tile.selected ? 1.1 : 1
+                        Behavior on scale { NumberAnimation { duration: Theme.durHover; easing.type: Easing.OutCubic } }
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onPositionChanged: if (root.sel !== tile.si) { root.sel = tile.si; root.confirming = false; root.gridCol = -1; }
+                        onClicked: { root.sel = tile.si; root.runSelected(); }
                     }
                 }
             }
