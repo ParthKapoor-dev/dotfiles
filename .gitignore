@@ -29,5 +29,6 @@ zed/.config/zed/settings_backup.json
 # tmux plugins: installed by TPM (bootstrap in tmux.conf), not committed
 tmux/.config/tmux/plugins/
 
-# nox machine-local overrides
+# nox machine-local overrides (local.lua by hand, machine.lua by nox detect)
 hypr/.config/hypr/nox/local.lua
+hypr/.config/hypr/nox/machine.lua

@@ -116,17 +116,21 @@ Singleton {
         }
     }
 
-    // thermal zone: read every zone's `type` once, pick the best CPU sensor
+    // thermal zone: stats.thermalZone = "auto" (best CPU sensor), a sensor type such as
+    // "x86_pkg_temp" (what `nox detect` writes: zone numbers can change between boots) or a zone
+    // number. Every zone's `type` is read once unless a number is given.
     readonly property var zonePrefs: ["x86_pkg_temp", "TCPU", "k10temp", "cpu_thermal", "cpu-thermal", "soc_thermal", "acpitz"]
     property var zoneTypes: ({})
+    readonly property string zoneWant: String(opts.thermalZone ?? "auto")
+    readonly property bool zoneByNumber: /^[0-9]+$/.test(zoneWant)
     readonly property string zone: {
-        const want = opts.thermalZone ?? "auto";
-        if (want !== "auto" && want !== undefined && want !== null) return "/sys/class/thermal/thermal_zone" + want;
-        for (const p of zonePrefs) for (const z in zoneTypes) if (zoneTypes[z] === p) return "/sys/class/thermal/thermal_zone" + z;
+        if (zoneByNumber) return "/sys/class/thermal/thermal_zone" + zoneWant;
+        const prefs = zoneWant === "auto" ? zonePrefs : [zoneWant].concat(zonePrefs);
+        for (const p of prefs) for (const z in zoneTypes) if (zoneTypes[z] === p) return "/sys/class/thermal/thermal_zone" + z;
         return "";
     }
     Instantiator {
-        model: (root.opts.thermalZone ?? "auto") === "auto" ? 16 : 0
+        model: root.zoneByNumber ? 0 : 16
         FileView {
             required property int index
             path: "/sys/class/thermal/thermal_zone" + index + "/type"

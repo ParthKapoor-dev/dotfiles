@@ -10,7 +10,7 @@
 #   nox phone pair          pairing instructions + ask reachable unpaired phones to pair
 #   nox phone on|off        start/stop the daemon for this session (does not enable it at login)
 #   nox phone logs [-f]     daemon journal
-# Device: shell.json phone.device (name or id), else the first paired, reachable one.
+# Device: shell.json / shell.local.json phone.device (name or id), else the first paired, reachable one.
 # Build/install the daemon: cargo build --release -p kdeconnect-service in a clone of
 # github.com/cosmic-utils/kdeconnect, then install -Dm755 target/release/kdeconnect-service ~/.local/bin/
 
@@ -45,7 +45,8 @@ devices() {
 # preferred device id + name (paired; reachable first)
 pick() {
     local want
-    want=$(jq -r '.phone.device // ""' "${XDG_CONFIG_HOME:-$HOME/.config}/nox/shell.json" 2>/dev/null)
+    local c="${XDG_CONFIG_HOME:-$HOME/.config}/nox"
+    want=$(jq -rs 'map(.phone.device // empty) | last // ""' "$c/shell.json" $([ -r "$c/shell.local.json" ] && echo "$c/shell.local.json") 2>/dev/null)
     devices | awk -F'\t' -v w="$want" '$4=="true" && (w=="" || $1==w || $2==w) { print $5 "\t" $1 "\t" $2 }' |
         sort -r | head -1 | cut -f2,3
 }

@@ -1,16 +1,20 @@
 -- nox greeter compositor: the smallest Hyprland that shows the greeter (installed as
 -- /etc/nox-greeter/hyprland.lua, run by launch.sh as the greetd `greeter` user).
--- No binds, no animations (the greeter animates itself). Monitors match the session's
--- hypr/nox/monitors.lua so the login screen and the desktop use the same modes and scale.
+-- No binds, no animations (the greeter animates itself). Monitors match the session's: `nox
+-- greeter sync` copies ~/.config/hypr/nox/machine.lua (written by `nox detect`) next to the
+-- theme in /var/lib/nox-greeter, so the login screen and the desktop use the same modes and
+-- scale; without it every output gets its preferred mode.
 -- When the greeter quits (session launched, or crashed), Hyprland exits with it.
 
 local shell = os.getenv("NOX_GREETER_SHELL") or "/etc/nox-greeter/shell"
+local data = os.getenv("NOX_GREETER_DATA") or "/var/lib/nox-greeter"
 
-for _, m in ipairs({
-    { output = "", mode = "preferred", position = "auto", scale = "auto" },
-    { output = "HDMI-A-1", mode = "1920x1080@60", position = "0x0", scale = "1" },
-    { output = "eDP-1", mode = "1920x1080@144", position = "1920x0", scale = "1.25" },
-}) do hl.monitor(m) end
+local monitors = { { output = "", mode = "preferred", position = "auto", scale = "auto" } }
+local ok, machine = pcall(dofile, data .. "/machine.lua")
+if ok and type(machine) == "table" and type(machine.settings) == "table" and type(machine.settings.monitors) == "table" then
+    monitors = machine.settings.monitors
+end
+for _, m in ipairs(monitors) do hl.monitor(m) end
 
 hl.config({
     input = {

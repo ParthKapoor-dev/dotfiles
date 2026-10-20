@@ -1,1 +1,4 @@
 local.json
+# nox detect + machine-local shell overrides (see nox detect --help)
+machine.json
+shell.local.json

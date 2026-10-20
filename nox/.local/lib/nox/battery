@@ -7,13 +7,23 @@
 #   limit <60-100>    100 = full, the current cap = protect; any other cap needs root once
 #                     (sudo sh base0/_battery/root.sh install <N>, asked for when run in a terminal)
 #   reapply [-q]      re-send the setting if the firmware lost it (hypridle after_sleep_cmd, shell start)
-# No sudo per toggle: upowerd (>= 1.90) writes BAT1/charge_control_end_threshold over D-Bus
+# No sudo per toggle: upowerd (>= 1.90) writes <BAT>/charge_control_end_threshold over D-Bus
 # (EnableChargeThreshold, polkit org.freedesktop.UPower.enable-charging-limit = yes for the active
 # session) and keeps on/off in /var/lib/upower/charging-threshold-status, re-applied at boot.
 # The cap itself comes from udev CHARGE_LIMIT (upower's hwdb default 75,80; ASUS has no start
-# threshold, so only the 80 is used). NOX_BATTERY overrides BAT1.
+# threshold, so only the 80 is used).
+# Battery: $NOX_BATTERY, else shell.local.json / shell.json battery.device (`nox detect` writes
+# it), else the first power_supply BAT* with a charge threshold.
 set -euo pipefail
-BAT="${NOX_BATTERY:-BAT1}"
+conf="${NOX_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/nox}"
+BAT="${NOX_BATTERY:-$(jq -rs '(.[0].battery.device // "") as $a | (.[1].battery.device // $a)' \
+    "$conf/shell.json" "$conf/shell.local.json" 2>/dev/null || true)}"
+if [ -z "$BAT" ] || [ ! -d "/sys/class/power_supply/$BAT" ]; then
+    BAT=""
+    for b in /sys/class/power_supply/BAT*; do [ -e "$b/charge_control_end_threshold" ] && { BAT=${b##*/}; break; }; done
+    [ -n "$BAT" ] || { b=$(ls -d /sys/class/power_supply/BAT* 2>/dev/null | head -1); BAT=${b##*/}; }
+    BAT=${BAT:-BAT0}
+fi
 SYS="/sys/class/power_supply/$BAT"
 OBJ="/org/freedesktop/UPower/devices/battery_$BAT"
 IFACE=org.freedesktop.UPower.Device
@@ -71,9 +81,9 @@ case "$cmd" in
         elif [ "$n" = "$cap" ]; then set_on true
         else
             # a new cap = udev CHARGE_LIMIT for this battery: root, once per value
-            [ -t 0 ] || die "a ${n}% cap needs root once: sudo sh $SRC/root.sh install $n   (current cap: $cap%)"
+            [ -t 0 ] || die "a ${n}% cap needs root once: sudo sh $SRC/root.sh install $n $BAT   (current cap: $cap%)"
             say "sudo: $SRC/root.sh install $n"
-            sudo sh "$SRC/root.sh" install "$n"
+            sudo sh "$SRC/root.sh" install "$n" "$BAT"
             poke
         fi ;;
     reapply)

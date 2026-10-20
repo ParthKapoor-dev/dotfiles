@@ -1,0 +1,8 @@
+{
+  "_comment": "shell.local.json (git-ignored) is deep-merged over shell.json by the shell and the nox CLI: machine-local values only. `nox detect` writes the four keys below (it leaves a value alone once you change it by hand); add any other shell.json key to override it on this machine.",
+  "voice": { "source": "alsa_input.pci-0000_00_1f.3.analog-stereo" },
+  "stats": { "thermalZone": "x86_pkg_temp" },
+  "brightness": { "device": "intel_backlight" },
+  "battery": { "device": "BAT0" },
+  "phone": { "device": "Pixel 9" }
+}

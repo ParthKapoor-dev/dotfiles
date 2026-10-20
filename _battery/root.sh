@@ -4,14 +4,19 @@
 # (see nox/.local/lib/nox/battery). upowerd takes the cap from the udev property
 # CHARGE_LIMIT=<start>,<end> ("_" = skip; upower's 60-upower-battery hwdb sets 75,80), so a
 # different cap is one udev rule ordered after upower's 60-upower-battery.rules.
-#   root.sh install <60-99>   write $RULE (CHARGE_LIMIT=_,<N> for $BAT), reload udev,
+#   root.sh install <60-99> [BAT]   write $RULE (CHARGE_LIMIT=_,<N> for $BAT), reload udev,
 #                             restart upower (it re-reads the cap and re-applies on/off)
-#   root.sh uninstall         remove $RULE: back to upower's default (80%)
-#   root.sh status            rule, udev property, UPower state, firmware value
-# Idempotent; a foreign file at $RULE is kept as $RULE.bak. Restarting upower makes the bar's
-# battery widget reconnect (a second without data).
+#   root.sh uninstall [BAT]   remove $RULE: back to upower's default (80%)
+#   root.sh status [BAT]      rule, udev property, UPower state, firmware value
+# BAT: the power_supply name (`nox battery` passes the one it uses); default: the first BAT*
+# with a charge threshold. Idempotent; a foreign file at $RULE is kept as $RULE.bak.
+# Restarting upower makes the bar's battery widget reconnect (a second without data).
 set -eu
-BAT=BAT1
+case "${1:-}" in install) BAT="${3:-}" ;; *) BAT="${2:-}" ;; esac
+if [ -z "$BAT" ]; then
+    for b in /sys/class/power_supply/BAT*; do [ -e "$b/charge_control_end_threshold" ] && { BAT=${b##*/}; break; }; done
+fi
+case "$BAT" in '' | */* | .*) echo "nox battery (root): no battery with a charge threshold found (pass its name)" >&2; exit 1 ;; esac
 SYS=/sys/class/power_supply/$BAT
 RULE=/etc/udev/rules.d/61-nox-battery.rules
 MARK="# nox battery:"
@@ -38,7 +43,7 @@ reload() {   # udev env -> upowerd -> firmware
 case "${1:-}" in
     install)
         n="${2:-}"
-        case "$n" in '' | *[!0-9]*) die "usage: root.sh install <60-99>" ;; esac
+        case "$n" in '' | *[!0-9]*) die "usage: root.sh install <60-99> [BAT]" ;; esac
         [ "$n" -ge 60 ] && [ "$n" -le 99 ] || die "cap must be 60-99 (100 = nox battery full)"
         if [ -e "$RULE" ] && ! grep -q "^$MARK" "$RULE"; then cp -p "$RULE" "$RULE.bak"; say "kept foreign $RULE as $RULE.bak"; fi
         tmp="$RULE.nox-tmp"
@@ -63,5 +68,5 @@ EOF
         say "upower: protection $(prop ChargeThresholdEnabled), cap $(prop ChargeEndThreshold)%"
         say "firmware: $(cat "$SYS/charge_control_end_threshold")%"
         ;;
-    *) die "usage: root.sh install <60-99> | uninstall | status" ;;
+    *) die "usage: root.sh install <60-99> [BAT] | uninstall [BAT] | status [BAT]" ;;
 esac

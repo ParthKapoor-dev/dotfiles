@@ -177,7 +177,7 @@
     "hideWhilePopupOpen": true
   },
   "voice": {
-    "_comment": "Voice typing: hold Super+Shift+Space (or nox voice toggle), speak, release; the text is pasted into the focused field. Local whisper.cpp on the GPU (nox voice setup builds it and downloads the model). language: auto | en | hi | ...; prompt: optional context that biases spelling (names, 'Hinglish in Latin script'). model: q5_0 | q8_0 | a .bin path. tidy: drop um / uh / repeats (the pill's TIDY chip and nox voice tidy keep a runtime choice in ~/.local/state/nox/voice.json). smartTidy: also run the text through claude -p (smartTidyModel; ~3 s). source: PipeWire node name ('' = default mic; set to the laptop mic so Bluetooth headphones never drop into call mode while you talk). idleMinutes: unload the model from VRAM after this long unused (0 = keep). restoreClipboard: put the previous clipboard back after the paste. Audio is deleted after transcribing; transcripts are never stored.",
+    "_comment": "Voice typing: hold Super+Shift+Space (or nox voice toggle), speak, release; the text is pasted into the focused field. Local whisper.cpp on the GPU (nox voice setup builds it and downloads the model). language: auto | en | hi | ...; prompt: optional context that biases spelling (names, 'Hinglish in Latin script'). model: q5_0 | q8_0 | a .bin path. tidy: drop um / uh / repeats (the pill's TIDY chip and nox voice tidy keep a runtime choice in ~/.local/state/nox/voice.json). smartTidy: also run the text through claude -p (smartTidyModel; ~3 s). source: PipeWire node name ('' = default mic; `nox detect` sets the laptop mic in shell.local.json so Bluetooth headphones never drop into call mode while you talk). idleMinutes: unload the model from VRAM after this long unused (0 = keep). restoreClipboard: put the previous clipboard back after the paste. Audio is deleted after transcribing; transcripts are never stored.",
     "enabled": true,
     "language": "auto",
     "prompt": "",
@@ -185,7 +185,7 @@
     "tidy": true,
     "smartTidy": false,
     "smartTidyModel": "haiku",
-    "source": "alsa_input.pci-0000_00_1f.3.analog-stereo",
+    "source": "",
     "maxSeconds": 120,
     "idleMinutes": 10,
     "gpu": true,

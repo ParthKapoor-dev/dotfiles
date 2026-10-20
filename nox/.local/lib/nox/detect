@@ -1,0 +1,292 @@
+#!/usr/bin/env python3
+"""nox detect: find this machine's hardware values and write them to git-ignored local files.
+
+usage: nox detect [--yes]      detect, show what changes, write (asks before replacing a saved
+                               monitor mode with a different current one; --yes keeps saved ones)
+       nox detect --print      detect and print, write nothing
+       nox detect --check      exit 0 when the local files exist and match this hardware
+       nox detect --get KEY    one value (gpu, battery, mic, thermalZone, backlight, monitors)
+
+Never writes a tracked file. Files (all git-ignored in the repo):
+  ~/.config/nox/machine.json      the facts, written only by this command
+  ~/.config/nox/shell.local.json  shell.json overrides (deep-merged over shell.json by the shell
+                                  and the nox CLI): voice.source, stats.thermalZone,
+                                  brightness.device, battery.device. A value you changed by hand
+                                  (differs from the last detection) is left alone.
+  ~/.config/hypr/nox/machine.lua  Hyprland monitors (settings.monitors), generated from
+                                  machine.json; nox/local.lua still wins over it.
+Detected: monitors (hyprctl monitors all -j; saved monitors that are unplugged right now are
+kept), battery (power_supply BAT* with a charge threshold), internal mic (PipeWire ALSA source
+on the PCI bus), thermal zone (by sensor type, stable across boots), backlight, GPU vendor(s).
+Python 3 stdlib only.
+"""
+import datetime, glob, json, os, subprocess, sys
+
+HOME = os.path.expanduser("~")
+_PKG = os.path.dirname(os.path.realpath(__file__))
+# config dirs: the package's own (works from a worktree and via the stow link), else XDG
+_PKG_NOX = os.path.normpath(os.path.join(_PKG, "../../../.config/nox"))
+CONF = os.environ.get("NOX_CONFIG_DIR") or (_PKG_NOX if os.path.isdir(_PKG_NOX) else os.path.join(
+    os.environ.get("XDG_CONFIG_HOME", os.path.join(HOME, ".config")), "nox"))
+HYPR = os.environ.get("NOX_HYPR_DIR") or os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.join(HOME, ".config")), "hypr")
+MACHINE = os.path.join(CONF, "machine.json")
+SHELL_LOCAL = os.path.join(CONF, "shell.local.json")
+MACHINE_LUA = os.path.join(HYPR, "nox", "machine.lua")
+# same preference order as the shell's services/SysStats.qml "auto"
+ZONE_PREFS = ["x86_pkg_temp", "TCPU", "k10temp", "cpu_thermal", "cpu-thermal", "soc_thermal", "acpitz"]
+VENDORS = {"0x10de": "nvidia", "0x1002": "amd", "0x8086": "intel"}
+FALLBACK = {"output": "", "mode": "preferred", "position": "auto", "scale": "auto"}
+# shell.local.json keys owned by detect: path -> machine.json key
+SHELL_KEYS = {("voice", "source"): "mic", ("stats", "thermalZone"): "thermalZone",
+              ("brightness", "device"): "backlight", ("battery", "device"): "battery"}
+
+
+def read(path, default=None):
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except OSError:
+        return default
+
+
+def load_json(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+    except json.JSONDecodeError as e:
+        sys.exit(f"nox detect: {path}: {e}")
+
+
+def run_json(cmd):
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        return json.loads(r.stdout) if r.returncode == 0 and r.stdout.strip() else None
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
+        return None
+
+
+# ---------------------------------------------------------------- probes
+def fmt(v):
+    v = float(v)
+    return str(int(v)) if v == int(v) else ("%.3f" % v).rstrip("0").rstrip(".")
+
+
+def monitors():
+    """Connected monitors as Hyprland monitor rules; None when not inside Hyprland."""
+    if not os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"):
+        return None
+    data = run_json(["hyprctl", "monitors", "all", "-j"])
+    if data is None:
+        return None
+    out = []
+    for m in data:
+        hz = float(m.get("refreshRate") or 60)
+        hz = round(hz) if abs(hz - round(hz)) < 0.05 else round(hz, 2)
+        out.append({"output": m["name"], "mode": "%dx%d@%s" % (m["width"], m["height"], fmt(hz)),
+                    "position": "%dx%d" % (m["x"], m["y"]), "scale": fmt(round(float(m["scale"]), 4)),
+                    "description": m.get("description", "")})
+    return out
+
+
+def battery():
+    bats = sorted(p for p in glob.glob("/sys/class/power_supply/*") if read(p + "/type") == "Battery")
+    for p in bats:
+        if os.path.exists(p + "/charge_control_end_threshold"):
+            return os.path.basename(p)
+    return os.path.basename(bats[0]) if bats else ""
+
+
+def mic():
+    """Internal microphone: an ALSA capture node on the PCI bus (not USB/Bluetooth/monitor)."""
+    nodes = run_json(["pw-dump"]) or []
+    best = ""
+    for n in nodes:
+        pr = (n.get("info") or {}).get("props") or {}
+        if pr.get("media.class") != "Audio/Source":
+            continue
+        name = pr.get("node.name", "")
+        if name.startswith("alsa_input.pci-") or (pr.get("device.bus") == "pci" and name.startswith("alsa_input.")):
+            if not best or "analog" in name:
+                best = name
+    return best
+
+
+def thermal_zone():
+    types = {}
+    for z in glob.glob("/sys/class/thermal/thermal_zone*"):
+        t = read(z + "/type")
+        if t:
+            types.setdefault(t, z)
+    return next((p for p in ZONE_PREFS if p in types), "auto")
+
+
+def backlight():
+    devs = sorted(os.listdir("/sys/class/backlight")) if os.path.isdir("/sys/class/backlight") else []
+    # brightnessctl's "auto" takes the first one it lists; prefer firmware/platform-independent order
+    return devs[0] if devs else ""
+
+
+def gpus():
+    found = []
+    for d in sorted(glob.glob("/sys/bus/pci/devices/*")):
+        if (read(d + "/class") or "").startswith("0x03"):
+            v = VENDORS.get(read(d + "/vendor"), read(d + "/vendor"))
+            found.append((read(d + "/boot_vga") == "1", v))
+    names = sorted({v for _, v in found})
+    primary = next((v for boot, v in found if boot), names[0] if names else "")
+    if "nvidia" in names:
+        primary = "nvidia"  # hybrid laptops: the NVIDIA driver setup is what matters (_etc)
+    return primary, names
+
+
+def detect():
+    gpu, all_gpus = gpus()
+    return {"monitors": monitors(), "battery": battery(), "mic": mic(), "thermalZone": thermal_zone(),
+            "backlight": backlight(), "gpu": gpu, "gpus": all_gpus}
+
+
+# ---------------------------------------------------------------- merge
+def merge_monitors(saved, current, yes, interactive):
+    """saved + current -> list. Unplugged saved monitors stay; new ones are added; a saved one
+    whose live mode/position/scale differs is kept unless the user picks the current values."""
+    saved = [dict(m) for m in (saved or []) if m.get("output")]
+    if current is None:
+        return saved, []
+    notes = []
+    by = {m["output"]: m for m in saved}
+    for c in current:
+        s = by.get(c["output"])
+        if s is None:
+            saved.append(c)
+            notes.append(f"monitor {c['output']}: added {c['mode']} at {c['position']} scale {c['scale']}")
+            continue
+        diff = [k for k in ("mode", "position", "scale") if str(s.get(k)) != str(c[k])]
+        if not diff:
+            continue
+        what = ", ".join(f"{k} {s.get(k)} -> {c[k]}" for k in diff)
+        use = False
+        if not yes and interactive:
+            a = input(f"monitor {c['output']}: saved differs from now ({what}). Use the current values? [y/N] ")
+            use = a.strip().lower().startswith("y")
+        if use:
+            s.update({k: c[k] for k in ("mode", "position", "scale")})
+            notes.append(f"monitor {c['output']}: now {c['mode']} at {c['position']} scale {c['scale']}")
+        else:
+            notes.append(f"monitor {c['output']}: kept saved values ({what} live)")
+        if c.get("description"):
+            s["description"] = c["description"]
+    return saved, notes
+
+
+def lua_str(s):
+    return '"' + str(s).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def render_lua(mons, stamp):
+    rows = [FALLBACK] + mons
+    lines = ["-- nox machine values for Hyprland: GENERATED by `nox detect` from ~/.config/nox/machine.json",
+             "-- (" + stamp + "). Not tracked in git. Re-run nox detect after a monitor change; hand",
+             "-- overrides belong in nox/local.lua (settings.monitors), which is applied after this file.",
+             "return {", "    settings = {", "        monitors = {"]
+    for m in rows:
+        desc = ("  -- " + m["description"]) if m.get("description") else ("  -- anything else that is plugged in" if not m["output"] else "")
+        lines.append("            { output = %s, mode = %s, position = %s, scale = %s },%s" % (
+            lua_str(m["output"]), lua_str(m["mode"]), lua_str(m["position"]), lua_str(m["scale"]), desc))
+    lines += ["        },", "    },", "}", ""]
+    return "\n".join(lines)
+
+
+def write(path, text):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    if read(path, None) == text.strip():
+        return False
+    tmp = path + ".nox-tmp"
+    with open(tmp, "w") as f:
+        f.write(text)
+    os.replace(tmp, path)
+    return True
+
+
+def plan(found, yes=False, interactive=False):
+    """-> (machine, shell_local, lua_text, notes) without writing."""
+    old = load_json(MACHINE)
+    mons, notes = merge_monitors(old.get("monitors"), found["monitors"], yes, interactive)
+    machine = {"_comment": "Written by `nox detect` (facts about this machine; not tracked). Edit overrides in shell.local.json / hypr nox/local.lua instead."}
+    machine.update({k: v for k, v in found.items() if k != "monitors"})
+    machine["monitors"] = mons
+    shell = load_json(SHELL_LOCAL)
+    for (sec, key), mk in SHELL_KEYS.items():
+        new, prev = machine.get(mk) or "", old.get(mk)
+        cur = (shell.get(sec) or {}).get(key)
+        if not new:
+            continue
+        if cur is None or cur == prev:
+            if cur != new:
+                notes.append(f"shell.local.json {sec}.{key}: {cur!r} -> {new!r}")
+            shell.setdefault(sec, {})[key] = new
+        elif cur != new:
+            notes.append(f"shell.local.json {sec}.{key}: kept your {cur!r} (detected {new!r})")
+    for k in ("battery", "mic", "thermalZone", "backlight", "gpu"):
+        if old.get(k) != machine.get(k):
+            notes.append(f"{k}: {old.get(k)!r} -> {machine.get(k)!r}")
+    machine["detected"] = old.get("detected") if not notes and old else datetime.datetime.now().isoformat(timespec="seconds")
+    return machine, shell, render_lua(mons, "detected " + machine["detected"]), notes
+
+
+def main(argv):
+    if argv[:1] in (["-h"], ["--help"], ["help"]):
+        print(__doc__.strip())
+        return 0
+    if argv[:1] == ["--get"]:
+        if len(argv) < 2:
+            print("usage: nox detect --get KEY", file=sys.stderr)
+            return 2
+        m = load_json(MACHINE) or detect()
+        v = m.get(argv[1])
+        print(json.dumps(v) if isinstance(v, (list, dict)) else (v if v is not None else ""))
+        return 0 if v is not None else 1
+    found = detect()
+    if argv[:1] == ["--print"]:
+        print(json.dumps(found, indent=2))
+        return 0
+    check = argv[:1] == ["--check"]
+    yes = "--yes" in argv or "-y" in argv
+    machine, shell, lua, notes = plan(found, yes=yes or check, interactive=sys.stdin.isatty() and not check)
+    if check:
+        problems = [n for n in notes if "kept your" not in n and "kept saved" not in n]
+        if not os.path.exists(MACHINE):
+            problems.insert(0, f"{MACHINE} missing")
+        if read(MACHINE_LUA, None) != lua.strip():
+            problems.append(f"{MACHINE_LUA} missing or out of date")
+        for p in problems:
+            print("todo:", p)
+        if problems:
+            print("run: nox detect")
+            return 1
+        print(f"machine values current ({MACHINE}, detected {machine.get('detected')})")
+        return 0
+    if found["monitors"] is None:
+        notes.append("monitors: not inside Hyprland, kept the saved list")
+    changed = [p for p, t in ((MACHINE, json.dumps(machine, indent=2) + "\n"),
+                              (SHELL_LOCAL, json.dumps(shell, indent=2) + "\n"),
+                              (MACHINE_LUA, lua)) if write(p, t)]
+    for n in notes:
+        print(" ", n)
+    for p in changed:
+        print("wrote  ", p)
+    if not changed:
+        print("nothing to change: local files match this machine")
+    s = machine
+    print(f"gpu {s['gpu'] or '?'} ({', '.join(s['gpus']) or '-'}), battery {s['battery'] or '-'}, mic {s['mic'] or 'default'}, "
+          f"thermal {s['thermalZone']}, backlight {s['backlight'] or '-'}, monitors "
+          + ", ".join(m["output"] for m in s["monitors"]))
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except (KeyboardInterrupt, EOFError):
+        sys.exit(130)

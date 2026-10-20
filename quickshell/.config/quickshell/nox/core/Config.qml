@@ -6,7 +6,9 @@ import Quickshell.Io
 
 // User shell config from ~/.config/nox/shell.json (live reload).
 // `defaults` mirrors the shipped shell.json; user values are deep-merged over it
-// (arrays replace, objects merge).
+// (arrays replace, objects merge), then the machine-local shell.local.json over that
+// (git-ignored; `nox detect` writes voice.source, stats.thermalZone, brightness.device, ...).
+// Write-backs (dock pins, dock options) only ever touch shell.json.
 Singleton {
     id: root
 
@@ -645,7 +647,14 @@ Singleton {
     })
     property var opt: defaults
     property var raw: ({})      // the file as written by the user (for write-back)
+    property var localRaw: ({}) // shell.local.json (never written by the shell)
     property bool loaded: false
+    property bool mainDone: false
+    property bool localDone: false
+    function settle() {
+        opt = merge(merge(defaults, raw), localRaw);
+        if (mainDone && localDone) loaded = true;
+    }
 
     function merge(base, over) {
         if (over === null || typeof over !== "object" || Array.isArray(over)) return over === undefined ? base : over;
@@ -703,12 +712,28 @@ Singleton {
         onFileChanged: reload()
         onLoaded: {
             try {
-                const parsed = JSON.parse(text());
-                root.raw = parsed;
-                root.opt = root.merge(root.defaults, parsed);
+                root.raw = JSON.parse(text());
             } catch (e) { console.warn("nox: shell.json parse error, keeping previous config:", e); }
-            root.loaded = true;
+            root.mainDone = true;
+            root.settle();
         }
-        onLoadFailed: err => { console.info("nox: shell.json not loaded (" + err + "), using defaults"); root.loaded = true; }
+        onLoadFailed: err => { console.info("nox: shell.json not loaded (" + err + "), using defaults"); root.mainDone = true; root.settle(); }
+    }
+    FileView {
+        id: localFile
+        path: Paths.shellLocal
+        watchChanges: true
+        blockLoading: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: {
+            try {
+                root.localRaw = JSON.parse(text());
+            } catch (e) { console.warn("nox: shell.local.json parse error, keeping previous values:", e); }
+            root.localDone = true;
+            root.settle();
+        }
+        // absent = no local overrides (also when it is deleted while the shell runs)
+        onLoadFailed: err => { root.localRaw = ({}); root.localDone = true; root.settle(); }
     }
 }

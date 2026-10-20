@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # nox greeter sync|test|nested|install|on|off|status - the nox login screen (greetd greeter).
-#   nox greeter sync [--to DIR]   theme, wallpaper (cropped + blurred for the look), fonts, user -> DIR
+#   nox greeter sync [--to DIR]   theme, wallpaper (cropped + blurred for the look), fonts, user,
+#                                  monitors (hypr/nox/machine.lua from nox detect) -> DIR
 #                                  (default /var/lib/nox-greeter; also run by `nox theme switch` and
 #                                  `nox wallpaper set` once the greeter is installed)
 #   nox greeter test [--fake|--demo] [--look NAME] [--intro on|off] [stop]
@@ -106,6 +107,12 @@ for name_, data in (("theme.json", t), ("greeter.json", conf)):
     tmp = os.path.join(out, "." + name_)
     with open(tmp, "w") as f: json.dump(data, f, indent=1)
     os.chmod(tmp, 0o644); os.replace(tmp, os.path.join(out, name_))
+
+# monitors: the session's nox detect output, read by the greeter's hyprland.lua (optional)
+ml = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.join(home, ".config"), "hypr/nox/machine.lua")
+if os.path.isfile(ml):
+    tmp = os.path.join(out, ".machine.lua")
+    shutil.copyfile(ml, tmp); os.chmod(tmp, 0o644); os.replace(tmp, os.path.join(out, "machine.lua"))
 
 # avatar: ~/.face or ~/.config/nox/avatar.png
 for a in (os.path.join(home, ".face"), os.path.join(home, ".config/nox/avatar.png")):

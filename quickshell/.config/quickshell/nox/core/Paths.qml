@@ -14,6 +14,8 @@ Singleton {
     }
     readonly property string tokens: configDir + "/tokens.json"
     readonly property string shell: configDir + "/shell.json"
+    // machine-local overrides, deep-merged over shell.json (git-ignored; `nox detect` writes it)
+    readonly property string shellLocal: configDir + "/shell.local.json"
 
     // Runtime state (not config): $NOX_STATE_DIR or $XDG_STATE_HOME/nox (~/.local/state/nox)
     readonly property string stateDir: {

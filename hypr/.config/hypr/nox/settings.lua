@@ -59,6 +59,13 @@ return {
     -- Modules to skip (names from the MODULES list in nox.lua).
     disabled_modules = {},
 
+    -- Monitor rules (hl.monitor), applied in order by nox/monitors.lua. Only a generic fallback
+    -- here: this machine's outputs come from nox/machine.lua (written by `nox detect`), and
+    -- nox/local.lua can replace the whole list (arrays replace, they do not merge).
+    monitors = {
+        { output = "", mode = "preferred", position = "auto", scale = "auto" },
+    },
+
     -- ${name} placeholders usable in bind/exec strings (C.subst).
     vars = {
         scripts = HOME .. "/.config/hypr/nox/scripts", -- helper scripts (nox/scripts/)

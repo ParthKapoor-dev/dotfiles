@@ -45,9 +45,12 @@ CFG_LOADED=0
 cfg() {   # cfg .<key> <default>
     if [ "$CFG_LOADED" = 0 ]; then
         CFG_LOADED=1
-        [ -r "$CONF" ] && while IFS=$'\t' read -r k v; do C[$k]=$v; done < <(jq -r '(.voice // {}) | to_entries[]
+        # shell.json, then the machine-local shell.local.json over it (nox detect: voice.source)
+        local files=() f
+        for f in "$CONF" "${CONF%.json}.local.json"; do [ -r "$f" ] && files+=("$f"); done
+        [ ${#files[@]} -gt 0 ] && while IFS=$'\t' read -r k v; do C[$k]=$v; done < <(jq -rs 'map(.voice // {}) | add | to_entries[]
             | select(.value != null and (.value | type) != "object" and (.value | type) != "array")
-            | [.key, (.value | tostring)] | @tsv' "$CONF" 2>/dev/null)
+            | [.key, (.value | tostring)] | @tsv' "${files[@]}" 2>/dev/null)
     fi
     local v="${C[${1#.}]:-}"
     printf '%s' "${v:-$2}"
