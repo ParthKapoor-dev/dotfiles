@@ -197,6 +197,34 @@
       ]
     },
     {
+      "name": "dolphin",
+      "_comment": "Dolphin behaviour: tabs remembered, details view with folder sizes, git emblems, context menu",
+      "template": "kde/dolphinrc.ini",
+      "output": "kde/dolphinrc.ini",
+      "check": "ini",
+      "apply": [
+        {
+          "type": "ini",
+          "path": "~/.config/dolphinrc",
+          "from_output": true
+        }
+      ]
+    },
+    {
+      "name": "dolphin-view",
+      "_comment": "Dolphin default view for new folders",
+      "template": "kde/dolphin-view.ini",
+      "output": "kde/dolphin-view.ini",
+      "check": "ini",
+      "apply": [
+        {
+          "type": "ini",
+          "path": "~/.local/share/dolphin/view_properties/global/.directory",
+          "from_output": true
+        }
+      ]
+    },
+    {
       "name": "ghostty",
       "template": "ghostty/nox",
       "output": "ghostty/nox",

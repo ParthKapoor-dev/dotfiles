@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# nox files - file actions for the Dolphin right-click "nox" menu (base0/dolphin servicemenus)
+# usage: nox files <action> <file>...
+#   terminal <path>      kitty in that folder (or the file's folder)
+#   copypath <path>...   the paths to the clipboard, one per line
+#   ocr <image>          text in the image to the clipboard (tesseract)
+#   annotate <image>     draw on it in place (satty)
+#   webp|png|jpg <image>...   converted copy next to each original
+#   half <image>...      copy at 50% size ("name-50.ext")
+#   strip <image>...     remove metadata (EXIF, GPS) in place
+set -euo pipefail
+note() { notify-send -a Files -i "$1" "$2" "${3:-}" 2>/dev/null || true; }
+act="${1:-}"; [ $# -gt 0 ] && shift
+case "$act" in
+    terminal)
+        d="${1:-$HOME}"; [ -d "$d" ] || d="$(dirname -- "$d")"
+        exec kitty -1 --directory "$d" ;;
+    copypath)
+        printf '%s\n' "$@" | head -c -1 | wl-copy
+        note edit-copy "Path copied" "$([ $# -gt 1 ] && echo "$# paths" || echo "$1")" ;;
+    ocr)
+        t="$(tesseract "$1" - 2>/dev/null || true)"
+        if [ -n "${t//[[:space:]]/}" ]; then printf '%s' "$t" | wl-copy; note edit-copy "Text copied" "$(printf '%s' "$t" | head -c 140)"
+        else note dialog-information "No text found" "$(basename -- "$1")"; fi ;;
+    annotate) exec satty --filename "$1" --output-filename "$1" --copy-command wl-copy --early-exit ;;
+    webp) for f; do magick "$f" -quality 88 "${f%.*}.webp"; done; note image-x-generic "Converted to WebP" "$# file(s)" ;;
+    png)  for f; do magick "$f" "${f%.*}.png"; done; note image-x-generic "Converted to PNG" "$# file(s)" ;;
+    jpg)  for f; do magick "$f" -background white -flatten -quality 90 "${f%.*}.jpg"; done; note image-x-generic "Converted to JPEG" "$# file(s)" ;;
+    half) for f; do magick "$f" -resize 50% "${f%.*}-50.${f##*.}"; done; note transform-scale "Resized to 50%" "$# file(s)" ;;
+    strip) magick mogrify -strip "$@"; note edit-clear "Metadata removed" "$# file(s)" ;;
+    -h | --help | help | "") sed -n '2,/^[^#]/{/^[^#]/d;s/^# \{0,1\}//;p}' "$0" ;;
+    *) echo "nox files: unknown action '$act'" >&2; exit 2 ;;
+esac

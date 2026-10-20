@@ -1,0 +1,35 @@
+# nox actions for any file or folder (Dolphin right-click -> nox). Stowed from base0/dolphin.
+[Desktop Entry]
+Type=Service
+Name=nox file actions
+X-KDE-ServiceTypes=KonqPopupMenu/Plugin
+MimeType=all/all;
+X-KDE-Submenu=nox
+X-KDE-Priority=TopLevel
+Icon=applications-utilities
+Actions=zed;nvim;terminal;copypath;phone;
+
+[Desktop Action zed]
+Name=Open in Zed
+Icon=zed
+Exec=zed %F
+
+[Desktop Action nvim]
+Name=Open in Neovim
+Icon=nvim
+Exec=kitty -1 nvim %F
+
+[Desktop Action terminal]
+Name=Terminal here
+Icon=utilities-terminal
+Exec=nox files terminal %f
+
+[Desktop Action copypath]
+Name=Copy path
+Icon=edit-copy-path
+Exec=nox files copypath %F
+
+[Desktop Action phone]
+Name=Send to phone
+Icon=smartphone
+Exec=nox phone send %F

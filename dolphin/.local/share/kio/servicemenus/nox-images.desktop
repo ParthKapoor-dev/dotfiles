@@ -1,0 +1,50 @@
+# nox actions for images (Dolphin right-click -> nox). Converted copies land next to the original.
+[Desktop Entry]
+Type=Service
+Name=nox image actions
+X-KDE-ServiceTypes=KonqPopupMenu/Plugin
+MimeType=image/png;image/jpeg;image/webp;image/avif;image/heic;image/heif;image/bmp;image/tiff;image/gif;image/jxl;
+X-KDE-Submenu=nox
+X-KDE-Priority=TopLevel
+Icon=applications-graphics
+Actions=wallpaper;annotate;ocr;webp;png;jpg;half;strip;
+
+[Desktop Action wallpaper]
+Name=Set as wallpaper
+Icon=preferences-desktop-wallpaper
+Exec=nox wallpaper set %f
+
+[Desktop Action annotate]
+Name=Annotate
+Icon=draw-freehand
+Exec=nox files annotate %f
+
+[Desktop Action ocr]
+Name=Copy text (OCR)
+Icon=edit-select-text
+Exec=nox files ocr %f
+
+[Desktop Action webp]
+Name=Convert to WebP
+Icon=image-x-generic
+Exec=nox files webp %F
+
+[Desktop Action png]
+Name=Convert to PNG
+Icon=image-png
+Exec=nox files png %F
+
+[Desktop Action jpg]
+Name=Convert to JPEG
+Icon=image-jpeg
+Exec=nox files jpg %F
+
+[Desktop Action half]
+Name=Resize to 50%
+Icon=transform-scale
+Exec=nox files half %F
+
+[Desktop Action strip]
+Name=Remove metadata (EXIF, GPS)
+Icon=edit-clear
+Exec=nox files strip %F
