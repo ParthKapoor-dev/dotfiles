@@ -7,14 +7,22 @@
 #   nox ask status        open?, model, timings (freeze_ms, first_token_ms); never the content
 #   nox ask lens          Google Lens on a region: the old Super+Shift+A, unchanged
 #                         (hypr scripts/snip_to_search.sh: select with slurp, it uploads and opens Lens)
+#   nox ask agent DIR PROMPTFILE IMAGE
+#                         what Send to agent runs inside the new terminal: the configured agent in
+#                         DIR with the prompt (the file is read, then deleted) and the circled image
 #
 # In the overlay: drag a loop around anything (a straight drag = rectangle, a click = that window),
 # Esc / right click closes. Chips: Copy text (OCR), Explain more, Send to agent (interactive claude
-# in a new terminal, cwd from the window title or ask.agentDir), Translate, Table -> CSV, Lens.
+# in a new terminal), Translate, Table -> CSV, Lens.
 # Answers come from the Claude Code CLI in headless mode (claude -p, --safe-mode, no tools, no
 # settings, no session files; NOX_ASK=1 in its env). Screenshots live in $XDG_RUNTIME_DIR/nox-ask
 # and are deleted on close (Send to agent keeps a copy in nox-ask/keep, pruned after a day).
-# Settings: ~/.config/nox/shell.json "ask": model, claude, extraArgs, timeout, agentDir, systemPrompt.
+# Settings: ~/.config/nox/shell.json "ask": model, claude, extraArgs, timeout, systemPrompt, and for
+# Send to agent:
+#   agent     "claude" (default) | "codex" | "gemini" | "opencode", or your own command as an array
+#             with {prompt}, {image}, {keep} placeholders, e.g. ["aider", "--message", "{prompt}"]
+#   agentDir  where it starts (default ~/code/sandbox/void); "auto" = a path in the circled window's
+#             title when there is one, else ~
 
 set -uo pipefail
 QS=(qs -c nox)
@@ -30,8 +38,30 @@ case "$cmd" in
         pidof slurp >/dev/null 2>&1 && exit 0
         [ -x "$LENS" ] || { echo "nox ask lens: $LENS not found" >&2; exit 1; }
         exec "$LENS" ;;
+    agent)
+        [ $# -ge 3 ] || { echo "usage: nox ask agent DIR PROMPTFILE IMAGE" >&2; exit 2; }
+        dir=$1 pf=$2 img=$3
+        prompt=$(cat -- "$pf" 2>/dev/null); rm -f -- "$pf"
+        cfg="${XDG_CONFIG_HOME:-$HOME/.config}/nox/shell.json"
+        spec=$(jq -c '.ask.agent // "claude"' "$cfg" 2>/dev/null) || spec='"claude"'
+        claude=$(jq -r '.ask.claude // "~/.local/bin/claude"' "$cfg" 2>/dev/null); claude=${claude/#\~/$HOME}
+        case "$spec" in
+            '"claude"')   spec=$(jq -cn --arg c "$claude" '[$c, "--add-dir", "{keep}", "{prompt}"]') ;;
+            '"codex"')    spec='["codex", "-i", "{image}", "{prompt}"]' ;;
+            '"gemini"')   spec='["gemini", "-i", "{prompt}"]' ;;
+            '"opencode"') spec='["opencode", "--prompt", "{prompt}"]' ;;
+            '['*) ;;
+            *) echo "nox ask: unknown ask.agent $spec (claude|codex|gemini|opencode or a command array)" >&2; read -r; exit 2 ;;
+        esac
+        mapfile -d '' argv < <(jq -j --arg p "$prompt" --arg i "$img" --arg k "${img%/*}" \
+            '.[] | gsub("\\{prompt\\}"; $p) | gsub("\\{image\\}"; $i) | gsub("\\{keep\\}"; $k) | ., "\u0000"' <<<"$spec")
+        [ ${#argv[@]} -gt 0 ] || { echo "nox ask: empty ask.agent" >&2; read -r; exit 2; }
+        # a clean agent: none of the env of whatever session started the shell
+        for v in $(compgen -e); do case $v in CLAUDE*|ORCA_*|NOX_ASK) unset "$v" ;; esac; done
+        cd -- "$dir" 2>/dev/null || cd
+        exec "${argv[@]}" ;;
     -h | --help | help)
         sed -n '2,/^[^#]/{/^[^#]/d;s/^# \{0,1\}//;p}' "$0" ;;
     *)
-        echo "nox ask: unknown command '$cmd' (start|toggle|close|status|lens)" >&2; exit 2 ;;
+        echo "nox ask: unknown command '$cmd' (start|toggle|close|status|lens|agent)" >&2; exit 2 ;;
 esac

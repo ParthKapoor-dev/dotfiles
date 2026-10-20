@@ -10,6 +10,7 @@ import "AskMd.js" as Md
 // Everything it shows comes from `session` (AskSession).
 Item {
     id: card
+
     required property var session
     property real maxH: 600
     property bool shown: false
@@ -187,44 +188,37 @@ Item {
                             }
                         }
                     }
-                    // shimmering label (mock .ak-shim): a light band slides through the text
+                    // shimmering label (mock .ak-shim): a light band slides through the text. Real Text
+                    // under moving clip windows, no layers / masks: a texture of the text gets resampled
+                    // on the 1.25x panel and the glyphs break up
                     Item {
                         id: shim
                         anchors.verticalCenter: parent.verticalCenter
-                        width: shimText.implicitWidth; height: shimText.implicitHeight
+                        width: shimBase.implicitWidth; height: shimBase.implicitHeight
+                        property real p: 0
+                        NumberAnimation on p { from: 0; to: 1; duration: 1400; loops: Animation.Infinite; running: card.session.waiting }
                         Text {
-                            id: shimText
+                            id: shimBase
                             text: card.session.waitText
-                            color: "white"
+                            color: Theme.label3
                             font.family: Theme.fontUi; font.pointSize: 12.5 * 0.75
-                            visible: false
-                            layer.enabled: true
                         }
-                        Item {
-                            id: shimSrc
-                            anchors.fill: parent
-                            visible: false
-                            layer.enabled: true
-                            clip: true
-                            Rectangle {
-                                width: shim.width * 2.2; height: shim.height
-                                property real p: 0
-                                x: -width + p * (shim.width + width)
-                                NumberAnimation on p { from: 0; to: 1; duration: 1400; loops: Animation.Infinite; running: card.session.waiting }
-                                gradient: Gradient {
-                                    orientation: Gradient.Horizontal
-                                    GradientStop { position: 0.0; color: Theme.label3 }
-                                    GradientStop { position: 0.45; color: Theme.label }
-                                    GradientStop { position: 0.9; color: Theme.label3 }
+                        // a wide soft band and a narrow bright core, both clipped windows onto the same text
+                        Repeater {
+                            model: [{ w: 0.42, c: Theme.label2 }, { w: 0.16, c: Theme.label }]
+                            Item {
+                                required property var modelData
+                                readonly property real bw: Math.max(12, shim.width * modelData.w)
+                                x: -bw + shim.p * (shim.width + bw)
+                                width: bw; height: shim.height
+                                clip: true
+                                Text {
+                                    x: -parent.x
+                                    text: card.session.waitText
+                                    color: parent.modelData.c
+                                    font: shimBase.font
                                 }
                             }
-                            Rectangle { z: -1; anchors.fill: parent; color: Theme.label3 }
-                        }
-                        MultiEffect {
-                            anchors.fill: parent
-                            source: shimSrc
-                            maskEnabled: true
-                            maskSource: shimText
                         }
                     }
                 }

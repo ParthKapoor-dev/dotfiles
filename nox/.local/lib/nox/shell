@@ -128,8 +128,12 @@ cmd_start() {
     [ -z "$pids" ] || die "already running (pid $(echo $pids)); use: nox shell restart"
     local owner; owner=$(notif_owner)
     [ -z "$owner" ] || say "warning: $NOTIF is owned by pid $owner ($(cat /proc/"$owner"/comm 2>/dev/null)); the shell's notification server will not register"
+    # started from inside an agent session (Claude Code, Orca), the shell would hand that session's
+    # env to everything it launches (a Claude opened from it then thinks it is a child session): drop it
+    local v; local -a clean=(env)
+    for v in $(compgen -e); do case $v in CLAUDE*|ORCA_*|NOX_ASK) clean+=(-u "$v") ;; esac; done
     say "starting: ${QS[*]} -n -d"
-    setsid -f "${QS[@]}" -n -d >/dev/null 2>&1 </dev/null
+    setsid -f "${clean[@]}" "${QS[@]}" -n -d >/dev/null 2>&1 </dev/null
     local i
     for i in $(seq 1 40); do
         if ipc_ok; then

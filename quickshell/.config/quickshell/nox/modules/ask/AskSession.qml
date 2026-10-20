@@ -20,8 +20,9 @@ import "AskMd.js" as Md
 // copies the crop to nox-ask/keep (the agent reads it; pruned after a day, tmpfs = gone at logout).
 //
 // shell.json "ask": { model ("sonnet"), claude (CLI path, default ~/.local/bin/claude),
-//   extraArgs ([]), timeout (ms to first token, 45000), agentDir (Send to agent cwd when the window
-//   title has no existing path; default ~), systemPrompt (replaces the built-in one) }
+//   extraArgs ([]), timeout (ms to first token, 45000), systemPrompt (replaces the built-in one),
+//   agent (Send to agent: "claude" | "codex" | "gemini" | "opencode" | [command with {prompt} {image}
+//   {keep}]), agentDir (where it starts; default ~/code/sandbox/void, "auto" = from the window title) }
 Item {
     id: root
     visible: false
@@ -374,44 +375,48 @@ Item {
     }
     Timer { id: copyReset; interval: 1600; onTriggered: root.unmark("copy") }
 
-    // Send to agent: interactive `claude` in a new terminal, cwd = a path in the window title if it
-    // exists, else ask.agentDir (~). The crop is copied to keep/ so it outlives the overlay.
+    // Send to agent: the configured agent (ask.agent: claude by default, codex, gemini, opencode or a
+    // command) in a new terminal, in ask.agentDir (~/code/sandbox/void; "auto" = a path in the window
+    // title, else ~). The crop is copied to keep/ so it outlives the overlay; the prompt goes through
+    // a file, so no terminal ever re-parses it. `nox ask agent` starts it with a clean env.
     function sendToAgent() {
         const kept = keepDir + "/" + crop.replace(/^.*\//, "").replace(/^crop-/, "ask-");
-        const m = (title || "").match(/(~\/[^\s—–|:"']*|\/(?:home|tmp|srv|opt|mnt|var|etc|usr)\/[^\s—–|:"']*|~(?=\s|$))/);
+        const auto = String(opts.agentDir ?? "") === "auto";
+        const m = auto ? (title || "").match(/(~\/[^\s—–|:"']*|\/(?:home|tmp|srv|opt|mnt|var|etc|usr)\/[^\s—–|:"']*|~(?=\s|$))/) : null;
         const guess = m ? m[1].replace(/\/+$/, "") : "";
-        const fallback = String(opts.agentDir ?? "~").replace(/^~(?=\/|$)/, home);
+        const fallback = auto ? home : String(opts.agentDir ?? "~/code/sandbox/void").replace(/^~(?=\/|$)/, home);
         const ctx = app ? " (" + app + (title ? " — " + title : "") + ")" : "";
         const prompt = "I circled this on my screen" + ctx + ": " + kept + "\n\n"
             + (lastQuestion && !/^Explain that|^Translate the|^Extract the table/.test(lastQuestion) ? lastQuestion : "What is this? Help me with it.")
             + (lastAnswer ? "\n\nA quick look (Circle to Ask) said:\n" + Md.plain(lastAnswer) : "");
-        resolver.prompt = prompt;
         resolver.kept = kept;
         resolver.command = ["sh", "-c",
             "mkdir -p \"$1\" && chmod 700 \"$1\" && cp -f -- \"$2\" \"$3\" || exit 1\n"
+            + "umask 077; printf '%s' \"$6\" > \"$3.prompt\" || exit 1\n"
             + "d=$4; case \"$d\" in '~') d=$HOME ;; '~/'*) d=$HOME/${d#\\~/} ;; esac\n"
             + "[ -n \"$d\" ] && [ -d \"$d\" ] || d=$5\n[ -d \"$d\" ] || d=$HOME\nprintf '%s' \"$d\"",
-            "sh", keepDir, crop, kept, guess, fallback];
+            "sh", keepDir, crop, kept, guess, fallback, prompt];
         resolver.running = true;
     }
     Process {
         id: resolver
-        property string prompt: ""
         property string kept: ""
         stdout: StdioCollector {
             onStreamFinished: {
                 const d = text.trim();
-                if (d === "") { root.toast("Couldn't hand off to Claude", "x"); return; }
+                if (d === "") { root.toast("Couldn't hand off to the agent", "x"); return; }
                 const term = Config.opt.terminal ?? ["ghostty"];
                 const ghostty = /ghostty/.test(String(term[0]));
                 Quickshell.execDetached({
-                    command: term.concat(ghostty ? ["--working-directory=" + d] : []).concat(["-e", root.claudeBin, "--add-dir", root.keepDir, resolver.prompt]),
+                    command: term.concat(ghostty ? ["--working-directory=" + d] : [])
+                        .concat(["-e", root.home + "/.local/bin/nox", "ask", "agent", d, resolver.kept + ".prompt", resolver.kept]),
                     workingDirectory: d
                 });
                 const name = d === root.home ? "~" : d.replace(/^.*\//, "");
+                const who = typeof root.opts.agent === "string" ? root.opts.agent : (Array.isArray(root.opts.agent) ? String(root.opts.agent[0]).replace(/^.*\//, "") : "claude");
                 root.agentName = name;
                 root.mark("send", "Sent to " + name);
-                root.toast("Sent to Claude · " + name, "sparkle");
+                root.toast("Sent to " + who.charAt(0).toUpperCase() + who.slice(1) + " · " + name, "sparkle");
                 closeSoon.restart();
             }
         }
