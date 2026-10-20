@@ -10,10 +10,17 @@
 # (working|needs-you|done|error|ended), since/started/updated (ms), first/last prompt, activity
 # (last 14: tool + short arg + short result, prompts, final message), files touched, perm (the
 # pending permission: tool + description + command/path), summary, error, transcript, pid
-# (CLAUDE_PID) + its start time, chain (parent pids, for the window lookup), orca terminal handle.
+# (CLAUDE_PID) + its start time, chain (parent pids, for the window lookup), orca terminal handle,
+# tmux socket + pane (sessions inside tmux: `nox agents send` types replies there), and turn: the
+# current / last turn for the Done cards: n, at, head (HEAD sha at the prompt), dirty (paths dirty
+# at the prompt; git status --no-optional-locks, never writes the index), files (paths Edit/Write
+# touched this turn), add/del (lines from those patches), pr (a github.com/.../pull/N seen in this
+# turn's tool output), end + say (the final message, 2 lines) at Stop. The diff stat itself is
+# computed later, off the hook path (`nox agents turn <id>`).
 # Tokens / context % / cost are NOT computed here: `nox agents usage` reads the transcripts lazily
 # while the overlay is open. Sessions started with NOX_ASK=1 (Circle to Ask) are skipped.
-# Cost: two processes per call (jq + mv; git only at session start / prompt / stop).
+# Cost: two processes per call (jq + mv; git only at session start / prompt / stop: rev-parse, plus
+# one `git status` at the prompt, capped at 2 s).
 #
 # Install / check / remove in the global ~/.claude/settings.json (a backup is kept next to it):
 #   nox agents hook install | status | uninstall      (install.sh step "hook"; nox doctor checks it)
@@ -70,6 +77,12 @@ if [ -n "$git" ] && [ -d "$cwd" ]; then
     if [ -n "$top" ] && read -r h < "$g/HEAD"; then
         case $h in "ref: refs/heads/"*) branch=${h#ref: refs/heads/} ;; *) branch=${h:0:7} ;; esac
     fi
+fi
+# turn start: HEAD + what was already dirty (so Stop can tell this turn's changes apart). Read-only:
+# --no-optional-locks keeps git from refreshing the index; NULs become \x01 for jq --arg.
+gst=
+if [ "$ev" = UserPromptSubmit ] && [ -n "$top" ]; then
+    gst=$(timeout 2 git -C "$top" --no-optional-locks status --porcelain=v2 --branch -z --untracked-files=normal 2>/dev/null | tr '\0' '\001')
 fi
 
 # which tool runs this session (env is inherited from the agent process)
@@ -130,6 +143,15 @@ def result($p): ($p.tool_response // {}) as $r |
   elif $p.tool_name == "Glob" then "Found \($r.numFiles // ($r.filenames // [] | length)) files"
   elif $p.tool_name == "WebFetch" then "\($r.code // "") \($r.codeText // "")"
   else "done" end | cut(110);
+def patchn($r): [$r.structuredPatch[]?.lines[]?] as $l
+  | [([$l[] | select(startswith("+"))] | length), ([$l[] | select(startswith("-"))] | length)];
+def gitst($g): ($g | split("\u0001")) as $e
+  | {head: ([$e[] | select(startswith("# branch.oid ")) | .[13:] | select(test("^[0-9a-f]{7,}$"))] | .[0] // null),
+     dirty: [$e[] | if startswith("1 ") then (split(" ") | .[8:] | join(" "))
+                    elif startswith("2 ") then (split(" ") | .[9:] | join(" "))
+                    elif startswith("u ") then (split(" ") | .[10:] | join(" "))
+                    elif startswith("? ") then .[2:] else empty end][:300]};
+def prurl: [match("https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/pull/[0-9]+"; "g").string] | last;
 def push($l): .activity = ((.activity // []) + [$l + {ts: $now}])[-14:];
 def status($st): if .status != $st then .status = $st | .since = $now else . end;'
 J_HEAD='
@@ -143,6 +165,7 @@ input as $p | (try input catch {}) as $s0 | ($s0 // {}) as $s
 | .transcript = ($p.transcript_path // .transcript)
 | if $chain != "" then .pid = ($pid | tonumber) | .pidStart = $pstart | .chain = ($chain | split(",") | map(tonumber)) else . end
 | if $orca != "" then .orca = {handle: $orca, cli: $orcacli} else . end
+| if $tpane != "" then .tmux = {sock: ($tmux | split(",") | .[0]), pane: $tpane} else . end
 | if $p.model then .model = ($p.model | tostring) else . end
 | '
 case "$ev" in
@@ -150,7 +173,9 @@ SessionStart) J_EV='status(if .status == "ended" then "done" else .status end)' 
 UserPromptSubmit) J_EV='
     ($p.prompt // "" | cut(240)) as $q
     | (if (.firstPrompt // "") == "" then .firstPrompt = $q else push({k: "you", a: ($q | cut(110))}) end)
-    | .lastPrompt = $q | .perm = null | .error = null | .summary = null | status("working") | .since = $now' ;;
+    | .lastPrompt = $q | .perm = null | .error = null | .summary = null | status("working") | .since = $now
+    | (if $gst != "" then gitst($gst) else {head: null, dirty: []} end) as $g
+    | .turn = {n: ((.turn.n // 0) + 1), at: $now, head: $g.head, dirty: $g.dirty, files: [], add: 0, del: 0, pr: null}' ;;
 PreToolUse) J_EV='
     (if ($p.tool_name | test("^(TodoWrite|TaskCreate|TaskUpdate|TaskList|TaskGet|ToolSearch)$")) then .
      else push({k: "tool", n: $p.tool_name, a: arg($p), id: $p.tool_use_id, s: "run", sub: ($p.agent_id != null)}) end)
@@ -176,12 +201,24 @@ PostToolUse | PostToolUseFailure | PermissionDenied) J_EV='
         (($p.tool_input.file_path // $p.tool_input.notebook_path // "") | rel($cwd)) as $fp
         | (if $p.tool_name == "Write" and ($p.tool_response.type // "create") == "create" then "A" else "M" end) as $m
         | if $fp == "" then . else .files = ([(.files // [])[] | select(.p != $fp)] + [{p: $fp, m: ((.files // []) | map(select(.p == $fp)) | .[0].m // $m)}])[-40:] end
+        | (if $p.tool_name == "Write" and ($p.tool_response.type // "create") == "create"
+           then [((($p.tool_input.content // "") | split("\n") | length)), 0] else patchn($p.tool_response // {}) end) as $n
+        | if .turn != null and $fp != "" then .turn.files = (([.turn.files[]? | select(. != $fp)] + [$fp])[-60:])
+            | .turn.add += $n[0] | .turn.del += $n[1] else . end
       else . end
+    | (if $ok and .turn != null then
+        ($p.tool_response // "") as $r
+        | (if ($r | type) == "object" then (($r.stdout // "") + "\n" + ($r.stderr // "")) else ($r | tostring) end) as $out
+        | if ($out | contains("/pull/")) then (($out | prurl) as $u | if $u then .turn.pr = $u else . end) else . end
+       else . end)
     | .perm = null
     | if $no or ($p.is_interrupt == true) then status("done") else status("working") end' ;;
 Stop) J_EV='
     (($p.last_assistant_message // "") | firstline | cut(160)) as $say
     | (if $say != "" then push({k: "say", a: $say}) | .summary = $say else . end)
+    | (if .turn != null then .turn.end = $now
+         | .turn.say = (($p.last_assistant_message // "") | split("\n") | map(gsub("^[#>*\\s-]+|\\*\\*|`"; "")) | map(select(test("\\S"))) | .[0:2] | join(" ") | cut(300))
+       else . end)
     | .perm = null | .subagents = 0
     | status(if (($p.background_tasks // []) | length) > 0 then "working" else "done" end)' ;;
 StopFailure) J_EV='
@@ -195,6 +232,7 @@ esac
 jq -cn --arg ev "$ev" --arg sid "$sid" --argjson now "$now" --arg top "$top" --arg branch "$branch" \
     --arg kind "$kind" --argjson bg "$bg" --arg pid "$pid" --arg pstart "$pstart" --arg chain "$chain" \
     --arg orca "${ORCA_TERMINAL_HANDLE:-}" --arg orcacli "${ORCA_CLI_BIN_DIR:-}" \
+    --arg tmux "${TMUX:-}" --arg tpane "${TMUX_PANE:-}" --arg gst "$gst" \
     "$J_DEFS$J_HEAD$J_EV" /dev/stdin "$state" <<< "$payload" > "$f.tmp" && [ -s "$f.tmp" ] && mv -f "$f.tmp" "$f"
 rm -f "$f.tmp"
 printf '%s %s\n' "$now" "$sid" > "$dir/.stamp"

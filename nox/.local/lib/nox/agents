@@ -1,12 +1,29 @@
 #!/usr/bin/env python3
 """nox agents: Mission Control for coding-agent sessions (Claude Code, Orca, expai).
 
-usage: nox agents [toggle|open|close]       the overlay (Ctrl+Super+M; IPC target agents)
+usage: nox agents [toggle|open|close|grid]  the bar panel (Ctrl+Super+M; IPC target agents);
+                                            grid = the full-screen Mission Control
        nox agents list [--json]             sessions from the status hook (no prompt text)
        nox agents usage                     JSON for the shell: context tokens, context %, cost,
                                             session titles + recent assistant lines, today's totals
        nox agents focus <session-id> [--dry-run]   jump to the session's window (Orca: also its
-                                            terminal tab); --dry-run only prints what it would focus
+                                            terminal tab; tmux: the Ghostty attached to it, or a new
+                                            one); --dry-run only prints what it would focus
+       nox agents turn <session-id>         JSON: the last turn's changes (diff stat since the
+                                            prompt, files, +/-), PR link, summary (cached per turn)
+       nox agents diff <session-id> [--dry-run]    open the last turn's changes (Orca: its diff
+                                            tabs; else agents.diff: "terminal" (git diff, delta) | "zed")
+       nox agents send <session-id> [--dry-run] [--] TEXT   reply: Orca = orca terminal send,
+                                            tmux = paste-buffer + Enter; exit 3 = no remote input
+                                            (the shell then pastes into the window), 4 = refused
+                                            (the session waits on a permission prompt / ended)
+       nox agents repos [--json]            git repos under agents.roots (recent first)
+       nox agents start [--mode ghostty|orca] [--dry-run] <dir> TASK...   start Claude there:
+                                            ghostty = a new Ghostty window, inside tmux (-L
+                                            nox-agents) unless agents.tmux is false; orca = a new
+                                            Orca worktree with the agent (falls back to Ghostty)
+       nox agents answer <session-id> <choice>      the answer-backend seam: runs
+                                            ~/.local/lib/nox/agent-answer if present, else exit 3
        nox agents prune                     drop ended / dead sessions now
        nox agents hook [status|install|uninstall]   the status hook in ~/.claude/settings.json
                                             (install/uninstall keep a backup next to the file)
@@ -200,13 +217,473 @@ def usage():
     print(json.dumps({"sessions": res, "today": {"cost": round(tot_cost, 4), "tokens": tot_tok}, "at": int(time.time() * 1000)}))
 
 
+# ---- helpers for the actions ----
+LIB = os.path.dirname(os.path.realpath(__file__))
+HOME = os.path.expanduser("~")
+TMUX_SOCK = "nox-agents"
+
+
+def find(sid):
+    return next((x for x in sessions() if x.get("id", "") == sid), None) or \
+        next((x for x in sessions() if x.get("id", "").startswith(sid)), None)
+
+
+def run(argv, timeout=5, inp=None, cwd=None):
+    try:
+        r = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, input=inp, cwd=cwd)
+        return r.returncode, r.stdout, r.stderr
+    except Exception as e:
+        return 127, "", str(e)
+
+
+def which(cmd):
+    from shutil import which as w
+    return w(cmd)
+
+
+def orca_cli(s=None):
+    o = (s or {}).get("orca") or {}
+    if o.get("cli") and os.path.exists(os.path.join(o["cli"], "orca")):
+        return os.path.join(o["cli"], "orca")
+    return which("orca") or "orca"
+
+
+def expand(p):
+    return os.path.expanduser(str(p))
+
+
+def terminal():
+    """argv prefix for a new terminal window (shell.json terminal, default ghostty)."""
+    try:
+        with open(os.path.expanduser("~/.config/nox/shell.json")) as f:
+            t = json.load(f).get("terminal") or ["ghostty"]
+    except Exception:
+        t = ["ghostty"]
+    return [expand(x) for x in t]
+
+
+def term_argv(cwd, argv, title=None):
+    t = terminal()
+    ghostty = "ghostty" in os.path.basename(t[0])
+    out = list(t)
+    if ghostty:
+        out += ["--working-directory=" + cwd] + (["--title=" + title] if title else [])
+    return out + ["-e"] + argv
+
+
+def spawn(argv, cwd=None):
+    subprocess.Popen(argv, cwd=cwd or HOME, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL, start_new_session=True)
+
+
+def emit(obj, code=0):
+    print(json.dumps(obj))
+    return code
+
+
+# ---- repos under agents.roots ----
+SKIP = {"node_modules", "vendor", "target", "dist", "build", "out", "venv", "__pycache__", "site-packages", "Library"}
+
+
+def repos(fresh=False):
+    opts = shell_opts()
+    roots = [expand(r) for r in (opts.get("roots") or ["~/code"])]
+    depth = int(opts.get("repoDepth") or 4)
+    cache = os.path.join(RUN, ".repos.json")
+    try:
+        if not fresh and time.time() - os.path.getmtime(cache) < 60:
+            with open(cache) as f:
+                c = json.load(f)
+            if c.get("roots") == roots and c.get("depth") == depth:
+                return c["repos"]
+    except Exception:
+        pass
+    out = []
+
+    def walk(d, n):
+        try:
+            ents = list(os.scandir(d))
+        except OSError:
+            return
+        if any(e.name == ".git" and e.is_dir(follow_symlinks=False) for e in ents):
+            g = os.path.join(d, ".git")
+            t = 0
+            for x in ("index", "logs/HEAD", "FETCH_HEAD", "HEAD"):
+                try:
+                    t = max(t, os.path.getmtime(os.path.join(g, x)))
+                except OSError:
+                    pass
+            branch = ""
+            try:
+                with open(os.path.join(g, "HEAD")) as f:
+                    h = f.read().strip()
+                branch = h[16:] if h.startswith("ref: refs/heads/") else h[:7]
+            except OSError:
+                pass
+            out.append({"name": os.path.basename(d), "path": d, "branch": branch, "recent": int(t * 1000)})
+            return                                   # no repos inside repos
+        if n >= depth:
+            return
+        for e in ents:
+            if e.is_dir(follow_symlinks=False) and not e.name.startswith(".") and e.name not in SKIP:
+                walk(e.path, n + 1)
+
+    for r in roots:
+        walk(r, 0)
+    seen, uniq = set(), []
+    for r in sorted(out, key=lambda r: -r["recent"]):
+        if r["path"] not in seen:
+            seen.add(r["path"])
+            uniq.append(r)
+    try:
+        os.makedirs(RUN, mode=0o700, exist_ok=True)
+        with open(cache + ".tmp", "w") as f:
+            json.dump({"roots": roots, "depth": depth, "repos": uniq}, f)
+        os.replace(cache + ".tmp", cache)
+    except Exception:
+        pass
+    return uniq
+
+
+# ---- start an agent ----
+def slug(task, n=4):
+    import re
+    w = [x for x in re.sub(r"[^a-z0-9 ]+", " ", task.lower()).split() if x not in ("the", "a", "an", "in", "on", "of", "to", "for", "and")]
+    return ("-".join(w[:n]) or "task")[:40]
+
+
+def agent_cmd():
+    c = shell_opts().get("command")
+    if os.environ.get("NOX_AGENTS_COMMAND"):          # tests
+        c = json.loads(os.environ["NOX_AGENTS_COMMAND"])
+    if isinstance(c, list) and c:
+        return [expand(x) for x in c]
+    loc = os.path.expanduser("~/.local/bin/claude")
+    return [loc if os.path.exists(loc) else "claude"]
+
+
+def start(argv):
+    mode, dry, rest = None, False, []
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--mode" and i + 1 < len(argv):
+            mode = argv[i + 1]; i += 2; continue
+        if a == "--dry-run":
+            dry = True
+        else:
+            rest.append(a)
+        i += 1
+    if len(rest) < 2:
+        print("usage: nox agents start [--mode ghostty|orca] [--dry-run] <dir> TASK...", file=sys.stderr)
+        return 2
+    d, task = os.path.realpath(expand(rest[0])), " ".join(rest[1:]).strip()
+    if not os.path.isdir(d) or not task:
+        return emit({"ok": False, "error": "no such directory" if not os.path.isdir(d) else "empty task"}, 1)
+    mode = mode or shell_opts().get("launch") or "ghostty"
+    note = ""
+    if mode == "orca":
+        cli = orca_cli()
+        code, out, err = run([cli, "repo", "show", "--repo", "path:" + d, "--json"], timeout=6)
+        if code != 0:
+            note = "Orca: %s isn't an Orca repo (or Orca isn't running) · started in Ghostty" % os.path.basename(d)
+            mode = "ghostty"
+        else:
+            name = slug(task) + "-" + os.urandom(2).hex()
+            cmd = [cli, "worktree", "create", "--repo", "path:" + d, "--name", name, "--agent", "claude",
+                   "--prompt", task, "--no-parent", "--json"]
+            if dry:
+                return emit({"ok": True, "mode": "orca", "argv": cmd})
+            code, out, err = run(cmd, timeout=60)
+            try:
+                res = json.loads(out).get("result") or {}
+            except Exception:
+                res = {}
+            if code == 0:
+                return emit({"ok": True, "mode": "orca", "worktree": (res.get("worktree") or {}).get("path") or name,
+                             "handle": res.get("agentTerminalHandle") or (res.get("startupTerminal") or {}).get("handle")})
+            note = "Orca couldn't start it (%s) · started in Ghostty" % ((err or out).strip().splitlines() or ["error"])[-1][:120]
+            mode = "ghostty"
+    # ghostty: the task goes through a 0600 file, so no terminal re-parses it
+    ldir = os.path.join(RUN, "launch")
+    os.makedirs(ldir, mode=0o700, exist_ok=True)
+    tf = os.path.join(ldir, "%d-%s.task" % (time.time() * 1000, os.urandom(3).hex()))
+    name = os.path.basename(d) + "-" + os.urandom(2).hex()
+    argv = term_argv(d, [os.path.join(LIB, "agents"), "run", d, tf, name], title=os.path.basename(d) + " · claude")
+    if dry:
+        return emit({"ok": True, "mode": "ghostty", "tmux": shell_opts().get("tmux", True) is not False, "argv": argv, "note": note})
+    fd = os.open(tf, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(task)
+    spawn(argv, cwd=d)
+    return emit({"ok": True, "mode": "ghostty", "session": name, "note": note})
+
+
+def run_in_terminal(d, tf, name):
+    """Inside the new terminal: a clean env, then claude (in tmux unless agents.tmux is false)."""
+    try:
+        with open(tf) as f:
+            task = f.read()
+        os.remove(tf)
+    except OSError:
+        task = ""
+    for k in list(os.environ):
+        if k.startswith(("CLAUDE", "ORCA_")) or k in ("NOX_ASK", "TMUX", "TMUX_PANE"):
+            del os.environ[k]
+    try:
+        os.chdir(d)
+    except OSError:
+        os.chdir(HOME)
+    argv = agent_cmd() + ([task] if task else [])
+    if shell_opts().get("tmux", True) is not False and which("tmux"):
+        conf = os.path.join(LIB, "agents-tmux.conf")
+        os.execvp("tmux", ["tmux", "-L", TMUX_SOCK, "-f", conf, "new-session", "-s", name, "-c", os.getcwd(), "--"] + argv)
+    os.execvp(argv[0], argv)
+
+
+# ---- reply ----
+SENDABLE = ("done", "working", "error")
+
+
+def send(argv):
+    dry = "--dry-run" in argv
+    a = [x for x in argv if x != "--dry-run"]
+    if a and a[0] == "--":
+        a = a[1:]
+    if len(a) >= 2 and a[1] == "--":
+        a = [a[0]] + a[2:]
+    if len(a) < 2:
+        print("usage: nox agents send <session-id> [--dry-run] [--] TEXT", file=sys.stderr)
+        return 2
+    s = find(a[0])
+    text = " ".join(a[1:]).strip()
+    if text == "-":
+        text = sys.stdin.read().strip()
+    if not s:
+        return emit({"ok": False, "error": "no such session"}, 1)
+    if not text:
+        return emit({"ok": False, "error": "empty reply"}, 2)
+    # re-read right before sending: text + Enter on a permission prompt would answer it
+    st = s.get("status") if alive(s) else "ended"
+    if st not in SENDABLE:
+        return emit({"ok": False, "refused": st, "error": "waits on a prompt in its terminal" if st == "needs-you" else "session " + str(st)}, 4)
+    orca = s.get("orca") or {}
+    if s.get("kind") == "orca" and orca.get("handle"):
+        cmd = [orca_cli(s), "terminal", "send", "--terminal", orca["handle"], "--text", text, "--enter", "--json"]
+        if dry:
+            return emit({"ok": True, "route": "orca", "argv": cmd})
+        code, out, err = run(cmd, timeout=15)
+        return emit({"ok": code == 0, "route": "orca", "error": (err or out).strip()[-200:] if code else ""}, 0 if code == 0 else 1)
+    tm = s.get("tmux") or {}
+    if tm.get("pane") and tm.get("sock") and which("tmux"):
+        base = ["tmux", "-S", tm["sock"]]
+        steps = [base + ["load-buffer", "-b", "nox-reply", "-"],
+                 base + ["paste-buffer", "-p", "-d", "-b", "nox-reply", "-t", tm["pane"]],
+                 base + ["send-keys", "-t", tm["pane"], "Enter"]]
+        if dry:
+            return emit({"ok": True, "route": "tmux", "argv": steps})
+        code, _, err = run(base + ["display-message", "-p", "-t", tm["pane"], "#{pane_id}"], timeout=3)
+        if code != 0:
+            return emit({"ok": False, "route": "tmux", "error": "tmux pane is gone"}, 3)
+        for i, st_ in enumerate(steps):
+            if i == 2:
+                time.sleep(0.25)          # let the TUI take the bracketed paste before Enter
+            code, _, err = run(st_, timeout=4, inp=text if i == 0 else None)
+            if code != 0:
+                return emit({"ok": False, "route": "tmux", "error": err.strip()[-200:]}, 1)
+        return emit({"ok": True, "route": "tmux"})
+    return emit({"ok": False, "route": "window", "error": "no remote input for this terminal"}, 3)
+
+
+# ---- the last turn: diff stat since the prompt, PR, summary ----
+def git(root, *args, timeout=5, inp=None):
+    return run(["git", "-C", root, "--no-optional-locks"] + list(args), timeout=timeout, inp=inp)
+
+
+def turn_info(s, fresh=False):
+    t = s.get("turn") or {}
+    root = s.get("root") or s.get("cwd") or ""
+    key = "%s:%s:%s" % (t.get("at"), t.get("end"), t.get("pr"))
+    cache = os.path.join(RUN, ".turn-%s.json" % s.get("id"))
+    if not fresh:
+        try:
+            with open(cache) as f:
+                c = json.load(f)
+            if c.get("key") == key:
+                return c
+        except Exception:
+            pass
+    info = {"key": key, "id": s.get("id"), "n": t.get("n"), "at": t.get("at"), "end": t.get("end"),
+            "say": t.get("say") or s.get("summary") or "", "pr": t.get("pr"), "prNew": bool(t.get("pr")),
+            "files": [], "add": t.get("add", 0), "del": t.get("del", 0), "exact": False, "commits": 0,
+            "root": root, "head": t.get("head")}
+    touched = list(t.get("files") or [])
+    head = t.get("head")
+    if root and os.path.isdir(root) and head:
+        pre = set(t.get("dirty") or [])
+        pre_dirs = tuple(p for p in pre if p.endswith("/"))
+        code, out, _ = git(root, "diff", "--numstat", "-z", "--no-renames", head, "--")
+        files = {}
+        if code == 0:
+            parts = out.split("\0")
+            for p in parts:
+                if not p:
+                    continue
+                f = p.split("\t", 2)
+                if len(f) == 3:
+                    a, d, path = f
+                    files[path] = {"p": path, "a": int(a) if a.isdigit() else 0, "d": int(d) if d.isdigit() else 0, "m": "M", "bin": a == "-"}
+            code2, out2, _ = git(root, "ls-files", "--others", "--exclude-standard", "-z")
+            for u in [x for x in out2.split("\0") if x][:400]:
+                if u in pre or (pre_dirs and u.startswith(pre_dirs)):
+                    if u not in touched:
+                        continue
+                n = 0
+                try:
+                    fp = os.path.join(root, u)
+                    if os.path.getsize(fp) < 2_000_000:
+                        with open(fp, "rb") as fh:
+                            b = fh.read()
+                        n = 0 if b"\0" in b[:8000] else b.count(b"\n") + (0 if b.endswith(b"\n") or not b else 1)
+                except OSError:
+                    pass
+                files[u] = {"p": u, "a": n, "d": 0, "m": "A"}
+            # added in the diff vs head = new tracked file
+            code3, out3, _ = git(root, "diff", "--name-status", "-z", "--no-renames", head, "--")
+            if code3 == 0:
+                ns = out3.split("\0")
+                for i in range(0, len(ns) - 1, 2):
+                    if ns[i + 1] in files and ns[i] in ("A", "D"):
+                        files[ns[i + 1]]["m"] = ns[i]
+            keep = [f for p, f in files.items() if p not in pre or p in touched]
+            for f in keep:
+                f["pre"] = f["p"] in pre
+            keep.sort(key=lambda f: (f["p"] not in touched, -(f["a"] + f["d"])))
+            info.update(files=keep[:60], nfiles=len(keep), add=sum(f["a"] for f in keep), del_=0, exact=not any(f.get("pre") for f in keep))
+            info["del"] = sum(f["d"] for f in keep)
+            info.pop("del_", None)
+            c, o, _ = git(root, "rev-list", "--count", head + "..HEAD")
+            info["commits"] = int(o.strip() or 0) if c == 0 else 0
+    if not info["files"] and touched:
+        info["files"] = [{"p": p, "a": 0, "d": 0, "m": "M"} for p in touched][:60]
+        info["nfiles"] = len(touched)
+    info.setdefault("nfiles", len(info["files"]))
+    # no PR seen in the turn: the branch's open PR, if any (gh, lazily, never in the hook)
+    br = s.get("branch") or ""
+    if not info["pr"] and root and br and br not in ("main", "master", "trunk", "develop") and which("gh") \
+            and shell_opts().get("ghPr", True) is not False:
+        c, o, _ = run(["gh", "pr", "view", br, "--json", "url,number,state"], timeout=6, cwd=root)
+        try:
+            j = json.loads(o) if c == 0 else {}
+            if j.get("url") and j.get("state") == "OPEN":
+                info["pr"] = j["url"]
+        except Exception:
+            pass
+    import re
+    m = re.search(r"/pull/(\d+)", info["pr"] or "")
+    info["prNum"] = int(m.group(1)) if m else None
+    try:
+        with open(cache + ".tmp", "w") as f:
+            json.dump(info, f)
+        os.replace(cache + ".tmp", cache)
+    except Exception:
+        pass
+    return info
+
+
+def diff(sid, dry=False):
+    s = find(sid)
+    if not s:
+        return emit({"ok": False, "error": "no such session"}, 1)
+    root = s.get("root") or s.get("cwd") or ""
+    if s.get("kind") == "orca" and root:
+        cmd = [orca_cli(s), "file", "open-changed", "--mode", "diff", "--worktree", "path:" + root, "--focus", "--json"]
+        if dry:
+            return emit({"ok": True, "route": "orca", "argv": cmd})
+        code, out, err = run(cmd, timeout=10)
+        focus(s["id"], quiet=True)
+        return emit({"ok": code == 0, "route": "orca", "error": (err or out).strip()[-200:] if code else ""}, 0 if code == 0 else 1)
+    if not root or not os.path.isdir(root):
+        return emit({"ok": False, "error": "no repo for this session"}, 1)
+    how = shell_opts().get("diff") or "terminal"
+    if how == "zed":
+        z = which("zed") or which("zeditor") or "zed"
+        cmd = [z, root]
+        if dry:
+            return emit({"ok": True, "route": "zed", "argv": cmd})
+        spawn(cmd, cwd=root)
+        return emit({"ok": True, "route": "zed"})
+    info = turn_info(s)
+    head = info.get("head") or "HEAD"
+    tracked = [f["p"] for f in info["files"]]
+    new = [f["p"] for f in info["files"] if f.get("m") == "A"]
+    pager = "delta --paging=always" if which("delta") else "less -R"
+    script = ('cd "$1" || exit 1; head=$2; shift 2; n=; t=(); for a; do [ "$a" = -- ] && { n=1; continue; }; '
+              '[ -n "$n" ] && u+=("$a") || t+=("$a"); done; '
+              '{ printf "\\033[1mThis turn · %s files\\033[0m\\n" "$(( ${#t[@]} ))"; '
+              'git --no-pager diff --stat=120 "$head" -- "${t[@]}"; echo; git --no-pager diff --color=always "$head" -- "${t[@]}"; '
+              'for f in "${u[@]}"; do git ls-files --error-unmatch -- "$f" >/dev/null 2>&1 || git --no-pager diff --color=always --no-index /dev/null "$f"; done; } | ' + pager)
+    argv = term_argv(root, ["bash", "-c", script, "nox-diff", root, head] + tracked + ["--"] + new, title=os.path.basename(root) + " · diff")
+    if dry:
+        return emit({"ok": True, "route": "terminal", "argv": argv})
+    spawn(argv, cwd=root)
+    return emit({"ok": True, "route": "terminal"})
+
+
+# ---- answer-backend seam ----
+def answer(sid, choice):
+    """Allow / deny a pending permission from nox. Delegates to an optional backend
+    ($NOX_LIB/agent-answer <session-id> <choice> <state-file>): exit 0 = delivered."""
+    s = find(sid)
+    if not s:
+        return emit({"ok": False, "error": "no such session"}, 1)
+    if s.get("status") != "needs-you":
+        return emit({"ok": False, "error": "nothing to answer"}, 4)
+    be = os.path.join(LIB, "agent-answer")
+    if not os.access(be, os.X_OK):
+        return emit({"ok": False, "error": "no answer backend"}, 3)
+    code, out, err = run([be, s["id"], choice, s["_file"]], timeout=10)
+    return emit({"ok": code == 0, "out": out.strip()[-300:], "error": err.strip()[-200:]}, code)
+
+
 # ---- jump to the session's window ----
 def hypr_dispatch(expr):
     subprocess.run(["hyprctl", "dispatch", expr], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=3)
 
 
-def focus(sid, dry=False):
-    s = next((x for x in sessions() if x.get("id", "").startswith(sid)), None)
+def parent(pid):
+    try:
+        with open(f"/proc/{pid}/stat") as f:
+            return int(f.read().rsplit(")", 1)[1].split()[1])
+    except Exception:
+        return 0
+
+
+def tmux_chain(s):
+    """tmux sessions: the agent's own chain ends at the tmux server; the window belongs to the
+    client attached to its session. Returns (pids, session name, attached)."""
+    tm = s.get("tmux") or {}
+    if not tm.get("pane") or not tm.get("sock") or not which("tmux"):
+        return [], "", False
+    base = ["tmux", "-S", tm["sock"]]
+    code, out, _ = run(base + ["display-message", "-p", "-t", tm["pane"], "#{session_name}"], timeout=3)
+    name = out.strip() if code == 0 else ""
+    if not name:
+        return [], "", False
+    code, out, _ = run(base + ["list-clients", "-t", name, "-F", "#{client_pid}"], timeout=3)
+    pids = []
+    for c in out.split():
+        p = int(c) if c.isdigit() else 0
+        for _ in range(12):
+            if p <= 1:
+                break
+            pids.append(p)
+            p = parent(p)
+    return pids, name, bool(out.strip())
+
+
+def focus(sid, dry=False, quiet=False):
+    s = find(sid)
     if not s:
         print(f"nox agents: no session {sid}", file=sys.stderr)
         return 2
@@ -217,8 +694,9 @@ def focus(sid, dry=False):
     by_pid = {}
     for c in clients:
         by_pid.setdefault(c.get("pid"), []).append(c)
+    tpids, tname, attached = tmux_chain(s)
     target = None
-    for pid in s.get("chain") or []:
+    for pid in tpids + list(s.get("chain") or []):
         if pid in by_pid:
             cands = by_pid[pid]
             # one process, several windows (single-instance terminals): prefer the project in the title
@@ -228,23 +706,33 @@ def focus(sid, dry=False):
     if not target and s.get("kind") == "orca":
         target = next((c for c in clients if (c.get("class") or "").lower() == "orca"), None)
     orca = s.get("orca") or {}
+    reattach = bool(tname and not attached and not target)
     if dry:
-        print(json.dumps({"window": target and {k: target.get(k) for k in ("address", "class", "pid", "workspace")},
-                          "orca": orca.get("handle") if s.get("kind") == "orca" else None, "bg": s.get("bg", False)}))
-        return 0 if target else 1
+        print(json.dumps({"window": target and {k: target.get(k) for k in ("address", "class", "pid", "workspace", "at", "size")},
+                          "orca": orca.get("handle") if s.get("kind") == "orca" else None, "bg": s.get("bg", False),
+                          "tmux": tname or None, "reattach": reattach}))
+        return 0 if target or reattach else 1
     if target:
         hypr_dispatch('hl.dsp.focus({ window = "address:%s" })' % target["address"])
     if orca.get("handle") and s.get("kind") == "orca":
-        cli = os.path.join(orca.get("cli") or "", "orca") if orca.get("cli") else "orca"
         try:
-            subprocess.run([cli, "terminal", "switch", "--terminal", orca["handle"]], stdout=subprocess.DEVNULL,
+            subprocess.run([orca_cli(s), "terminal", "switch", "--terminal", orca["handle"]], stdout=subprocess.DEVNULL,
                            stderr=subprocess.DEVNULL, timeout=4)
         except Exception:
             pass
+    if reattach:
+        # its Ghostty was closed: a new one attached to the same tmux session
+        sock = (s.get("tmux") or {}).get("sock")
+        spawn(term_argv(s.get("cwd") or HOME, ["tmux", "-S", sock, "attach-session", "-t", tname], title=(s.get("project") or "") + " · claude"))
+        if not quiet:
+            print("reattached")
+        return 0
     if not target:
-        print("no window" + (" (background session)" if s.get("bg") else ""), file=sys.stderr)
+        if not quiet:
+            print("no window" + (" (background session)" if s.get("bg") else ""), file=sys.stderr)
         return 1
-    print(target["address"])
+    if not quiet:
+        print(target["address"])
     return 0
 
 
@@ -328,13 +816,37 @@ def main(argv):
     cmd = argv[0] if argv else "toggle"
     if cmd == "hook":
         return hook(argv[1] if len(argv) > 1 else "status")
-    if cmd in ("toggle", "open", "close"):
+    if cmd in ("toggle", "open", "close", "grid"):
         os.execvp(QS[0], QS + [cmd])
     if cmd == "usage":
         usage()
         return 0
     if cmd == "focus" and len(argv) > 1:
         return focus(argv[1], "--dry-run" in argv)
+    if cmd == "turn" and len(argv) > 1:
+        s = find(argv[1])
+        if not s:
+            return emit({"ok": False, "error": "no such session"}, 1)
+        return emit(turn_info(s, "--fresh" in argv))
+    if cmd == "diff" and len(argv) > 1:
+        return diff(argv[1], "--dry-run" in argv)
+    if cmd == "send":
+        return send(argv[1:])
+    if cmd == "repos":
+        r = repos("--fresh" in argv)
+        if "--json" in argv:
+            print(json.dumps(r))
+        else:
+            for x in r:
+                print(f"{x['name']:<22} {x['branch'] or '-':<24} {x['path']}")
+        return 0
+    if cmd == "start":
+        return start(argv[1:])
+    if cmd == "run" and len(argv) >= 4:
+        run_in_terminal(argv[1], argv[2], argv[3])
+        return 1
+    if cmd == "answer" and len(argv) > 2:
+        return answer(argv[1], argv[2])
     if cmd == "prune":
         return prune(0)
     if cmd in ("list", "ls", "status"):
