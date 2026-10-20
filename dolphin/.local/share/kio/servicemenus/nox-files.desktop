@@ -7,7 +7,7 @@ MimeType=all/all;
 X-KDE-Submenu=nox
 X-KDE-Priority=TopLevel
 Icon=applications-utilities
-Actions=zed;nvim;terminal;copypath;phone;
+Actions=zed;nvim;terminal;copypath;shelf;phone;
 
 [Desktop Action zed]
 Name=Open in Zed
@@ -28,6 +28,11 @@ Exec=nox files terminal %f
 Name=Copy path
 Icon=edit-copy-path
 Exec=nox files copypath %F
+
+[Desktop Action shelf]
+Name=Send to Shelf
+Icon=archive-insert
+Exec=nox shelf add %F
 
 [Desktop Action phone]
 Name=Send to phone
