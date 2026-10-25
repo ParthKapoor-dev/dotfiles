@@ -52,6 +52,7 @@ Singleton {
         "wallpapers": "Wallpapers.qml",
         "slideshow": "Slideshow.qml",
         "defaults": "DefaultApps.qml",
+        "packages": "Packages.qml",
         "emoji": "Emoji.qml",
         "phone": "Phone.qml",
         "web": "WebSearch.qml",

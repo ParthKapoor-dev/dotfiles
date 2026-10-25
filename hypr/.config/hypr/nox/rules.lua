@@ -36,6 +36,8 @@ local window_rules = {
     { match = { class = "^(dev\\.nox\\.Notes)$", initial_title = "^(Notes·)$" }, float = true, center = true, size = "(monitor_w*.56) (monitor_h*.68)", workspace = "special:notes silent", no_initial_focus = true },
     -- the shell's older notepad (nox notes qt): floating, pinned = shown on every desktop, centred
     { match = { class = "^(org\\.quickshell)$", title = "^(Notes)$" }, float = true, pin = true, center = true, size = "(monitor_w*.56) (monitor_h*.68)" },
+    -- App Manager terminal (launcher "+", nox apps term): installs / updates / removals float centred
+    { match = { class = "^(dev\\.nox\\.Apps)$" }, float = true, center = true, size = SIZE_60 },
     -- screenshot annotation (nox shot annotate): a floating sheet over the desktop
     { match = { class = "^(org\\.satty\\.satty|swappy)$" }, float = true, size = SIZE_85, center = true },
     { match = { class = "^(org.pulseaudio.pavucontrol)$" }, float = true, size = SIZE_45, center = true },

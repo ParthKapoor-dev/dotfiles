@@ -1,0 +1,656 @@
+#!/usr/bin/env python3
+"""nox apps - one app manager over pacman, the AUR (yay), Flatpak and AppImages.
+
+The launcher's App Manager ("+" prefix) runs the read-only commands for its rows (JSON on stdout)
+and opens the changing ones in a terminal, where pacman / yay / flatpak ask before they touch
+anything (sudo needs that terminal anyway).
+
+  list                        installed: explicit + app-owning pacman packages, Flatpak apps, AppImages
+  search <text>               not-yet-installed matches: repos (expac), AUR (aurweb RPC), Flathub (API)
+  updates [--cached|--fresh]  pending updates: checkupdates, yay -Qua, flatpak remote-ls --updates
+                              (cached for 30 min in ~/.cache/nox/apps-updates.json)
+  info <source> <id>          details (pacman -Qi/-Si, flatpak info, AppImage file)
+  open <source> <id>          start it (its .desktop entry, flatpak run, the AppImage)
+  page <source> <id>          its web page (archlinux.org, AUR, Flathub)
+  install <source> <id>       pacman -S / yay -S / flatpak install / AppImage file -> ~/Applications
+  remove <source> <id>        pacman -Rns / flatpak uninstall / AppImage to the trash (+ its entry)
+  update <source> <id>        one app (repo packages: full -Syu, Arch has no partial upgrades)
+  upgrade                     everything: yay -Syu (or pacman -Syu), then flatpak update
+  clean                       orphans (pacman -Qdtq), package cache (paccache), unused Flatpak runtimes
+  term <command> [args]       run a changing command in a floating terminal and keep it open at the end
+
+source = repo | aur | flatpak | appimage. AppImages: ~/Applications (+ appimageDirs in
+shell.json launcher.provider.packages); ones in ~/Downloads are offered for install.
+"""
+import concurrent.futures as cf
+import glob
+import json
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import urllib.parse
+import urllib.request
+
+HOME = os.path.expanduser("~")
+APPDIR = os.path.join(HOME, "Applications")
+DATA = os.environ.get("XDG_DATA_HOME") or os.path.join(HOME, ".local/share")
+CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.join(HOME, ".cache"), "nox")
+UPDATES_CACHE = os.path.join(CACHE, "apps-updates.json")
+UPDATES_TTL = 30 * 60
+SOURCES = ("repo", "aur", "flatpak", "appimage")
+HAVE = {t: bool(shutil.which(t)) for t in ("pacman", "expac", "yay", "flatpak", "checkupdates", "paccache", "curl")}
+
+
+def run(cmd, timeout=20):
+    try:
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return p.stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
+
+def fetch(url, data=None, timeout=6):
+    try:
+        req = urllib.request.Request(url, data=data, headers={"User-Agent": "nox-apps", "Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read().decode())
+    except Exception:
+        return None
+
+
+def out(obj):
+    json.dump(obj, sys.stdout, ensure_ascii=False)
+    sys.stdout.write("\n")
+
+
+def config():
+    try:
+        with open(os.path.join(HOME, ".config/nox/shell.json")) as f:
+            return json.load(f).get("launcher", {}).get("provider", {}).get("packages", {})
+    except Exception:
+        return {}
+
+
+# ---------- desktop entries ----------
+
+def desktop_dirs():
+    dirs = [DATA] + (os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share").split(":")
+    return [os.path.join(d, "applications") for d in dirs if d]
+
+
+def read_desktop(path):
+    e, sec = {}, ""
+    try:
+        with open(path, errors="replace") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("["):
+                    sec = line
+                    continue
+                if sec == "[Desktop Entry]" and "=" in line:
+                    k, v = line.split("=", 1)
+                    e.setdefault(k.strip(), v.strip())
+    except OSError:
+        pass
+    return e
+
+
+def desktop_files():
+    """id -> (path, entry) for visible applications; the first id in XDG order wins."""
+    found = {}
+    for d in desktop_dirs():
+        for p in glob.glob(os.path.join(d, "**/*.desktop"), recursive=True):
+            did = os.path.relpath(p, d)[:-8].replace("/", "-")
+            if did in found:
+                continue
+            e = read_desktop(p)
+            found[did] = (p, e)
+    return {k: v for k, v in found.items()
+            if v[1].get("Type") == "Application" and v[1].get("NoDisplay") != "true" and v[1].get("Hidden") != "true"}
+
+
+def exec_target(e):
+    try:
+        args = shlex.split(e.get("Exec", ""))
+    except ValueError:
+        return ""
+    return args[0] if args else ""
+
+
+# ---------- installed ----------
+
+def installed_pacman(desktops):
+    if not HAVE["pacman"]:
+        return []
+    foreign = set(run(["pacman", "-Qqm"]).split())
+    explicit = set(run(["pacman", "-Qqe"]).split())
+    # which package owns each system .desktop file
+    owned = {}
+    paths = {p: did for did, (p, _) in desktops.items() if not p.startswith(HOME)}
+    if paths:
+        for line in run(["pacman", "-Qo"] + list(paths)).splitlines():
+            m = re.match(r"(.+) is owned by (\S+) ", line)
+            if m and m.group(1) in paths:
+                owned.setdefault(m.group(2), paths[m.group(1)])
+    # AppImages under /usr/bin etc. owned by nobody stay AppImages; user entries pointing at a binary
+    names = sorted(explicit | set(owned))
+    if not names:
+        return []
+    rows = []
+    fmt = "%n\t%v\t%m\t%l\t%d"
+    for line in run(["expac", "-Q", fmt] + names, 30).splitlines() if HAVE["expac"] else []:
+        f = line.split("\t")
+        if len(f) < 5:
+            continue
+        name, ver, size, date, desc = f[:5]
+        did = owned.get(name, "")
+        e = desktops.get(did, (None, {}))[1] if did else {}
+        rows.append({
+            "source": "aur" if name in foreign else "repo",
+            "id": name,
+            "name": e.get("Name") or name,
+            "version": ver,
+            "desc": e.get("Comment") or e.get("GenericName") or desc,
+            "pkgdesc": desc,
+            "size": int(size) if size.isdigit() else 0,
+            "date": date,
+            "desktop": did,
+            "icon": e.get("Icon", ""),
+            "explicit": name in explicit,
+        })
+    return rows
+
+
+def installed_flatpak(desktops):
+    if not HAVE["flatpak"]:
+        return []
+    rows = []
+    for line in run(["flatpak", "list", "--app", "--columns=application,name,version,origin,installation,size,description"]).splitlines():
+        f = line.split("\t")
+        if len(f) < 4 or not f[0]:
+            continue
+        app = f[0]
+        e = desktops.get(app, (None, {}))[1]
+        rows.append({
+            "source": "flatpak", "id": app, "name": f[1] or app, "version": f[2], "origin": f[3],
+            "installation": f[4] if len(f) > 4 else "", "sizeText": f[5] if len(f) > 5 else "",
+            "desc": (f[6] if len(f) > 6 else "") or e.get("Comment", ""),
+            "desktop": app if app in desktops else "", "icon": e.get("Icon", app), "explicit": True,
+        })
+    return rows
+
+
+def appimage_dirs():
+    dirs = [APPDIR] + [os.path.expanduser(d) for d in config().get("appimageDirs", [])]
+    return [d for i, d in enumerate(dirs) if d not in dirs[:i]]
+
+
+def is_appimage(p):
+    return os.path.isfile(p) and p.lower().endswith(".appimage")
+
+
+def installed_appimages(desktops):
+    by_target = {}
+    for did, (_, e) in desktops.items():
+        t = exec_target(e)
+        if t.lower().endswith(".appimage"):
+            by_target.setdefault(os.path.realpath(t), (did, e))
+    seen, rows = set(), []
+    files = [p for d in appimage_dirs() for p in glob.glob(os.path.join(d, "*")) if is_appimage(p)]
+    files += [t for t in by_target if is_appimage(t)]   # entries pointing elsewhere (e.g. /usr/bin)
+    for p in files:
+        real = os.path.realpath(p)
+        if real in seen:
+            continue
+        seen.add(real)
+        did, e = by_target.get(real, ("", {}))
+        st = os.stat(real)
+        rows.append({
+            "source": "appimage", "id": real, "name": e.get("Name") or appimage_name(real),
+            "version": appimage_version(real), "desc": e.get("Comment", "") or "AppImage",
+            "size": st.st_size, "date": time.strftime("%c", time.localtime(st.st_mtime)),
+            "desktop": did, "icon": e.get("Icon", ""), "explicit": True,
+        })
+    return rows
+
+
+def appimage_name(p):
+    b = re.sub(r"\.appimage$", "", os.path.basename(p), flags=re.I)
+    b = re.sub(r"[-_ ]?(v?\d+(\.\d+)+.*|x86_64|amd64|linux.*)$", "", b, flags=re.I) or b
+    return b.replace("_", " ").replace("-", " ").strip().title() if b.islower() else b
+
+
+def appimage_version(p):
+    m = re.search(r"(\d+(?:\.\d+)+)", os.path.basename(p))
+    return m.group(1) if m else ""
+
+
+def downloads(installed):
+    """AppImages in ~/Downloads that are not installed yet (offered for install): not run from there
+    by an entry, and not a byte-for-byte copy of one already installed (same name and size)."""
+    have = {r["id"] for r in installed if r["source"] == "appimage"}
+    same = {(r["name"].lower(), r.get("size")) for r in installed if r["source"] == "appimage"}
+    rows = []
+    for p in sorted(glob.glob(os.path.join(HOME, "Downloads", "*")), key=os.path.getmtime, reverse=True):
+        if not is_appimage(p) or os.path.realpath(p) in have:
+            continue
+        name, size = appimage_name(p), os.path.getsize(p)
+        if (name.lower(), size) in same:
+            continue
+        rows.append({"source": "appimage", "id": p, "name": name, "version": appimage_version(p),
+                     "size": size, "desc": "AppImage in ~/Downloads"})
+    return rows
+
+
+def cmd_list(_):
+    desktops = desktop_files()
+    with cf.ThreadPoolExecutor() as ex:
+        parts = [ex.submit(f, desktops) for f in (installed_pacman, installed_flatpak, installed_appimages)]
+        rows = [r for p in parts for r in p.result()]
+    out({"installed": rows, "downloads": downloads(rows), "have": HAVE})
+
+
+# ---------- search ----------
+
+def search_repo(q):
+    if not HAVE["expac"]:
+        return []
+    terms = [re.escape(t) for t in q.split()]
+    rows = []
+    for line in run(["expac", "-Ss", "%r\t%n\t%v\t%d\t%m"] + terms, 15).splitlines():
+        f = line.split("\t")
+        if len(f) >= 4:
+            rows.append({"source": "repo", "id": f[1], "name": f[1], "version": f[2], "desc": f[3], "repo": f[0],
+                         "size": int(f[4]) if len(f) > 4 and f[4].isdigit() else 0})
+    return rows
+
+
+def search_aur(q):
+    if not HAVE["yay"]:
+        return []
+    term = max(q.split(), key=len)
+    if len(term) < 2:
+        return []
+    d = fetch("https://aur.archlinux.org/rpc/v5/search/" + urllib.parse.quote(term) + "?by=name-desc")
+    words = [w.lower() for w in q.split()]
+    rows = []
+    for r in (d or {}).get("results", []):
+        hay = (r.get("Name", "") + " " + (r.get("Description") or "")).lower()
+        if all(w in hay for w in words):
+            rows.append({"source": "aur", "id": r["Name"], "name": r["Name"], "version": r.get("Version", ""),
+                         "desc": r.get("Description") or "", "votes": r.get("NumVotes", 0),
+                         "popularity": r.get("Popularity", 0), "outOfDate": bool(r.get("OutOfDate"))})
+    rows.sort(key=lambda r: -r["popularity"])
+    return rows[:40]
+
+
+def search_flathub(q):
+    if not HAVE["flatpak"]:
+        return []
+    d = fetch("https://flathub.org/api/v2/search", json.dumps({"query": q}).encode())
+    if d is not None:
+        return [{"source": "flatpak", "id": h["app_id"], "name": h.get("name") or h["app_id"],
+                 "desc": h.get("summary") or "", "iconUrl": h.get("icon") or "", "origin": "flathub",
+                 "installs": h.get("installs_last_month") or 0}
+                for h in d.get("hits", [])[:25] if h.get("app_id")]
+    rows = []   # offline: the local appstream copy
+    for line in run(["flatpak", "search", "--columns=application,name,version,description,remotes", q], 15).splitlines():
+        f = line.split("\t")
+        if len(f) >= 4 and "." in f[0]:
+            rows.append({"source": "flatpak", "id": f[0], "name": f[1], "version": f[2], "desc": f[3],
+                         "origin": (f[4] if len(f) > 4 else "flathub").split(",")[0]})
+    return rows[:25]
+
+
+def cmd_search(args):
+    q = " ".join(args).strip()
+    if not q:
+        return out({"query": q, "results": []})
+    with cf.ThreadPoolExecutor() as ex:
+        parts = [ex.submit(f, q) for f in (search_repo, search_aur, search_flathub)]
+        rows = [r for p in parts for r in p.result()]
+    out({"query": q, "results": rows})
+
+
+# ---------- updates ----------
+
+def updates_fresh():
+    def repo():
+        if not HAVE["checkupdates"]:
+            return []
+        return [{"source": "repo", "id": m[0], "version": m[1], "new": m[2]}
+                for m in re.findall(r"^(\S+) (\S+) -> (\S+)", run(["checkupdates", "--nocolor"], 90), re.M)]
+
+    def aur():
+        if not HAVE["yay"]:
+            return []
+        return [{"source": "aur", "id": m[0], "version": m[1], "new": m[2]}
+                for m in re.findall(r"^(\S+) (\S+) -> (\S+)", run(["yay", "-Qua", "--color", "never"], 60), re.M)]
+
+    def flat():
+        if not HAVE["flatpak"]:
+            return []
+        rows = []
+        for line in run(["flatpak", "remote-ls", "--updates", "--app", "--columns=application,version,name"], 60).splitlines():
+            f = line.split("\t")
+            if f and f[0]:
+                rows.append({"source": "flatpak", "id": f[0], "new": f[1] if len(f) > 1 else "", "name": f[2] if len(f) > 2 else f[0]})
+        return rows
+
+    with cf.ThreadPoolExecutor() as ex:
+        parts = [ex.submit(f) for f in (repo, aur, flat)]
+        rows = [r for p in parts for r in p.result()]
+    data = {"checked": int(time.time()), "updates": rows}
+    os.makedirs(CACHE, exist_ok=True)
+    tmp = UPDATES_CACHE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f)
+    os.replace(tmp, UPDATES_CACHE)
+    return data
+
+
+def cmd_updates(args):
+    try:
+        with open(UPDATES_CACHE) as f:
+            cached = json.load(f)
+    except (OSError, ValueError):
+        cached = None
+    if "--cached" in args:
+        return out(cached or {"checked": 0, "updates": []})
+    if cached and "--fresh" not in args and time.time() - cached.get("checked", 0) < UPDATES_TTL:
+        return out(cached)
+    out(updates_fresh())
+
+
+def forget_updates():
+    try:
+        os.remove(UPDATES_CACHE)
+    except OSError:
+        pass
+
+
+# ---------- info / open / page ----------
+
+def human(n):
+    for u in ("B", "KiB", "MiB", "GiB"):
+        if n < 1024 or u == "GiB":
+            return f"{n:.0f} {u}" if u == "B" else f"{n:.1f} {u}"
+        n /= 1024
+
+
+def cmd_info(args):
+    src, ident = need(args)
+    if src in ("repo", "aur"):
+        txt = run(["pacman", "-Qi", ident]) or run(["pacman", "-Si", ident])
+        if not txt and src == "aur":
+            d = fetch("https://aur.archlinux.org/rpc/v5/info?arg[]=" + urllib.parse.quote(ident))
+            r = (d or {}).get("results") or [{}]
+            txt = "\n".join(f"{k:<16}: {v}" for k, v in r[0].items() if v not in (None, "", []))
+        keep = ("Name", "Version", "Description", "URL", "Licenses", "Depends On", "Required By", "Installed Size",
+                "Install Date", "Install Reason", "Repository", "Download Size", "Maintainer", "NumVotes", "Popularity")
+        lines = [l for l in txt.splitlines() if l.split(":")[0].strip() in keep]
+        print("\n".join(lines) if lines else txt.strip() or f"{ident}: not found")
+    elif src == "flatpak":
+        print(run(["flatpak", "info", ident]).strip() or run(["flatpak", "remote-info", "flathub", ident]).strip() or f"{ident}: not found")
+    elif src == "appimage":
+        st = os.stat(ident)
+        print(f"File      : {ident}\nSize      : {human(st.st_size)}\nModified  : {time.ctime(st.st_mtime)}\n"
+              f"Executable: {'yes' if os.access(ident, os.X_OK) else 'no'}")
+
+
+def need(args):
+    if len(args) < 2 or args[0] not in SOURCES:
+        sys.exit("usage: nox apps <command> repo|aur|flatpak|appimage <id>")
+    return args[0], args[1]
+
+
+def cmd_open(args):
+    src, ident = need(args)
+    desk = args[2] if len(args) > 2 else ""
+    if desk:
+        cmd = ["gtk-launch", desk]
+    elif src == "flatpak":
+        cmd = ["flatpak", "run", ident]
+    elif src == "appimage":
+        cmd = [ident]
+    else:
+        sys.exit(f"nox apps: {ident} has no application entry")
+    subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+
+
+def page_url(src, ident):
+    if src == "aur":
+        return "https://aur.archlinux.org/packages/" + ident
+    if src == "flatpak":
+        return "https://flathub.org/apps/" + ident
+    if src == "repo":
+        return "https://archlinux.org/packages/?q=" + urllib.parse.quote(ident)
+    return ""
+
+
+def cmd_page(args):
+    url = page_url(*need(args))
+    if url:
+        subprocess.Popen(["xdg-open", url], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+# ---------- changing commands (interactive: run in a terminal) ----------
+
+def sh(cmd):
+    print("\033[2m$ " + " ".join(shlex.quote(c) for c in cmd) + "\033[0m", flush=True)
+    return subprocess.call(cmd)
+
+
+def ask(q):
+    try:
+        return input(q + " [y/N] ").strip().lower() in ("y", "yes")
+    except EOFError:
+        return False
+
+
+def aur_helper():
+    if not HAVE["yay"]:
+        sys.exit("nox apps: no AUR helper (yay) installed")
+    return "yay"
+
+
+def cmd_install(args):
+    src, ident = need(args)
+    forget_updates()
+    if src == "repo":
+        return sh(["sudo", "pacman", "-S", "--needed", ident])
+    if src == "aur":
+        return sh([aur_helper(), "-S", "--needed", ident])
+    if src == "flatpak":
+        return sh(["flatpak", "install", args[2] if len(args) > 2 else "flathub", ident])
+    return install_appimage(ident)
+
+
+def install_appimage(path):
+    path = os.path.realpath(path)
+    if not is_appimage(path):
+        sys.exit(f"nox apps: not an AppImage: {path}")
+    os.makedirs(APPDIR, exist_ok=True)
+    dest = path if os.path.dirname(path) in appimage_dirs() else os.path.join(APPDIR, os.path.basename(path))
+    if dest != path:
+        if os.path.exists(dest):
+            sys.exit(f"nox apps: {dest} already exists")
+        shutil.move(path, dest)
+        print(f"moved to {dest}")
+    os.chmod(dest, os.stat(dest).st_mode | 0o111)
+    # name / icon / categories from the AppImage's own .desktop (extracting runs its runtime)
+    name, icon, cats, wmclass = appimage_name(dest), "application-x-executable", "Utility;", ""
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "appimage"
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            subprocess.run([dest, "--appimage-extract", "*.desktop"], cwd=tmp, capture_output=True, timeout=30)
+            # .DirIcon is usually a symlink to the real icon file: extract along the chain
+            want = ".DirIcon"
+            for _ in range(4):
+                subprocess.run([dest, "--appimage-extract", want], cwd=tmp, capture_output=True, timeout=30)
+                link = os.path.join(tmp, "squashfs-root", want)
+                if not os.path.islink(link):
+                    break
+                want = os.path.normpath(os.path.join(os.path.dirname(want), os.readlink(link)))
+                if want.startswith(".."):
+                    break
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+        root = os.path.join(tmp, "squashfs-root")
+        ds = glob.glob(os.path.join(root, "*.desktop"))
+        if ds:
+            e = read_desktop(ds[0])
+            name, cats, wmclass = e.get("Name", name), e.get("Categories", cats), e.get("StartupWMClass", "")
+        di = os.path.join(root, ".DirIcon")
+        if os.path.exists(di):
+            real = os.path.realpath(di)
+            if os.path.isfile(real) and real.startswith(root):
+                icons = os.path.join(DATA, "icons/nox-appimage")
+                os.makedirs(icons, exist_ok=True)
+                ext = ".svg" if open(real, "rb").read(256).lstrip().startswith((b"<?xml", b"<svg")) else ".png"
+                icon = os.path.join(icons, slug + ext)
+                shutil.copyfile(real, icon)
+    entry = os.path.join(DATA, "applications", f"nox-appimage-{slug}.desktop")
+    os.makedirs(os.path.dirname(entry), exist_ok=True)
+    with open(entry, "w") as f:
+        f.write("[Desktop Entry]\nType=Application\n"
+                f"Name={name}\nExec=\"{dest}\" %U\nIcon={icon}\nCategories={cats}\nTerminal=false\n"
+                + (f"StartupWMClass={wmclass}\n" if wmclass else "") + f"X-Nox-AppImage={dest}\n")
+    subprocess.call(["update-desktop-database", os.path.dirname(entry)], stderr=subprocess.DEVNULL)
+    print(f"installed {name}: {dest}\nentry: {entry}")
+    return 0
+
+
+def cmd_remove(args):
+    src, ident = need(args)
+    forget_updates()
+    if src in ("repo", "aur"):
+        return sh(["sudo", "pacman", "-Rns", ident])
+    if src == "flatpak":
+        return sh(["flatpak", "uninstall", ident])
+    path = os.path.realpath(ident)
+    entries = [p for d in desktop_dirs()[:1] for p in glob.glob(os.path.join(d, "**/*.desktop"), recursive=True)
+               if os.path.realpath(exec_target(read_desktop(p)) or "/") == path]
+    if not path.startswith(HOME + "/"):
+        print(f"{path} is outside your home folder; remove it with the tool that put it there.")
+        return 1
+    print(f"AppImage: {path}" + "".join(f"\nentry:    {e}" for e in entries))
+    if not ask("Move these to the trash?"):
+        return 1
+    icons = [read_desktop(e).get("Icon", "") for e in entries]
+    for p in [path] + entries:
+        sh(["gio", "trash", p])
+    for i in icons:
+        if i.startswith(os.path.join(DATA, "icons/nox-appimage/")) and os.path.exists(i):
+            os.remove(i)
+    subprocess.call(["update-desktop-database", os.path.join(DATA, "applications")], stderr=subprocess.DEVNULL)
+    return 0
+
+
+def cmd_update(args):
+    src, ident = need(args)
+    forget_updates()
+    if src == "repo":
+        print("Arch updates repo packages together (no partial upgrades): this runs a full system update.")
+        return sh(["sudo", "pacman", "-Syu"])
+    if src == "aur":
+        return sh([aur_helper(), "-S", ident])
+    if src == "flatpak":
+        return sh(["flatpak", "update", ident])
+    print("AppImages update themselves or by downloading a new file; nothing to do here.")
+    return 0
+
+
+def cmd_upgrade(_):
+    forget_updates()
+    rc = sh(["yay", "-Syu"]) if HAVE["yay"] else sh(["sudo", "pacman", "-Syu"])
+    if HAVE["flatpak"]:
+        rc = sh(["flatpak", "update"]) or rc
+    return rc
+
+
+def cmd_clean(_):
+    orphans = run(["pacman", "-Qdtq"]).split()
+    if orphans:
+        print(f"{len(orphans)} orphaned packages (installed as dependencies, nothing needs them now):")
+        print("  " + " ".join(orphans))
+        sh(["sudo", "pacman", "-Rns"] + orphans)
+    else:
+        print("no orphaned packages")
+    if HAVE["paccache"]:
+        print("\npackage cache: keep the last 2 versions of installed packages, none of removed ones")
+        if ask("Clean the package cache?"):
+            sh(["sudo", "paccache", "-rk2"])
+            sh(["sudo", "paccache", "-ruk0"])
+    if HAVE["yay"]:
+        build = os.path.join(HOME, ".cache/yay")
+        if os.path.isdir(build):
+            size = run(["du", "-sh", build]).split("\t")[0]
+            print(f"\nAUR build cache {build}: {size}")
+            if ask("Clear it?"):
+                sh(["yay", "-Sc", "--aur", "--noconfirm"])
+    if HAVE["flatpak"]:
+        print()
+        sh(["flatpak", "uninstall", "--unused"])
+    return 0
+
+
+def cmd_term(args):
+    """Run `nox apps <args>` in a floating terminal that stays open until Enter."""
+    if not args:
+        sys.exit("usage: nox apps term <command> [args]")
+    if os.environ.get("NOX_APPS_TERM") != "1":
+        term = (json.load(open(os.path.join(HOME, ".config/nox/shell.json"))).get("terminal") or ["ghostty"]) \
+            if os.path.exists(os.path.join(HOME, ".config/nox/shell.json")) else ["ghostty"]
+        title = "App Manager · " + " ".join(os.path.basename(a) for a in args[:3])
+        env = dict(os.environ, NOX_APPS_TERM="1")
+        me = os.path.realpath(__file__)
+        extra = ["--class=dev.nox.Apps", f"--title={title}"] if os.path.basename(term[0]) == "ghostty" else []
+        subprocess.Popen(term + extra + ["-e", me, "term"] + args, env=env, start_new_session=True,
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return 0
+    try:
+        rc = main(args)
+    except SystemExit as e:
+        if e.code not in (None, 0):
+            print(e.code if isinstance(e.code, str) else f"exit {e.code}")
+        rc = e.code if isinstance(e.code, int) else 1
+    except KeyboardInterrupt:
+        rc = 130
+    ok = rc in (0, None)
+    print(("\n\033[32mDone.\033[0m" if ok else f"\n\033[31mStopped (exit {rc}).\033[0m") + " Press Enter to close.")
+    if shutil.which("notify-send"):
+        subprocess.call(["notify-send", "-a", "App Manager", "-i", "system-software-install",
+                         "Done" if ok else "Didn't finish", " ".join(os.path.basename(a) for a in args)],
+                        stderr=subprocess.DEVNULL)
+    try:
+        input()
+    except EOFError:
+        pass
+    return rc
+
+
+COMMANDS = {
+    "list": cmd_list, "search": cmd_search, "updates": cmd_updates, "info": cmd_info, "open": cmd_open,
+    "page": cmd_page, "install": cmd_install, "remove": cmd_remove, "update": cmd_update,
+    "upgrade": cmd_upgrade, "clean": cmd_clean, "term": cmd_term,
+}
+
+
+def main(argv):
+    if not argv or argv[0] in ("-h", "--help", "help"):
+        print(__doc__.strip())
+        return 0
+    f = COMMANDS.get(argv[0])
+    if not f:
+        sys.exit(f"nox apps: unknown command '{argv[0]}' (nox apps help)")
+    return f(argv[1:])
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]) or 0)

@@ -115,7 +115,7 @@
     "top": 0.18,
     "maxHeight": 404,
     "placeholder": "Search apps, files, commands…",
-    "providers": ["calculator", "apps", "windows", "pins", "files", "clipboard", "emoji", "wallpapers", "slideshow", "defaults", "phone", "commands", "palette", "agent", "web", "run"],
+    "providers": ["calculator", "apps", "windows", "pins", "files", "clipboard", "emoji", "wallpapers", "slideshow", "defaults", "packages", "phone", "commands", "palette", "agent", "web", "run"],
     "provider": {
       "apps": { "limit": 8, "showRecent": true, "recentLimit": 6, "frecencyWeight": 0.35, "terminal": ["ghostty", "-e"] },
       "calculator": { "prefix": "=" },
@@ -126,6 +126,7 @@
       "wallpapers": { "prefix": "#", "prefixOnly": true, "limit": 0, "directory": "~/Pictures/Wallpapers/prepped", "skipScreenshots": true },
       "slideshow": { "prefix": "%", "prefixOnly": true, "limit": 0 },
       "defaults": { "prefix": "!", "prefixOnly": true, "limit": 0 },
+      "packages": { "prefix": "+", "prefixOnly": true, "limit": 0, "debounce": 350, "searchLimit": 8, "appimageDirs": [] },
       "files": { "prefix": "~", "prefixOnly": true, "limit": 30, "roots": ["~"], "exclude": ["node_modules", ".git", ".cache", "target", "build", "dist", "__pycache__", ".venv", "venv"], "hidden": false, "maxResults": 300, "debounce": 120, "recent": 8 },
       "web": { "prefix": "?", "limit": 0, "default": "g", "fallbackBelow": 3, "engines": {}, "_comment": "default: engine key (g Google, d DuckDuckGo, yt, gh, aw Arch Wiki, aur, ap Arch packages, r Reddit, w Wikipedia, npm, mdn); engines: { \"key\": { \"name\": \"…\", \"url\": \"https://…?q=%s\" } } adds/overrides, null removes; fallbackBelow: 0 = no unprefixed web row" },
       "commands": {

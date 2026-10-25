@@ -71,6 +71,24 @@ Back to the [README](../README.md).
 | `nox files terminal\|copypath\|ocr\|annotate\|webp\|png\|jpg\|half\|strip <file>...` | the Dolphin right-click "nox" menu actions |
 | `nox activity [refresh\|show] [--weeks N] [--source github\|local]` | commit grid for the desktop widget (GitHub via `gh`, or local repos) |
 
+## Apps
+
+The launcher's App Manager (`+`) is a front end for these. Sources: `repo` (pacman), `aur` (yay),
+`flatpak`, `appimage` (`~/Applications`, plus `launcher.provider.packages.appimageDirs`).
+
+| Command | What it does |
+|---|---|
+| `nox apps list` | installed apps as JSON: explicit and app-owning pacman packages, Flatpak apps, AppImages; AppImages in `~/Downloads` not installed yet |
+| `nox apps search <text>` | installable matches as JSON: repos (expac), AUR (aurweb RPC), Flathub (API, local appstream when offline) |
+| `nox apps updates [--cached\|--fresh]` | pending updates (checkupdates, `yay -Qua`, flatpak), cached 30 min |
+| `nox apps info\|open\|page <source> <id>` | details / start it / its web page |
+| `nox apps install\|remove\|update <source> <id>` | change one app; repo updates run a full `-Syu` (Arch has no partial upgrades); AppImages move to `~/Applications` with a launcher entry, and go to the trash on remove |
+| `nox apps upgrade` / `nox apps clean` | update everything (`yay -Syu`, `flatpak update`) / remove orphans, trim caches, unused runtimes |
+| `nox apps term <command> ...` | run one of the above in a floating terminal that stays open at the end |
+
+In the launcher: Enter opens (or installs), Shift+Enter opens the web page, Ctrl+Enter updates,
+Shift+Delete uninstalls.
+
 ## AI and agents
 
 | Command | What it does |

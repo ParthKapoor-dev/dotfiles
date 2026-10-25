@@ -69,6 +69,9 @@ a specific machine (monitors, battery, mic, GPU) is detected and kept in git-ign
   Bluetooth, battery, recording and Do Not Disturb indicators.
 - Spotlight-style launcher (Super+Space or a Super tap): apps, calculator `=`, windows `@`,
   clipboard `:`, wallpapers `#`, commands `/`, command palette `>`, emoji, files, pinned snippets.
+- App Manager in the launcher (`+`): installed apps from pacman, the AUR, Flatpak and AppImages in
+  one list; search and install from the repos, the AUR and Flathub; pending updates, clean up
+  (orphans, caches), AppImage install from ~/Downloads. Changes run in a terminal that asks first.
 - Control Center (connectivity, sound, display, media, performance, notifications), notification
   center with DND, OSDs, dock, overview (Super+Tab or a 4-finger swipe), Alt+Tab switcher, session
   menu, polkit agent, keyboard cheatsheet (Super+/), desktop clock and commit-activity widgets.
