@@ -156,6 +156,8 @@ Item {
                 property point at
                 onPressed: m => at = mapToItem(null, m.x, m.y)
                 onPositionChanged: m => {
+                    // hover moves come through too (hoverEnabled, for the hint): only a held button drags
+                    if (!pressed) return;
                     const p = mapToItem(null, m.x, m.y);
                     root.dragBy(p.x - at.x, p.y - at.y);
                     at = p;

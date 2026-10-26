@@ -16,8 +16,11 @@ import qs.services
 // a recording shows them.
 //   pointer   a glowing dot with a short comet tail instead of the cursor; hold the button to
 //             draw ink that stays a moment (draw.pointerSeconds, 2.5) and fades (Slack huddle style)
-//   pen / marker / arrow / box / circle   strokes that stay (FADE chip: they fade after
-//             draw.fadeSeconds, 4) until undone or cleared; Shift = straight line / square / circle
+//   pen / arrow / box / circle   with FADE on (default) they fade out slowly draw.fadeSeconds (4)
+//             after the last stroke: drawing again restarts the wait for all of them (and brings
+//             back any that were already fading); FADE off = they stay. Shift = straight line /
+//             square / circle
+//   marker    never fades: only undo or clear take it away
 //   spotlight dims the screen except a circle round the pointer (scroll = size); ink still draws
 //   hand      clicks go to the apps again, the drawings stay (only the toolbox takes input)
 // Keys while drawing (the overlay has the keyboard; the hand gives it back):
@@ -50,9 +53,10 @@ Scope {
     property string lastTool: "pointer"    // what Tab / the hand goes back to
     property int colorIx: 0
     readonly property color ink: colorAt(colorIx)
-    property bool fade: opts.fade ?? false
+    property bool fade: opts.fade ?? true
     readonly property int fadeMs: Math.round((opts.fadeSeconds ?? 4) * 1000)
     readonly property int pointerMs: Math.round((opts.pointerSeconds ?? 2.5) * 1000)
+    readonly property int fadeOutMs: Math.round((opts.fadeOutSeconds ?? 1.6) * 1000)
     property string screenName: ""
     property bool capturing: false     // toolbox hidden for a screenshot
     readonly property bool hand: tool === "hand"
@@ -86,6 +90,9 @@ Scope {
     property var pathStore: ({})        // sid -> [[Qt.point, ...], ...] (PathMultiline paths)
     property int seq: 0
     property int clearGen: 0            // bumped by clear(): every stroke fades out
+    // bumped when a stroke starts and when it lands: every fading stroke waits its full time
+    // again from there (and one that was already fading comes back)
+    property int inkGen: 0
     readonly property int count: strokes.count
     // width / opacity / glow per tool
     function style(t) {
@@ -102,7 +109,8 @@ Scope {
         pathStore = ps;
         const pointerInk = t === "pointer" || t === "spot";
         strokes.append({ sid, tool: t, col: String(ink), w: st.w, alpha: st.a, glow: st.glow,
-                         fadeAfter: pointerInk ? pointerMs : fade ? fadeMs : 0 });
+                         fadeAfter: pointerInk ? pointerMs : t === "marker" || !fade ? 0 : fadeMs });
+        inkGen++;
     }
     function drop(sid) {
         for (let i = 0; i < strokes.count; i++) if (strokes.get(i).sid === sid) { strokes.remove(i); break; }
@@ -270,15 +278,30 @@ Scope {
                         property real land: 1
                         Component.onCompleted: { landAnim.start(); if (fadeAfter > 0) fadeTimer.start(); }
                         NumberAnimation { id: landAnim; target: st; property: "land"; from: 1.35; to: 1; duration: 260; easing.type: Easing.OutCubic }
-                        Timer { id: fadeTimer; interval: st.fadeAfter; onTriggered: st.leave(700) }
-                        function leave(ms) {
-                            if (leaving) return;
+                        // a slow fade (draw.fadeOutSeconds, 1.6) once the wait is over
+                        // (not while a stroke is being drawn: the wait starts again when it lands)
+                        Timer { id: fadeTimer; interval: st.fadeAfter; onTriggered: if (live.drawing) restart(); else st.leave(root.fadeOutMs, false) }
+                        property bool cleared: false
+                        function leave(ms, clearing) {
+                            if (cleared) return;
+                            if (clearing) { cleared = true; backAnim.stop(); outAnim.stop(); }
+                            else if (leaving) return;
                             leaving = true;
                             outAnim.duration = ms;
                             outAnim.start();
                         }
-                        NumberAnimation { id: outAnim; target: st; property: "opacity"; to: 0; easing.type: Easing.InOutQuad; onFinished: root.drop(st.sid) }
-                        Connections { target: root; function onClearGenChanged() { st.leave(280); } }
+                        NumberAnimation { id: outAnim; target: st; property: "opacity"; to: 0; easing.type: Easing.InOutSine; onFinished: root.drop(st.sid) }
+                        NumberAnimation { id: backAnim; target: st; property: "opacity"; to: 1; duration: 220; easing.type: Easing.OutCubic }
+                        Connections {
+                            target: root
+                            function onClearGenChanged() { st.leave(280, true); }
+                            // drawing again: wait the whole time again, fading ones come back
+                            function onInkGenChanged() {
+                                if (st.fadeAfter <= 0 || st.cleared) return;
+                                if (st.leaving) { outAnim.stop(); st.leaving = false; backAnim.start(); }
+                                fadeTimer.restart();
+                            }
+                        }
                         DrawStroke { paths: st.paths; color: st.col; lineWidth: st.w * st.land; alpha: st.alpha; glow: st.glow }
                     }
                 }
@@ -310,6 +333,7 @@ Scope {
                         // right click = undo while drawing
                         if (m.button === Qt.RightButton) { root.undo(); return; }
                         a = Qt.point(m.x, m.y);
+                        root.inkGen++;
                         pts = [a];
                         live.paths = [[a, a]];
                         live.drawing = true;
