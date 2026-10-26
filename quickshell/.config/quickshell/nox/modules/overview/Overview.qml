@@ -46,16 +46,15 @@ Scope {
     Behavior on p { NumberAnimation { duration: Theme.durWorkspace; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveSheet } }
     // view: 0 = windows, 1 = desktops (animated while open, set straight on open)
     readonly property bool desks: Panels.overviewMode === "desktops"
-    property bool dmAnim: false
+    // (a binding: never assign dm, or it stops following the mode)
     property real dm: desks ? 1 : 0
-    Behavior on dm { enabled: root.dmAnim; NumberAnimation { duration: Theme.durSheet; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveSheet } }
+    Behavior on dm { enabled: root.open && root.p > 0.99; NumberAnimation { duration: Theme.durSheet; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveSheet } }
     property int hoverWs: -1            // desktops view: the thumbnail last hovered (its windows show)
     onDesksChanged: { sel = -1; hoverWs = -1; }
     onOpenChanged: {
         if (open) {
             Hyprland.refreshToplevels(); Hyprland.refreshWorkspaces();
             hideTimer.stop(); sel = -1; hoverWs = -1;
-            dmAnim = false; dm = desks ? 1 : 0; dmAnim = true;
             capture = true; shown = true;
             readyWait.elapsed = 0; readyWait.restart();
         } else {
@@ -79,38 +78,60 @@ Scope {
     property int sel: -1
     function lerp(a, b, t) { return a + (b - a) * t; }
 
-    // Justified rows (Exposé): the items keep their order and aspect, rows share a height, every
-    // row is centred; the row count that shows the windows biggest wins. Never larger than maxScale
-    // of the real window. items: [{ key, w, h }] -> { key: { x, y, s } }
-    function justify(items, X, Y, W, H, gx, gy, label, maxScale) {
+    // Layout: justified rows (Exposé). Every row shares one height and is centred; windows keep
+    // their aspect and are never larger than maxScale of the real window. For each row count it
+    // tries two ways to fill the rows: in order (desktop by desktop) and balanced (widest first into
+    // the emptiest row, then back in desktop order within the row), and keeps whichever shows the
+    // windows biggest. A light touch of disorder (shell.json overview.tilt): each window gets a
+    // small fixed offset and tilt from a hash of its address, inside the gaps, so it never overlaps.
+    // items: [{ key, w, h, ws }] -> { key: { x, y, s, r } }
+    function hash(str) {
+        let h = 2166136261;
+        for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+        return ((h >>> 0) % 100000) / 100000;
+    }
+    function justify(items, X, Y, W, H, gx, gy, label, maxScale, jitter) {
         const n = items.length;
         const out = {};
+        // the offsets and tilt reach this far: keep that much inside the area
+        if (jitter) { X += 14; Y += 10; W -= 28; H -= 20; }
         if (!n || W <= 0 || H <= 0) return out;
         const asp = items.map(it => it.w / it.h);
         const total = asp.reduce((a, b) => a + b, 0);
-        let best = null;
-        for (let r = 1; r <= Math.min(n, 6); r++) {
-            // split in order: each item goes to the row its middle falls in
-            const rows = [];
-            let cum = 0;
-            for (let i = 0; i < n; i++) {
-                const ri = Math.min(r - 1, Math.floor((cum + asp[i] / 2) / (total / r)));
-                cum += asp[i];
-                (rows[ri] = rows[ri] ?? []).push(i);
-            }
-            const rs = rows.filter(x => x && x.length);
+        const fill = rs => {
             // height that fills the width, capped by maxScale of the row's tallest window
             let hs = rs.map(row => Math.min((W - gx * (row.length - 1)) / row.reduce((a, i) => a + asp[i], 0),
                                             Math.max(...row.map(i => items[i].h)) * maxScale));
             const room = H - gy * (rs.length - 1) - label * rs.length;
+            if (room <= 0) return null;
             const sum = hs.reduce((a, b) => a + b, 0);
-            if (room <= 0) continue;
             if (sum > room) hs = hs.map(h => h * room / sum);
-            // shown area, minus a little per row so equal sizes prefer fewer rows
-            let area = 0;
-            rs.forEach((row, k) => { for (const i of row) area += hs[k] * hs[k] * asp[i]; });
-            area *= 1 - 0.01 * rs.length;
-            if (!best || area > best.area) best = { area, rs, hs };
+            let area = 0, small = 1e9;
+            rs.forEach((row, k) => { for (const i of row) { const s = Math.min(hs[k] / items[i].h, maxScale); area += items[i].w * items[i].h * s * s; small = Math.min(small, s); } });
+            // shown area, nudged towards fewer rows and against one window ending up tiny
+            return { area: area * (1 - 0.01 * rs.length) * (0.85 + 0.15 * Math.min(1, small * 4)), rs, hs };
+        };
+        let best = null;
+        const order = items.map((_, i) => i);
+        const byWidth = order.slice().sort((a, b) => asp[b] - asp[a]);
+        for (let r = 1; r <= Math.min(n, 6); r++) {
+            // in order: each item goes to the row its middle falls in
+            const inOrder = [];
+            let cum = 0;
+            for (let i = 0; i < n; i++) {
+                const ri = Math.min(r - 1, Math.floor((cum + asp[i] / 2) / (total / r)));
+                cum += asp[i];
+                (inOrder[ri] = inOrder[ri] ?? []).push(i);
+            }
+            // balanced: widest first into the row with the least width so far
+            const bal = Array.from({ length: r }, () => []), sums = new Array(r).fill(0);
+            for (const i of byWidth) { const k = sums.indexOf(Math.min(...sums)); bal[k].push(i); sums[k] += asp[i]; }
+            for (const row of bal) row.sort((a, b) => a - b);
+            bal.sort((a, b) => a[0] - b[0]);
+            for (const rs of [inOrder.filter(x => x && x.length), bal.filter(x => x.length)]) {
+                const f = fill(rs);
+                if (f && (!best || f.area > best.area)) best = f;
+            }
         }
         if (!best) return out;
         const used = best.hs.reduce((a, b) => a + b, 0) + gy * (best.rs.length - 1) + label * best.rs.length;
@@ -123,7 +144,11 @@ Scope {
                 const it = items[i];
                 // a window narrower than its row height allows sits centred in its slot
                 const s = Math.min(h / it.h, maxScale);
-                out[it.key] = { x: x + (asp[i] * h - it.w * s) / 2, y: y + (h - it.h * s) / 2, s };
+                // the offset stays inside half the gaps, so neighbours never touch
+                const jx = jitter ? (hash(it.key + "x") - 0.5) * gx * 0.4 : 0;
+                const jy = jitter ? (hash(it.key + "y") - 0.5) * gy * 0.4 : 0;
+                out[it.key] = { x: x + (asp[i] * h - it.w * s) / 2 + jx, y: y + (h - it.h * s) / 2 + jy, s,
+                                r: jitter ? (hash(it.key + "r") - 0.5) * 2.4 : 0 };
                 x += asp[i] * h + gx;
             }
             y += h + gy + label;
@@ -461,10 +486,11 @@ Scope {
                     // room for the copies: under the view switch (windows) or the strip (desktops),
                     // above the dock, clear of the shelf's edge while it is open alongside
                     readonly property bool shelfOn: root.opts.shelf ?? true
-                    readonly property real shelfW: shelfOn ? 250 : 0
+                    // the shelf panel (148 + its 10px edge gap) on its edge, nothing more
+                    readonly property real shelfW: shelfOn ? 172 : 0
                     readonly property bool shelfLeft: (Config.opt.shelf?.side ?? "right") === "left"
-                    readonly property real ax: 64 + (shelfLeft ? shelfW : 0)
-                    readonly property real aw: win.sw - 128 - shelfW
+                    readonly property real ax: (shelfLeft ? shelfW : 40)
+                    readonly property real aw: win.sw - 40 - shelfW
                     readonly property real ab: win.sh - (Panels.dockVisible ? Theme.dockSize + 44 : 44)
                     readonly property real ayWin: 66
                     readonly property real ayDesk: 216
@@ -485,10 +511,17 @@ Scope {
                     property var list: []
                     property string listKey: ""
                     onSortedChanged: { const k = sorted.map(t => t.address).join(","); if (k !== listKey) { listKey = k; list = sorted; } }
-                    function item(t) { const o = t.lastIpcObject ?? {}; return { key: t.address, w: Math.max(40, o.size?.[0] ?? 800), h: Math.max(30, o.size?.[1] ?? 500) }; }
+                    function item(t) {
+                        const o = t.lastIpcObject ?? {};
+                        return { key: t.address, w: Math.max(40, o.size?.[0] ?? 800), h: Math.max(30, o.size?.[1] ?? 500),
+                                 ws: t.workspace?.id ?? 0, rx: (o.at?.[0] ?? 0) - win.sx, ry: (o.at?.[1] ?? 0) - win.sy };
+                    }
+                    function lay(items, y) {
+                        return root.justify(items, ax, y, aw, ab - y, 34, 26, label, maxScale, root.opts.tilt ?? true);
+                    }
                     // layouts: every window (windows view) / the shown desktop's (desktops view)
-                    readonly property var all: root.justify(list.map(item), ax, ayWin, aw, ab - ayWin, 36, 18, label, maxScale)
-                    readonly property var desk: root.justify(list.filter(t => t.workspace?.id === win.shownWs).map(item), ax, ayDesk, aw, ab - ayDesk, 44, 18, label, maxScale)
+                    readonly property var all: lay(list.map(item), ayWin)
+                    readonly property var desk: lay(list.filter(t => t.workspace?.id === win.shownWs).map(item), ayDesk)
                     readonly property int deskN: list.filter(t => t.workspace?.id === win.shownWs).length
 
                     GText {
@@ -528,6 +561,7 @@ Scope {
                             readonly property real tx: root.lerp(la.x, ld.x, root.dm)
                             readonly property real ty: root.lerp(la.y, ld.y, root.dm)
                             readonly property real ts: root.lerp(la.s, ld.s, root.dm)
+                            readonly property real tr: root.lerp(la.r ?? 0, ld.r ?? 0, root.dm)
                             // the current desktop's copies grow out of the real windows; the others
                             // fade in at their spot, from a little smaller
                             readonly property bool home: ws === win.curWs
@@ -554,13 +588,18 @@ Scope {
                             property real tiltX: tilting ? -(cellMouse.mouseY / Math.max(1, height) - 0.5) * 12 : 0
                             property real tiltY: tilting ? (cellMouse.mouseX / Math.max(1, width) - 0.5) * 16 : 0
                             property real lift: hot && root.p > 0.98 ? 1.04 : 1
+                            // resting tilt from the layout: grows in as it opens, 0 while hot
+                            property real straight: hot ? 1 : 0
+                            Behavior on straight { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
+                            readonly property real rest: tr * (home ? root.p : 1) * (1 - straight)
                             Behavior on tiltX { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
                             Behavior on tiltY { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
                             Behavior on lift { NumberAnimation { duration: Theme.durHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
                             transform: [
                                 Rotation { origin.x: cell.width / 2; origin.y: cell.height / 2; axis { x: 0; y: 1; z: 0 } angle: cell.tiltY },
                                 Rotation { origin.x: cell.width / 2; origin.y: cell.height / 2; axis { x: 1; y: 0; z: 0 } angle: cell.tiltX },
-                                Scale { origin.x: cell.width / 2; origin.y: cell.height / 2; xScale: cell.lift; yScale: cell.lift }
+                                Scale { origin.x: cell.width / 2; origin.y: cell.height / 2; xScale: cell.lift; yScale: cell.lift },
+                                Rotation { origin.x: cell.width / 2; origin.y: cell.height / 2; angle: cell.rest }
                             ]
 
                             // the window copy at full size, scaled (transform only)
