@@ -17,7 +17,7 @@ import { initKeys } from "./demos/keys";
 import { initSelbar } from "./demos/selbar";
 import { initIsland } from "./demos/island";
 import { initHints } from "./demos/hints";
-import { initCorners, initFolder, initShake } from "./demos/touches";
+import { initCorners, initFolder, initStack } from "./demos/touches";
 import { initDraw } from "./demos/draw";
 import { initMission } from "./demos/mission";
 import { initTry } from "./try";
@@ -133,7 +133,7 @@ const DEMOS: [string, (el: HTMLElement) => void][] = [
   ["#demo-launcher", initLauncher], ["#demo-shelf", initShelf], ["#demo-phone", initPhone], ["#demo-theme", initTheme],
   ["#demo-files", initFiles], ["#demo-term", initTerminal], ["#demo-keys", initKeys],
   ["#demo-selbar", initSelbar], ["#demo-island", initIsland], ["#demo-hints", initHints],
-  ["#demo-corners", initCorners], ["#demo-folder", initFolder], ["#demo-shake", initShake],
+  ["#demo-corners", initCorners], ["#demo-folder", initFolder], ["#demo-stack", initStack],
   ["#demo-draw", initDraw], ["#demo-mission", initMission],
 ];
 for (const [sel, fn] of DEMOS) {

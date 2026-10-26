@@ -176,13 +176,13 @@
         <div class="chapter-head">
           <p class="num" data-reveal>05 <span>/ Dynamic Island</span></p>
           <h2 class="title" data-split>The middle of the bar<br /><em>shows what is live.</em></h2>
-          <p class="body" data-reveal>One black pill in the bar's centre morphs to the most important thing running: a recording, the mic, an agent that needs you, a timer, a download, the music, a shelf drop. The rest wait as dots on its edge. Hover for a card with controls, click to pin it, scroll to cycle. Start a few below, or type a timer.</p>
+          <p class="body" data-reveal>One black pill in the bar's centre shows the most important thing running: a recording, the mic, an agent, a timer, a download, the music, a shelf drop. It springs from one to the next with a cross-fade and blur, and everything else waits beside it as a mini glyph. Each kind has its own face: a tool-call strip while an agent works, a ring when it needs you, a blinking dot while recording, eq bars, a draining timer ring. Hover and the pill grows in place into a card, with a tab for every live thing. Click to pin it, scroll to cycle. Start a few below, or type a timer.</p>
         </div>
         <div class="demo demo-island" id="demo-island" data-reveal></div>
         <div class="island-notes" data-reveal-group>
           <div class="sys" data-reveal><h3>Priority, from config</h3><p><code>widgets.island.order</code>: recording, mic, agent, timer, download, music, shelf. Leave one out to never show it.</p></div>
           <div class="sys" data-reveal><h3><code>nox timer 5m tea</code></h3><p>One countdown in the island: <code>5m</code>, <code>90s</code>, <code>1h30m</code>, <code>1:30</code>. A notification and a sound when it ends.</p></div>
-          <div class="sys" data-reveal><h3>Idle means idle</h3><p>Downloads are read only while a <code>.part</code> file exists. Nothing polls and nothing loops while nothing is live.</p></div>
+          <div class="sys" data-reveal><h3>Idle means idle</h3><p>With nothing live the island costs nothing: no timers, no animation, no polling. Downloads are read only while a <code>.part</code> file exists.</p></div>
         </div>
         <p class="center-more" data-reveal><a class="more" href="#try" data-try="island">Play it in the desktop model <span class="arr">→</span></a></p>
       </div>
@@ -297,7 +297,7 @@
         <div class="chapter-head">
           <p class="num" data-reveal>08 <span>/ Small touches</span></p>
           <h2 class="title" data-split>Things you only notice<br /><em>when they are missing.</em></h2>
-          <p class="body" data-reveal>Hyprland has no hot corners, dock folders or cursor finder, so the shell adds them. Each one is a switch in <code>shell.json</code>, and none of them runs anything while you are not using it.</p>
+          <p class="body" data-reveal>Hyprland has no hot corners, dock folders or Downloads stack, so the shell adds them. Each one is a few lines in <code>shell.json</code>, and none of them runs anything while you are not using it.</p>
         </div>
         <div class="touch-grid">
           <article class="tile" data-reveal>
@@ -306,11 +306,11 @@
           </article>
           <article class="tile" data-reveal>
             <div class="tile-art art-fd" id="demo-folder"></div>
-            <div class="tile-text"><h3>Dock folders</h3><p>Group apps into a folder in <code>dock.pinned</code>. Click it and they fan out in an arc above the dock.</p></div>
+            <div class="tile-text"><h3>Dock folders</h3><p>Group apps with <code class="cfg">{ "folder": "More", "apps": [...] }</code> in <code>dock.pinned</code>. Click it and they fan out in an arc above the dock.</p></div>
           </article>
           <article class="tile" data-reveal>
-            <div class="tile-art art-sk" id="demo-shake"></div>
-            <div class="tile-text"><h3>Shake to find the cursor</h3><p>Lost the pointer on a big screen? Shake the mouse and a ring blooms around it. The shake is detected in the compositor, in Lua.</p></div>
+            <div class="tile-art art-st" id="demo-stack"></div>
+            <div class="tile-text"><h3>Downloads stack</h3><p>Pin <code class="cfg">{ "stack": "Downloads", "path": "~/Downloads", "count": 12 }</code> and the newest files fan up out of the dock: thumbnails for images, type icons for the rest, Open in Files on top. Click one to open it, drag it out into an app, Esc to close.</p></div>
           </article>
         </div>
         <p class="center-more" data-reveal><a class="more" href="#try" data-try="touches">Play them all in the desktop model <span class="arr">→</span></a></p>

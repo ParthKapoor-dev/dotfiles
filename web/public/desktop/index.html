@@ -1243,7 +1243,7 @@ body.clean :is(#twbtn,#hint,#gr-chip){display:none!important}
      C7 Selection bar ........ #popbar (.pb-*)
      C8 Dynamic Island ....... #island (.isl-*)
      C9 Click anything ....... #hints (.hk-*)
-     C10 Small touches ....... #findcur, hot corners (.hc, .hcg), #draw (.dr-*), show desktop (.pk-chip), #dfan (.df-*)
+     C10 Small touches ....... hot corners (.hc, .hcg), #draw (.dr-*), show desktop (.pk-chip), #dfan (.df-*)
    Only shared tokens are used, so every preset skins them; Telemetry (the live
    look) gets square corners, mono labels and corner brackets at the end of each
    block. Reduced motion (OS setting or Tweaks > Motion > Reduced) is honoured
@@ -2227,17 +2227,7 @@ body.clean :is(#cptbtn,#cpt){display:none!important}
 :root[data-preset=telemetry] .hk-buf{border-radius:2px}
 :root[data-preset=telemetry] .hk-ring{border-radius:3px}
 
-/* ---------------- C10 · SMALL TOUCHES: shake to find the cursor · hot corners (+ draw, show desktop) · dock stack fan ---------------- */
-/* shake to find: an enlarged pointer blooms at the tip, a ring pings out */
-#findcur{position:absolute;left:0;top:0;z-index:7080;pointer-events:none;width:0;height:0}
-#findcur .fc-a{position:absolute;left:-3px;top:-2px;width:66px;height:78px;transform-origin:3px 2px;transform:scale(.33);opacity:0;filter:drop-shadow(0 6px 16px rgba(0,0,0,.6)) drop-shadow(0 0 18px rgba(var(--accent-rgb),.45));
-  transition:transform calc(380ms*var(--mv)*var(--slowk)) var(--dsh-spring),opacity calc(140ms*var(--fd)) var(--ease)}
-#findcur .fc-a svg{width:100%;height:100%}
-#findcur.on .fc-a{transform:scale(1);opacity:1}
-#findcur .fc-r{position:absolute;left:-60px;top:-60px;width:120px;height:120px;border-radius:50%;box-shadow:0 0 0 1.5px rgba(var(--accent-rgb),.9),inset 0 0 30px rgba(var(--accent-rgb),.25);opacity:0}
-#findcur.ping .fc-r{animation:fcRing calc(900ms*var(--fd)) var(--ease) both}
-#findcur.ping .fc-r:nth-child(2){animation-delay:calc(160ms*var(--fd))}
-@keyframes fcRing{0%{opacity:.9;transform:scale(.2)}100%{opacity:0;transform:scale(1.5)}}
+/* ---------------- C10 · SMALL TOUCHES: hot corners (+ draw, show desktop) · dock stack fan ---------------- */
 /* hot corners: 4 px trigger zones, a quarter glow + bracket + label when the pointer arrives */
 .hc{position:absolute;width:10px;height:10px;z-index:5000}
 .hc.tr{left:auto;right:0;top:0}.hc.bl{top:auto;bottom:0;left:0}.hc.br{left:auto;top:auto;right:0;bottom:0}
@@ -2354,10 +2344,10 @@ body.clean :is(#cptbtn,#cpt){display:none!important}
   #shelf.over .dsh-p{transform:translate(0,-50%)}
 }
 :root[data-motion=reduced] #stage.asking :is(#wall,#desk,#widgets),:root[data-motion=reduced] #stage.agents-open :is(#desk,#widgets){transform:none}
-:root[data-motion=reduced] :is(.isl-spin,.isl-ping,.isl-rec,.isl-eq i,.isl-lv i,.pb-eq i,#island,.hk-buf::after,.hk-pill,#findcur .fc-r,.hcg::before,.pb-c,.pb-w){animation:none!important}
+:root[data-motion=reduced] :is(.isl-spin,.isl-ping,.isl-rec,.isl-eq i,.isl-lv i,.pb-eq i,#island,.hk-buf::after,.hk-pill,.hcg::before,.pb-c,.pb-w){animation:none!important}
 :root[data-motion=reduced] #stage.peek #desk{transform:none}
 @media (prefers-reduced-motion:reduce){
-  :is(.isl-spin,.isl-ping,.isl-rec,.isl-eq i,.isl-lv i,.pb-eq i,#island,.hk-buf::after,.hk-pill,#findcur .fc-r,.hcg::before,.pb-c,.pb-w){animation:none!important}
+  :is(.isl-spin,.isl-ping,.isl-rec,.isl-eq i,.isl-lv i,.pb-eq i,#island,.hk-buf::after,.hk-pill,.hcg::before,.pb-c,.pb-w){animation:none!important}
   #stage.peek #desk{transform:none}
 }
 /* ============ PUBLIC SITE: embed mode + back link ============ */
@@ -4963,7 +4953,7 @@ window.addEventListener('blur', () => { if (Switcher.isOpen) Switcher.commit(); 
      23h Selection bar ........ select text in any window (demo: Alt+Shift+P) ........... #popbar
      23i Dynamic Island ....... bar centre, hover / click (demo: Alt+Shift+I) ........... #island
      23j Click anything ....... Super+Shift+F (mock: Alt+Shift+F) ....................... #hints
-     23k Small touches ........ shake to find · hot corners · draw · show desktop · dock fan (demo: Alt+Shift+T)
+     23k Small touches ........ hot corners · draw · show desktop · dock fan (demo: Alt+Shift+T)
      23l wiring for 23h–23k (concepts rows, cheat sheet, launcher, keys)
    Everything is fake but believable: no real data, nothing leaves the page.
    ========================================================================== */
@@ -7013,9 +7003,9 @@ const ISL = {
         : `<span class="isl-spin"></span><span class="isl-t">${esc(s.title)}</span><span class="isl-m" data-v="age"></span><span class="isl-bar"><i data-w="p"></i></span>`),
     v: (s) => ({ age: '· ' + islAge(s), p: s.p, clock: hms((Date.now() - s.t0) / 1000), step: s.step }),
     x: (s) => s.need ? {
-      h: `<div class="isl-xh"><span class="isl-xi acc">${ic('sparkle')}</span><div><small>Claude Code · ${esc(s.repo)} · waiting on you</small><b>Approve this edit?</b></div><span class="isl-xr acc" data-v="clock"></span></div>
+      h: `<div class="isl-xh"><span class="isl-xi acc">${ic('sparkle')}</span><div><small>Claude Code · ${esc(s.repo)} · waiting on you</small><b>Allow edit?</b></div><span class="isl-xr acc" data-v="clock"></span></div>
         <div class="isl-xb"><div class="isl-q">Edit <code>src/hooks/useTasks.ts</code>: start the hook with <code>useState&lt;Task[]&gt;([])</code> so the first render gets an array.</div></div>`,
-      a: '<button class="isl-b pri" data-ia="approve">Approve</button><button class="isl-b" data-ia="jump">Jump to agent</button>' }
+      a: '<button class="isl-b pri" data-ia="jump">Jump to agent</button><button class="isl-b" data-ia="agents">Agents</button>' }
       : s.done ? {
         h: `<div class="isl-xh"><span class="isl-xi">${ic('check')}</span><div><small>Claude Code · ${esc(s.repo)} · finished</small><b>Tests pass · 12 passed</b></div><span class="isl-xr" data-v="clock"></span></div>
           <div class="isl-xb">fix/tasklist-crash is ready to review · 2 files · <code>+3 −2</code></div>`,
@@ -7032,7 +7022,7 @@ const ISL = {
     x: () => ({
       h: `<div class="isl-xh"><span class="isl-xi rec">${ic('record')}</span><div><small>Screen recording · wf-recorder</small><b>Full screen · 1536 × 864</b></div><span class="isl-xr tnum" data-v="t"></span></div>
         <div class="isl-xb">${islLv()}</div>`,
-      a: '<button class="isl-b pri" data-ia="stop">Stop recording</button><button class="isl-b" data-ia="discard">Discard</button>' }),
+      a: '<button class="isl-b pri" data-ia="stop">Stop recording</button>' }),
   },
   mic: {
     icon: 'mic', pri: () => 80,
@@ -7045,11 +7035,11 @@ const ISL = {
   timer: {
     icon: 'clock', pri: (s) => (s.done ? 95 : s.end - Date.now() < 30e3 ? 72 : 45), mode: (s) => (s.done ? 'done' : 'run'),
     c: (s) => (s.done ? `<span class="isl-ping"></span><span class="isl-t acc">Timer done</span><span class="isl-m">${esc(s.label)}</span>` : `${islRing()}<span class="isl-t tnum" data-v="left"></span>`),
-    v: (s) => { const left = Math.max(0, s.end - Date.now()); return { left: mmss(Math.ceil(left / 1000)), p: (left / s.dur) * 100 }; },
+    v: (s) => { const left = s.paused != null ? s.paused : Math.max(0, s.end - Date.now()); return { left: mmss(Math.ceil(left / 1000)), p: (left / s.dur) * 100 }; },
     x: (s) => ({
       h: `<div class="isl-xh"><span class="isl-xi">${ic('clock')}</span><div><small>Timer · ${esc(s.label)}</small><b>${s.done ? 'Time is up' : `${Math.round(s.dur / 6e4)} minute timer`}</b></div><span class="isl-big tnum" data-v="left"></span></div>
         <div class="isl-xb"><div class="isl-pr" style="margin-top:4px"><i data-w="p"></i></div></div>`,
-      a: s.done ? '<button class="isl-b pri" data-ia="tdone">Done</button><button class="isl-b" data-ia="plus">+1 min</button>' : '<button class="isl-b" data-ia="plus">+1 min</button><button class="isl-b" data-ia="cancel">Cancel</button>' }),
+      a: s.done ? '<button class="isl-b pri" data-ia="tdone">Done</button><button class="isl-b" data-ia="plus">+1 min</button>' : `<button class="isl-b" data-ia="plus">+1 min</button><button class="isl-b" data-ia="tpause">${s.paused != null ? 'Resume' : 'Pause'}</button><button class="isl-b" data-ia="cancel">Cancel</button>` }),
   },
   download: {
     icon: 'download', pri: (s) => (s.p >= 100 ? 56 : 60), mode: (s) => (s.p >= 100 ? 'done' : 'run'),
@@ -7058,7 +7048,7 @@ const ISL = {
     x: (s) => ({
       h: `<div class="isl-xh"><span class="isl-xi">${ic('download')}</span><div><small>Zen · Downloads</small><b>${esc(s.name)}</b></div><span class="isl-xr acc tnum" data-v="pc"></span></div>
         <div class="isl-xb"><div class="isl-pr"><i data-w="p"></i></div><div class="mono"><span data-v="got"></span> of ${s.size} MB · 8.4 MB/s · <span data-v="eta"></span></div></div>`,
-      a: `<button class="isl-b pri" data-ia="files">Show in Files</button>${s.p >= 100 ? '' : '<button class="isl-b" data-ia="dlcancel">Cancel</button>'}` }),
+      a: '<button class="isl-b pri" data-ia="files">Show in Files</button>' }),
   },
   shelf: {
     icon: 'shelf', pri: () => 40,
@@ -7149,7 +7139,7 @@ const Island = {
     const vOn = Voice.st && Voice.st !== 'idle';
     if (vOn && !L.mic) this.add('mic', { app: 'Voice typing', src: 'voice' });
     if (!vOn && L.mic && L.mic.src === 'voice') this.remove('mic');
-    if (L.timer) { const t = L.timer; if (!t.done && now >= t.end) { t.done = true; t.doneAt = now; this.sigX = ''; HUD.show(`${t.label} timer is done`, 'clock'); } if (t.done && now - t.doneAt > 9000) this.remove('timer'); }
+    if (L.timer) { const t = L.timer; if (!t.done && t.paused == null && now >= t.end) { t.done = true; t.doneAt = now; this.sigX = ''; HUD.show(`${t.label} timer is done`, 'clock'); } if (t.done && now - t.doneAt > 9000) this.remove('timer'); }
     if (L.download) { const d = L.download; if (d.p < 100) { d.p = Math.min(100, d.p + d.rate); if (d.p >= 100) { d.doneAt = now; this.sigX = ''; } } else if (now - d.doneAt > 3500) this.remove('download'); }
     if (L.agent && !L.agent.need && !L.agent.done) L.agent.p = Math.min(94, L.agent.p + 0.5);
     if (L.agent && L.agent.done && now - L.agent.doneAt > 7000 && !this.isOpen) this.remove('agent');
@@ -7165,7 +7155,9 @@ const Island = {
     else if (id === 'stop') { if (L.rec && L.rec.real && R.recording) Shot.stopRec(); else { this.remove('rec'); HUD.show('Recording saved to ~/Videos', 'record'); } this.remove('rec'); }
     else if (id === 'discard') { if (R.recording) { R.recording = false; MenuBar.update(); } this.remove('rec'); HUD.show('Recording discarded', 'trash'); }
     else if (id === 'micstop') { if (L.mic && L.mic.src === 'voice') Voice.cancel(); this.remove('mic'); }
-    else if (id === 'plus') { if (L.timer) { const t = L.timer; t.end = Math.max(t.end, Date.now()) + 6e4; t.dur += 6e4; t.done = false; this.sigX = ''; } }
+    else if (id === 'plus') { if (L.timer) { const t = L.timer; if (t.paused != null) t.paused += 6e4; t.end = Math.max(t.end, Date.now()) + 6e4; t.dur += 6e4; t.done = false; this.sigX = ''; } }
+    else if (id === 'tpause') { const t = L.timer; if (t) { if (t.paused != null) { t.end = Date.now() + t.paused; delete t.paused; } else t.paused = Math.max(0, t.end - Date.now()); this.sigX = ''; } }
+    else if (id === 'agents') { this.close(); Agents.open(); }
     else if (id === 'cancel' || id === 'tdone') this.remove('timer');
     else if (id === 'files') { this.close(); openFolder('Downloads'); }
     else if (id === 'dlcancel') { this.remove('download'); HUD.show('Download cancelled', 'x'); }
@@ -7303,47 +7295,7 @@ const Hints = {
   },
 };
 
-/* ---------- 23k. SMALL TOUCHES: shake to find · hot corners (+ draw on screen, show desktop) · dock stack fan ---------- */
-/* shake to find the cursor: >= 4 fast horizontal reversals inside 700 ms blooms a big pointer at the tip */
-const FindCur = {
-  el: null, hist: [], on: false, offT: 0,
-  init() {
-    this.el = el('<div id="findcur" aria-hidden="true"><div class="fc-r"></div><div class="fc-r"></div><div class="fc-a"><svg viewBox="0 0 22 26"><path d="M2 1.5v19.2l4.9-4.6 3.1 7.4 3.4-1.5-3.1-7.2h6.8z" fill="#fff" stroke="#000" stroke-width="1.1" stroke-linejoin="round"/></svg></div></div>');
-    stage.appendChild(this.el);
-    stage.addEventListener('pointermove', (e) => { if (!e.pointerType || e.pointerType === 'mouse') this.feed(pt(e)); }, { passive: true });
-  },
-  feed(p, now = performance.now()) {
-    const h = this.hist; h.push({ x: p.x, y: p.y, t: now }); while (h.length && now - h[0].t > 700) h.shift();
-    if (this.on) this.move(p);
-    let rev = 0, dist = 0, dir = 0, run = 0;
-    for (let i = 1; i < h.length; i++) {
-      const dx = h[i].x - h[i - 1].x; dist += Math.abs(dx); if (Math.abs(dx) < 1) continue;
-      const d = Math.sign(dx); if (dir && d !== dir) { if (run > 24) rev++; run = 0; } dir = d; run += Math.abs(dx);
-    }
-    if (rev >= 4 && dist > 650) this.bloom(p);
-  },
-  bloom(p) {
-    clearTimeout(this.offT);
-    if (!this.on) { this.on = true; this.move(p); this.el.classList.remove('ping'); void this.el.offsetWidth; this.el.classList.add('on', 'ping'); }
-    this.offT = setTimeout(() => { this.on = false; this.el.classList.remove('on'); }, tf(650));
-  },
-  move(p) { this.el.style.transform = `translate(${p.x.toFixed(1)}px,${p.y.toFixed(1)}px)`; },
-  async demo(tok) {
-    const c0 = { x: 760, y: 470 }; Shelf.curAt(c0, true); await nap(600); if (tok.dead) return;
-    let last = c0; const t0 = performance.now(), dur = 1500;
-    await new Promise((res) => {
-      const f = (now) => {
-        if (tok.dead) { res(); return; }
-        const u = Math.min(1, (now - t0) / dur), amp = 120 * Math.min(1, u * 4) * (u > 0.85 ? (1 - u) / 0.15 : 1);
-        last = { x: c0.x + Math.sin(u * Math.PI * 2 * 6.5) * amp, y: c0.y + Math.sin(u * Math.PI * 2 * 3.2) * 12 };
-        Shelf.curAt(last, !this.on); this.feed(last, now);
-        if (u < 1) raf(f); else res();
-      };
-      raf(f);
-    });
-    await nap(900); if (tok.dead) return; Shelf.curAt(last, true); await nap(600); Shelf.cur.classList.remove('on');
-  },
-};
+/* ---------- 23k. SMALL TOUCHES: hot corners (+ draw on screen, show desktop) · dock stack fan ---------- */
 /* hot corners: one 4 px zone per corner, a glow + label when the pointer arrives, the action after a 140 ms dwell */
 const HC_ACT = { mission: ['Mission Control', 'grid'], draw: ['Draw on screen', 'pen'], desktop: ['Show desktop', 'desktop'], lock: ['Lock screen', 'lock'], off: ['Off', 'x'] };
 const HC_ORDER = ['mission', 'draw', 'desktop', 'lock', 'off'];
@@ -7521,7 +7473,6 @@ const DockFan = {
 const Touches = {
   async demo(tok) {
     try {
-      await FindCur.demo(tok); if (tok.dead) return; await nap(300);
       await HotCorners.demo(tok); if (tok.dead) return;
       await Draw.demo(tok); if (tok.dead) return; await nap(400);
       Peek.open(); await nap(1800); Peek.close(); if (tok.dead) return; await nap(700);
@@ -7535,11 +7486,11 @@ CONCEPTS.push(
   { id: 'popbar', name: 'Selection bar', pitch: 'Select text in any window: Ask, Translate, Search, Copy, Shelf, Case, Speak, plus Open link and Calc when they apply.', keys: ['select'], alias: 'mock: Alt+Shift+P plays it', extra: ['try', 'Select for me'] },
   { id: 'island', name: 'Dynamic Island', pitch: 'The bar’s empty centre morphs between live activities: agents, recording, music, timers, downloads, the shelf, the mic.', keys: ['hover'], alias: 'mock: Alt+Shift+I plays it · click cycles', extra: ['try', 'Seed + expand'] },
   { id: 'hints', name: 'Click anything', pitch: 'Home-row keycaps on every clickable thing on screen; type two letters to click it, Esc to cancel.', keys: ['Super', ';'], alias: 'mock: Alt+Shift+F', extra: ['try', 'Show labels'] },
-  { id: 'touches', name: 'Small touches', pitch: 'Shake the mouse to find the pointer, a different action in every hot corner, and a Downloads stack that fans out of the dock.', keys: ['shake'], alias: 'mock: Alt+Shift+T · Tweaks › Hot corners', extra: ['try', 'Fan Downloads'] },
+  { id: 'touches', name: 'Small touches', pitch: 'A different action in every hot corner, draw on screen, show desktop, and a Downloads stack that fans out of the dock.', keys: ['corner'], alias: 'mock: Alt+Shift+T · Tweaks › Hot corners', extra: ['try', 'Fan Downloads'] },
 );
 const CPT_PLAY = {
   popbar: (tok) => PopBar.demoPlay(tok), island: (tok) => Island.demo(tok), hints: (tok) => Hints.demo(tok), touches: (tok) => Touches.demo(tok),
-  shake: (tok) => FindCur.demo(tok).then(() => Shelf.cur.classList.remove('on')), corners: (tok) => HotCorners.demo(tok).then(() => Shelf.cur.classList.remove('on')),
+  corners: (tok) => HotCorners.demo(tok).then(() => Shelf.cur.classList.remove('on')),
   draw: (tok) => Draw.demo(tok).then(() => Shelf.cur.classList.remove('on')), fan: (tok) => DockFan.demo(tok).then(() => Shelf.cur.classList.remove('on')),
 };
 const CPT_TRY = {
@@ -7567,8 +7518,9 @@ const Extras = {
 };
 CHEATS.splice(CHEATS.length - 1, 0, ['Concepts · touches', [
   [['select', 'text'], 'Selection action bar', 'any window · Alt+Shift+P demo'], [['Super', ';'], 'Click anything (hints)', 'Alt+Shift+F · Esc cancels'],
-  [['hover', 'bar centre'], 'Dynamic Island · click cycles', 'Alt+Shift+I demo'], [['shake', 'mouse'], 'Find the cursor', 'wiggle fast'],
-  [['corner'], 'Hot corners (per corner)', 'Tweaks › Hot corners'], [['click', 'Downloads'], 'Dock stack fan', 'Alt+Shift+T demo'],
+  [['hover', 'bar centre'], 'Dynamic Island · click cycles', 'Alt+Shift+I demo'], [['click', 'Downloads'], 'Dock stack fan', 'Alt+Shift+T demo'],
+  [['corner'], 'Hot corners (per corner)', 'Tweaks › Hot corners'],
+  [['Esc'], 'Close the stack / draw / peek', 'or click outside'],
 ]]);
 SYS.push(
   ['Click Anything (hints)', 'keyboard', 'concept · Super+;', 'hints homerow click keyboard labels vimium', () => setTimeout(() => Hints.open(), 260)],
@@ -7595,7 +7547,7 @@ window.addEventListener('resize', fit);
 function boot() {
   applyTokens();
   MenuBar.build(); LegacyBar.build(); CC.init(); NC.init(); Tweaks.build(); Concepts.build(); Agents.init(); Shelf.init();
-  PopBar.init(); Island.init(); Hints.init(); FindCur.init(); HotCorners.init(); Draw.init(); Peek.init(); DockFan.init();
+  PopBar.init(); Island.init(); Hints.init(); HotCorners.init(); Draw.init(); Peek.init(); DockFan.init();
   fit();
   spawn('slack', { ws: 1, x: 656, y: 330, w: 760, h: 432, instant: true, noFocus: true });
   spawn('zen', { ws: 1, x: 486, y: 50, w: 960, h: 600, instant: true, noFocus: true });
@@ -7714,7 +7666,6 @@ NoxDemo.map = {
   touches() { Concepts.play('touches'); },
   draw() { Concepts.play('draw'); },
   corners() { Concepts.play('corners'); },
-  shake() { Concepts.play('shake'); },
   fan() { Concepts.play('fan'); },
   desktop() { Peek.open(); },
 };

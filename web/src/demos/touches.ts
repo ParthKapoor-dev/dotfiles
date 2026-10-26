@@ -1,5 +1,6 @@
-// Small touches: hot corners (150 ms dwell), dock folders that fan out in an arc, shake the mouse to find the cursor.
-import { h, reduced, sleep, visibility } from "../util";
+// Small touches: hot corners (150 ms dwell), dock folders that fan out in an arc, and a Downloads stack
+// that fans the newest files up out of the dock (click opens, drag one out to an app, Esc closes).
+import { h, esc, sleep, toast, visibility } from "../util";
 
 /* ---------------------------------------------------------------- hot corners */
 const HC: Record<string, [string, string]> = {
@@ -73,71 +74,100 @@ export function initFolder(root: HTMLElement) {
   });
 }
 
-/* ---------------------------------------------------------------- shake to find the cursor */
-export function initShake(root: HTMLElement) {
+/* ---------------------------------------------------------------- Downloads stack */
+// dock.pinned: { "stack": "Downloads", "path": "~/Downloads", "count": 12 } — newest at the bottom of the arc
+type SFile = { name: string; ext: string; img?: string; ago: string };
+const FILES: SFile[] = [
+  { name: "nox-wallpaper-5k.jpg", ext: "JPG", ago: "now", img: "radial-gradient(70% 90% at 70% 110%, #ff3b1f, #8d201b 40%, #120404 75%)" },
+  { name: "invoice-oct.pdf", ext: "PDF", ago: "4 min" },
+  { name: "Screenshot 18-32.png", ext: "PNG", ago: "12 min", img: "linear-gradient(180deg, #1b1b1b 0 18%, #0a0a0a 18% 100%), #0a0a0a" },
+  { name: "quickshell-0.3.2.tar.gz", ext: "GZ", ago: "1 h" },
+  { name: "moodboard-03.webp", ext: "WEBP", ago: "2 h", img: "radial-gradient(40% 50% at 40% 45%, #e8e4e0, #3a3634 60%, #050505 90%)" },
+];
+export function initStack(root: HTMLElement) {
   root.innerHTML = "";
-  const ring = h("div.sk-ring");
-  const fake = h("div.sk-fake", { html: '<svg viewBox="0 0 16 16"><path d="M3 1.5l9.5 9.2-4.2.4 2.4 4.4-1.6.9-2.4-4.5L3 14.5z" fill="#fff" stroke="#000" stroke-width=".8"/></svg>' });
-  const lab = h("div.sk-lab", { text: "shake the mouse here" });
-  root.append(ring, fake, lab);
-  // detector: horizontal direction flips with enough travel inside a short window (the real one samples at 30 Hz from Lua)
-  let hist: { x: number; t: number }[] = [];
-  let cool = 0;
+  const fan = h("div.st-fan");
+  const n = FILES.length + 1;
+  const place = (el: HTMLElement, i: number) => {
+    // an arc that leans right as it rises, like macOS "Fan"
+    const k = i / (n - 1);
+    el.style.setProperty("--x", `${(4 + k * k * 44).toFixed(1)}px`);
+    el.style.setProperty("--y", `${-(16 + i * 31)}px`);
+    el.style.setProperty("--r", `${(-2 + k * 13).toFixed(1)}deg`);
+    el.style.setProperty("--d", `${i * 30}ms`);
+  };
+  FILES.forEach((f, i) => {
+    const th = f.img ? `<i class="th img" style="background:${f.img}"></i>` : `<i class="th doc" data-x="${f.ext}"></i>`;
+    const b = h("button.st-it", { type: "button", "data-i": String(i), html: `${th}<span><b>${esc(f.name)}</b><small>${f.ago}</small></span>` });
+    place(b, i);
+    fan.append(b);
+  });
+  const openF = h("button.st-it.st-open", { type: "button", html: '<i class="th fold"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 4.5h4l1.5 1.5H14v6.5H2z"/></svg></i><span><b>Open in Files</b></span>' });
+  place(openF, n - 1);
+  fan.append(openF);
+  const dock = h("div.st-dock");
+  const apps: [string, string][] = [["Zen", "linear-gradient(160deg, #3a1410, #160606)"], ["Zed", "linear-gradient(160deg, #24405e, #142438)"], ["Slack", "linear-gradient(160deg, #3b2a44, #1a1020)"]];
+  for (const [name, bg] of apps) dock.append(h("span.st-app", { "data-app": name, title: name, style: { background: bg }, html: `<em>${name}</em>` }));
+  const tile = h("button.st-tile", { type: "button", "aria-label": "Downloads stack", "aria-expanded": "false", html: `<i class="a" style="background:${FILES[0].img}"></i><i class="b"></i><i class="c"></i>` });
+  dock.append(tile);
+  const label = h("div.st-label", { text: "click the Downloads stack" });
+  root.append(fan, dock, label);
+
+  let open = false;
   let touched = false;
-  function feed(x: number, y: number, t: number) {
-    hist.push({ x, t });
-    hist = hist.filter((p) => t - p.t < 650);
-    let flips = 0, dist = 0, dir = 0;
-    for (let i = 1; i < hist.length; i++) {
-      const dx = hist[i].x - hist[i - 1].x;
-      dist += Math.abs(dx);
-      if (Math.abs(dx) < 2) continue;
-      const d = Math.sign(dx);
-      if (dir && d !== dir) flips++;
-      dir = d;
-    }
-    if (flips >= 4 && dist > 320 && t > cool) { cool = t + 900; bloom(x, y); hist = []; }
-  }
-  function bloom(x: number, y: number) {
-    ring.style.left = `${x}px`;
-    ring.style.top = `${y}px`;
-    ring.classList.remove("on");
-    void ring.offsetWidth;
-    ring.classList.add("on");
-    lab.innerHTML = "<b>found it</b>";
-    setTimeout(() => (lab.textContent = "shake the mouse here"), 1600);
-  }
-  root.addEventListener("pointermove", (e) => {
-    if (e.pointerType !== "mouse") return;
+  const toggle = (v = !open) => { open = v; root.classList.toggle("st-on", open); tile.setAttribute("aria-expanded", String(open)); if (!open) label.textContent = "click the Downloads stack"; else label.innerHTML = "click opens · <b>drag one to an app</b> · Esc"; };
+  tile.addEventListener("click", (e) => { e.stopPropagation(); touched = true; toggle(); });
+  openF.addEventListener("click", () => { toast("Opens Files in ~/Downloads"); toggle(false); });
+  document.addEventListener("click", (e) => { if (open && !root.contains(e.target as Node)) toggle(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && open) toggle(false); });
+
+  // click opens a file, a drag carries it out to an app in the dock
+  let drag: { b: HTMLElement; f: SFile; x0: number; y0: number; ghost?: HTMLElement; over?: HTMLElement | null } | null = null;
+  fan.addEventListener("pointerdown", (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>(".st-it:not(.st-open)");
+    if (!b || !open) return;
     touched = true;
-    fake.classList.remove("on");
-    const r = root.getBoundingClientRect();
-    feed(e.clientX - r.left, e.clientY - r.top, performance.now());
+    drag = { b, f: FILES[+b.dataset.i!], x0: e.clientX, y0: e.clientY };
+    b.setPointerCapture(e.pointerId);
   });
-  root.addEventListener("click", (e) => {
-    if ((e as PointerEvent).pointerType === "mouse") return;
+  fan.addEventListener("pointermove", (e) => {
+    if (!drag) return;
     const r = root.getBoundingClientRect();
-    bloom(e.clientX - r.left, e.clientY - r.top);
+    if (!drag.ghost) {
+      if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 6) return;
+      drag.ghost = h("div.st-ghost", { html: drag.b.querySelector(".th")!.outerHTML });
+      root.append(drag.ghost);
+      drag.b.classList.add("lift");
+      label.innerHTML = `drop <b>${esc(drag.f.name)}</b> on an app`;
+    }
+    drag.ghost.style.transform = `translate(${e.clientX - r.left - 17}px, ${e.clientY - r.top - 17}px)`;
+    const hit = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>(".st-app") || null;
+    if (hit !== drag.over) { drag.over?.classList.remove("hot"); hit?.classList.add("hot"); drag.over = hit; }
   });
-  // a ghost cursor shakes once when it scrolls in
+  const end = (e: PointerEvent) => {
+    if (!drag) return;
+    const d = drag; drag = null;
+    d.b.classList.remove("lift");
+    d.over?.classList.remove("hot");
+    if (!d.ghost) {
+      if (e.type === "pointerup") { d.b.classList.add("pick"); toast(`Opens ${d.f.name} in its default app`); setTimeout(() => { d.b.classList.remove("pick"); toggle(false); }, 280); }
+      return;
+    }
+    d.ghost.remove();
+    if (d.over && e.type === "pointerup") { toast(`Dropped ${d.f.name} on ${d.over.dataset.app}`); toggle(false); }
+    else label.innerHTML = "click opens · <b>drag one to an app</b> · Esc";
+  };
+  fan.addEventListener("pointerup", end);
+  fan.addEventListener("pointercancel", end);
+
   let played = false;
   visibility(root, async (v) => {
     if (!v || played) return;
     played = true;
     await sleep(1600);
     if (touched) return;
-    const r = root.getBoundingClientRect();
-    const cx = r.width * 0.5, cy = r.height * 0.45;
-    fake.classList.add("on");
-    const N = reduced ? 1 : 40;
-    for (let i = 0; i <= N; i++) {
-      if (touched) return;
-      const x = cx + Math.sin(i / N * Math.PI * 7) * 46, y = cy + Math.sin(i / N * Math.PI * 3) * 6;
-      fake.style.transform = `translate(${x}px, ${y}px)`;
-      await sleep(16);
-    }
-    bloom(cx + 4, cy + 6);
-    await sleep(1400);
-    fake.classList.remove("on");
+    toggle(true);
+    await sleep(2800);
+    if (!touched) toggle(false);
   });
 }

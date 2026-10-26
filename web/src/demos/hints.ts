@@ -23,7 +23,7 @@ export function initHints(root: HTMLElement) {
         <label class="hk-row"><input type="checkbox" checked><span>Ship the island card</span><em>bar</em></label>
         <label class="hk-row"><input type="checkbox"><span>Hot corner: show desktop</span><em>shell</em></label>
         <label class="hk-row"><input type="checkbox"><span>Selection bar: ignore terminals</span><em>selbar</em></label>
-        <label class="hk-row"><input type="checkbox"><span>Shake to find the cursor</span><em>touches</em></label>
+        <label class="hk-row"><input type="checkbox"><span>Dock: Downloads stack fan</span><em>dock</em></label>
         <div class="hk-foot"><a href="#keys" data-act="link">All keybinds</a><button class="chip" data-act="archive">Archive done</button><button class="chip hot" data-act="sync">Sync</button></div>
       </div>
     </div>` });
