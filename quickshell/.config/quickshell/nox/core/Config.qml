@@ -38,7 +38,6 @@ Singleton {
             "draw": true,
             "selbar": true,
             "hotCorners": true,
-            "cursorFind": true,
             "hints": true
         },
         "terminal": [
@@ -197,7 +196,6 @@ Singleton {
         },
         "hotCorners": { "tl": "overview", "tr": "none", "bl": "none", "br": "none", "dwellMs": 150 },
         "hints": { "chars": "asdfghjkl", "elements": true, "maxElements": 300, "budgetMs": 250, "waitMs": 300, "windows": true, "bar": true, "dock": true, "dim": 0.16 },
-        "cursorFind": { "enabled": false, "hz": 30, "travel": 600, "reversals": 3, "windowMs": 400, "cooldownMs": 1000, "size": 220 },
         "dock": {
             "screens": [],
             "autohide": true,

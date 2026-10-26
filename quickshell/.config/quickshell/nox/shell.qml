@@ -31,7 +31,6 @@ import qs.modules.draw
 import qs.modules.shelf
 import qs.modules.selbar
 import qs.modules.hotcorners
-import qs.modules.cursorfind
 import qs.modules.hints
 
 ShellRoot {
@@ -46,9 +45,6 @@ ShellRoot {
     LazyLoader { active: Config.loaded && Config.moduleEnabled("corners"); component: Corners {} }
     // hot corners: rest the pointer in a screen corner (shell.json hotCorners; modules/hotcorners)
     LazyLoader { active: Config.loaded && Config.moduleEnabled("hotCorners"); component: HotCorners {} }
-    // shake to find the cursor (cursorFind.enabled, off by default: Hyprland samples the pointer
-    // in-process, see modules/cursorfind/detector.lua; IPC target cursorfind)
-    LazyLoader { active: Config.loaded && Config.moduleEnabled("cursorFind") && (Config.opt.cursorFind?.enabled ?? false); component: CursorFind {} }
     LazyLoader { active: Config.loaded && Config.moduleEnabled("overview"); component: Overview {} }
     // Alt+Tab window switcher
     LazyLoader { active: Config.loaded && Config.moduleEnabled("switcher"); component: Switcher {} }
