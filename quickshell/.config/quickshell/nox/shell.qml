@@ -76,6 +76,9 @@ ShellRoot {
     // battery charge cap: singletons load on first use; start it now so the cap is re-checked at
     // login and IPC target chargeLimit exists (services/ChargeLimit)
     readonly property bool chargeLimitOn: ChargeLimit.on
+    // the countdown timer (services/Countdown, IPC target timer): start it now so a timer from
+    // before a restart keeps running
+    readonly property bool countdownOn: Countdown.active
 
     // qs -c nox ipc call controlCenter toggle
     IpcHandler {
@@ -175,6 +178,30 @@ ShellRoot {
         function side(s: string): bool { return DesktopWidgets.setSide(s); }
         function reset(): void { DesktopWidgets.reset(); }
         function status(): string { return DesktopWidgets.status(); }
+    }
+    // qs -c nox ipc call timer start <time> <label> | stop | pause | resume | toggle | add <time> | status | left
+    // (`nox timer`; services/Countdown, shown by the bar island)
+    IpcHandler {
+        target: "timer"
+        function start(spec: string, label: string): string {
+            const ms = Countdown.parse(spec);
+            if (ms <= 0) return "error: not a duration: '" + spec + "' (5m, 90s, 1h30m, 1:30, 25)";
+            Countdown.start(ms, label);
+            return Countdown.status();
+        }
+        function stop(): bool { return Countdown.stop(); }
+        function pause(): bool { return Countdown.pause(); }
+        function resume(): bool { return Countdown.resume(); }
+        function toggle(): bool { return Countdown.togglePause(); }
+        function add(spec: string): string {
+            const s = String(spec).trim();
+            const ms = Countdown.parse(s.replace(/^[-+]\s*/, ""));
+            if (ms <= 0) return "error: not a duration: '" + spec + "'";
+            Countdown.add(s.startsWith("-") ? -ms : ms);
+            return Countdown.status();
+        }
+        function status(): string { return Countdown.status(); }
+        function left(): int { return Math.ceil(Countdown.left / 1000); }
     }
     // qs -c nox ipc call hud show "<text>"
     IpcHandler {

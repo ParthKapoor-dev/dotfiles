@@ -9,7 +9,7 @@
   "bar": {
     "screens": [],
     "left": ["logo", "appName", "menus", "workspaces", "layout"],
-    "center": [],
+    "center": ["island"],
     "right": ["usage", "agents", "recording", "dnd", "tray", "hubstaff", "stats", "phone", "network", "bluetooth", "battery", "controlCenter", "clock"]
   },
   "widgets": {
@@ -40,7 +40,8 @@
     "battery": { "showPercent": "hover", "lowPercent": 20 },
     "stats": { "show": ["cpu", "mem"], "hot": 0.85, "topCount": 5, "monitorCommand": ["ghostty", "-e", "btop"] },
     "usage": { "_comment": "plan usage (Claude 5-hour / weekly, Codex). Claude numbers come from the Claude Code statusline via ~/.local/lib/nox/usage (install snippet in its header). warnAt: % that turns accent (95+ pulses). account: which login the bar shows (statusline tee name, 'claude' = ~/.claude). codex: read ~/.codex/sessions every codexInterval ms (60 s while the popover is open).", "warnAt": 80, "account": "claude", "codex": true, "codexInterval": 300000 },
-    "clock": { "format": "ddd d MMM HH:mm", "clickPopup": "notifications" }
+    "clock": { "format": "ddd d MMM HH:mm", "clickPopup": "notifications" },
+    "island": { "idle": "none", "order": ["recording", "mic", "agent", "timer", "download", "music", "shelf"], "_comment": "Dynamic Island (bar centre): the most important live thing (order = priority; drop an id to never show it). Hover = card, click = pin, wheel = cycle. idle: clock | none (none: hidden while nothing is live, the clock stays on the right). Optional: hoverDelay (140), maxText (150), cardWidth (320), shelfSeconds (4), color. Revert: bar.center = []." }
   },
   "dock": {
     "screens": [],

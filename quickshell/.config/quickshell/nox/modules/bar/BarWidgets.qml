@@ -1,6 +1,9 @@
 pragma Singleton
 import QtQuick
 import Quickshell
+// unused here: makes Quickshell's scanner register widgets/ as a module, so widgets loaded by
+// url (below) can import qs.modules.bar.widgets for their helper types (the island's)
+import qs.modules.bar.widgets
 
 // Bar widget registry: id (used in shell.json bar.left/center/right) -> file in widgets/.
 // To add a widget: drop widgets/MyThing.qml (optionally with `property string widgetId`
@@ -27,7 +30,8 @@ Singleton {
         "stats": "Stats.qml",
         "search": "Search.qml",
         "controlCenter": "ControlCenterButton.qml",
-        "clock": "Clock.qml"
+        "clock": "Clock.qml",
+        "island": "Island.qml"
     })
     function url(id) {
         const f = registry[id];

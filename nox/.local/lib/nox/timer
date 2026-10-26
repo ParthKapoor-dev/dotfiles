@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# nox timer - a countdown in the bar island (the shell's services/Countdown; IPC target timer).
+# One timer at a time; when it ends you get a notification and a sound (shell.json timer.sound).
+#
+#   nox timer 5m [label...]        start one (replaces a running timer); same as `nox timer start`
+#   nox timer start <time> [label...]
+#   nox timer stop                 cancel it
+#   nox timer pause | resume | toggle
+#   nox timer add <time>           add time (add -30s takes some off); starts one if none runs
+#   nox timer status               running 4:12 left of 5:00 · tea | paused ... | done | idle
+#   nox timer left                 seconds left (0 = none)
+#
+# <time>: 5m  90s  1h30m  "1h 5m"  2.5m  1:30 (m:ss)  1:02:03  25 (minutes); at most 24 h.
+# Config: ~/.config/nox/shell.json "timer": sound (a file, "" = silent), notify (true), ringSeconds (8).
+set -uo pipefail
+read -ra QS <<< "${NOX_QS:-qs -c nox}"
+
+die() { echo "nox timer: $*" >&2; exit 1; }
+alive() { "${QS[@]}" ipc show >/dev/null 2>&1 || die "the shell is not running (nox shell start)"; }
+ipc() { "${QS[@]}" ipc call timer "$@"; }
+usage() { sed -n '2,/^[^#]/{/^[^#]/d;s/^# \{0,1\}//;p}' "$0"; }
+# a duration-looking first word: 5m, 90s, 1h30m, 1:30, 25, 2.5m
+is_time() { [[ "$1" =~ ^[0-9][0-9.:]*([hms]|min|mins|sec|secs)?([0-9.]+([hms]|min|mins|sec|secs))*$ ]]; }
+start() {
+    [ $# -ge 1 ] || die "usage: nox timer <time> [label]   (e.g. nox timer 5m tea)"
+    local spec="$1"; shift
+    # "1h 30m tea": keep eating words that are durations
+    while [ $# -gt 0 ] && is_time "$1" && [[ ! "$1" =~ ^[0-9]+$ ]]; do spec="$spec $1"; shift; done
+    alive
+    local out; out=$(ipc start "$spec" "$*") || exit 1
+    case "$out" in error:*) die "${out#error: }" ;; esac
+    printf '%s\n' "$out"
+}
+
+cmd="${1:-status}"
+case "$cmd" in
+    -h | --help | help) usage ;;
+    start) shift; start "$@" ;;
+    stop | pause | resume | toggle)
+        alive
+        [ "$(ipc "$cmd")" = true ] || { case "$cmd" in stop) echo "no timer" ;; resume) echo "not paused" ;; *) echo "no timer running" ;; esac; exit 1; }
+        ipc status ;;
+    add)
+        shift; [ $# -ge 1 ] || die "usage: nox timer add <time>   (add -30s takes time off)"
+        alive
+        out=$(ipc add "$*") || exit 1
+        case "$out" in error:*) die "${out#error: }" ;; esac
+        printf '%s\n' "$out" ;;
+    status) alive; ipc status ;;
+    left) alive; ipc left ;;
+    *)
+        if is_time "$cmd"; then start "$@"
+        else echo "nox timer: unknown '$cmd' (try: nox timer 5m, nox timer help)" >&2; exit 2; fi ;;
+esac

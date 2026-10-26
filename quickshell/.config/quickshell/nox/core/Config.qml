@@ -173,7 +173,24 @@ Singleton {
             "clock": {
                 "format": "ddd d MMM HH:mm",
                 "clickPopup": "notifications"
+            },
+            "island": {
+                "idle": "clock",
+                "order": ["recording", "mic", "agent", "timer", "download", "music", "shelf"],
+                "hoverDelay": 140,
+                "maxText": 150,
+                "cardWidth": 320,
+                "shelfSeconds": 4
             }
+        },
+        "timer": {
+            "sound": "/usr/share/sounds/freedesktop/stereo/alarm-clock-elapsed.oga",
+            "notify": true,
+            "ringSeconds": 8
+        },
+        "downloads": {
+            "directory": "~/Downloads",
+            "doneSeconds": 5
         },
         "dock": {
             "screens": [],
