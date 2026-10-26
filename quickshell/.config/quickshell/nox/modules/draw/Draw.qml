@@ -15,8 +15,8 @@ import qs.services
 // pill; drag it by its left end). Annotations are ordinary pixels on screen, so a shared screen or
 // a recording shows them.
 //   pointer   a glowing dot with a short comet tail instead of the cursor; hold the button to
-//             draw ink that stays a moment (draw.pointerSeconds, 1.3) and fades (Slack huddle style)
-//   pen / arrow / box / circle   with FADE on (default) they fade out (draw.fadeOutSeconds, 1.2) draw.fadeSeconds (1.3)
+//             draw ink that stays a moment (draw.pointerSeconds, 1) and fades (Slack huddle style)
+//   pen / arrow / box / circle   with FADE on (default) they fade out (draw.fadeOutSeconds, 1) draw.fadeSeconds (1)
 //             after the last stroke: drawing again restarts the wait for all of them (and brings
 //             back any that were already fading); FADE off = they stay. Shift = straight line /
 //             square / circle
@@ -54,10 +54,10 @@ Scope {
     property int colorIx: 0
     readonly property color ink: colorAt(colorIx)
     property bool fade: opts.fade ?? true
-    // last stroke -> gone: fadeSeconds on screen + fadeOutSeconds fading (2.5 s in all)
-    readonly property int fadeMs: Math.round((opts.fadeSeconds ?? 1.3) * 1000)
-    readonly property int pointerMs: Math.round((opts.pointerSeconds ?? 1.3) * 1000)
-    readonly property int fadeOutMs: Math.round((opts.fadeOutSeconds ?? 1.2) * 1000)
+    // last stroke -> gone: fadeSeconds on screen + fadeOutSeconds fading (2 s in all)
+    readonly property int fadeMs: Math.round((opts.fadeSeconds ?? 1) * 1000)
+    readonly property int pointerMs: Math.round((opts.pointerSeconds ?? 1) * 1000)
+    readonly property int fadeOutMs: Math.round((opts.fadeOutSeconds ?? 1) * 1000)
     property string screenName: ""
     property bool capturing: false     // toolbox hidden for a screenshot
     readonly property bool hand: tool === "hand"

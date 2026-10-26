@@ -109,7 +109,7 @@
     ]
   },
   "cheatsheet": { "labels": {}, "groups": {}, "showUnlabeled": false },
-  "draw": { "tool": "pointer", "colors": ["accent", "#f4f4f2", "#ffd23f", "#3ddcff", "#5cf28a"], "fade": true, "fadeSeconds": 1.3, "fadeOutSeconds": 1.2, "pointerSeconds": 1.3, "penWidth": 4, "markerWidth": 20, "spotRadius": 150, "offset": 104, "_comment": "Draw on screen (Super+A): tool = the first tool; colors (\"accent\" = theme accent); fade = pens / shapes fade out (over fadeOutSeconds) fadeSeconds after the last stroke, drawing again restarts the wait; the marker never fades; pointerSeconds = how long pointer ink stays; offset = toolbox distance from the bottom" },
+  "draw": { "tool": "pointer", "colors": ["accent", "#f4f4f2", "#ffd23f", "#3ddcff", "#5cf28a"], "fade": true, "fadeSeconds": 1, "fadeOutSeconds": 1, "pointerSeconds": 1, "penWidth": 4, "markerWidth": 20, "spotRadius": 150, "offset": 104, "_comment": "Draw on screen (Super+A): tool = the first tool; colors (\"accent\" = theme accent); fade = pens / shapes fade out (over fadeOutSeconds) fadeSeconds after the last stroke, drawing again restarts the wait; the marker never fades; pointerSeconds = how long pointer ink stays; offset = toolbox distance from the bottom" },
   "overview": { "defaultMode": "windows", "shelf": true, "dock": true, "tilt": true, "maxScale": 0.72, "minWorkspaces": 5, "live": true, "_comment": "Mission Control: defaultMode windows (Super+Tab, every window) | desktops (Super+Shift+Tab); shelf / dock = show the drop shelf / the dock alongside; tilt = 3D hover tilt" },
   "launcher": {
     "width": 680,
