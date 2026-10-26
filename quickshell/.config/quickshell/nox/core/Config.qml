@@ -179,9 +179,9 @@ Singleton {
             "island": {
                 "idle": "clock",
                 "order": ["recording", "mic", "agent", "timer", "download", "music", "shelf"],
-                "hoverDelay": 140,
+                "hoverDelay": 260,
                 "maxText": 150,
-                "cardWidth": 320,
+                "cardWidth": 372,
                 "shelfSeconds": 4
             }
         },
