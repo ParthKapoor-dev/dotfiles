@@ -52,6 +52,7 @@ P.GLOBAL = {
     voice_hold          = "voiceHold",                      -- live (hold Super+Shift+Space = voice typing)
     voice_release       = "voiceRelease",                   -- live (any Space release ends a hold)
     shelf               = "shelfToggle",                    -- live (Super+Shift+D, drop shelf)
+    draw                = "drawToggle",                     -- live (Super+A, draw on screen)
 }
 
 -- exits != 0 only when no nox instance answers (`ipc call` to a missing
@@ -167,6 +168,7 @@ function P.binds(ctx)
     local rest = {
         { "SUPER + Tab", X(ipc("overview")), desc = "Mission Control: all windows" },
         { "SUPER + SHIFT + Tab", X(ipc("overview_desktops")), desc = "Mission Control: desktops" },
+        { "SUPER + A", G("draw"), desc = "Draw on screen (pointer, pen, shapes)" },
         { "CTRL + SUPER + S", X("nox notes toggle"), desc = "Show or hide Notes" },
         -- Super+Shift+M / Super+Alt+M are mute / mic mute (binds/system.lua)
         { "CTRL + SUPER + M", X(ipc("agents")), desc = "Agent mission control" },
@@ -249,8 +251,8 @@ function P.layer_rules(ctx)
         { match = { namespace = "^nox:notifications$" }, animation = "fade" },
         -- 0.5: lower values blur the soft card shadows (orange halo on Ember wallpaper)
         -- full-screen / static surfaces: no blur, no compositor animation (they animate themselves)
-        { match = { namespace = "^nox:(wallpaper|corners|overview|widgets|agents|ask)$" }, blur = false },
-        { match = { namespace = "^nox:(corners|overview|session|polkit|widgets|agents|ask)$" }, no_anim = true },
+        { match = { namespace = "^nox:(wallpaper|corners|overview|widgets|agents|ask|draw)$" }, blur = false },
+        { match = { namespace = "^nox:(corners|overview|session|polkit|widgets|agents|ask|draw)$" }, no_anim = true },
         -- drop shelf: slides itself; soft shadow + accent glow stay out of the blur
         { match = { namespace = "^nox:shelf$" }, no_anim = true, ignore_alpha = padded },
     }

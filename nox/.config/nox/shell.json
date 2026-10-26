@@ -3,7 +3,7 @@
   "modules": {
     "bar": true, "dock": true, "controlCenter": true, "launcher": true, "osd": true, "notifications": true,
     "wallpaper": true, "corners": true, "overview": true, "session": true, "polkit": true, "clipboard": true, "cheatsheet": true,
-    "switcher": true, "notes": true, "agents": true, "shot": true, "ask": true, "voice": true, "shelf": true
+    "switcher": true, "notes": true, "agents": true, "shot": true, "ask": true, "voice": true, "shelf": true, "draw": true
   },
   "terminal": ["ghostty"],
   "bar": {
@@ -81,7 +81,6 @@
   "stats": { "_comment": "bar widget 'stats' (widgets.stats.show: cpu | mem | temp | net). Sampled from /proc + /sys every interval ms; thermalZone: auto or a /sys/class/thermal zone number.", "interval": 2000, "thermalZone": "auto" },
   "brightness": { "device": "auto", "step": 5 },
   "wallpaper": { "path": "", "fill": "cover", "color": "#000000", "transition": 500, "slideshowMinutes": 15 },
-  "overview": { "minWorkspaces": 5, "live": true },
   "agents": { "_comment": "Coding agents: the bar dot's panel (Ctrl+Super+M, `nox agents`, bar widget 'agents': Needs you / Done / Working; E = the full-screen grid; modules.agents: false turns it off). Fed by the Claude Code hook ~/.local/lib/nox/agent-hook (`nox agents hook install`). notify: notifications for permission requests (Jump / Show); notifyDone: one per finished turn longer than notifyDoneAfter s, not while its window is focused (Open diff / Open PR / Reply / Jump). usageInterval: ms between transcript reads while open. keepEndedMinutes: how long ended sessions stay. prices: { \"<model-id prefix>\": [in, out, cacheRead] } $/Mtok overrides; contextWindow: { \"<prefix>\": tokens }. Launcher '> <task> in <repo>' (provider 'agent'): roots = where repos are found (repoDepth deep), launch = 'background' (no window: a detached tmux session; open it with Jump or `nox agents attach`) | 'ghostty' (a new Ghostty window) | 'orca' (a new Orca worktree with the agent; background when Orca can't), Shift+Enter = Ghostty; tmux: Ghostty agents run in tmux -L nox-agents so replies can be typed in without focus (false = plain, replies paste into the window); command: the agent argv (default ~/.local/bin/claude). diff: 'terminal' (this turn's git diff in Ghostty, delta) | 'zed' (open the repo); Orca sessions always open Orca's diff tabs. ghPr: look up the branch's open PR with gh when the turn made none. panelWidth / panelDone / panelWorking: panel size and rows.", "notify": true, "notifyDone": true, "notifyDoneAfter": 20, "usageInterval": 3000, "keepEndedMinutes": 10, "roots": ["~/code"], "repoDepth": 4, "launch": "background", "tmux": true, "diff": "terminal", "ghPr": true },
   "corners": { "hideOnFullscreen": true },
   "desktopWidgets": {
@@ -110,6 +109,7 @@
     ]
   },
   "cheatsheet": { "labels": {}, "groups": {}, "showUnlabeled": false },
+  "draw": { "tool": "pointer", "colors": ["accent", "#f4f4f2", "#ffd23f", "#3ddcff", "#5cf28a"], "fade": false, "fadeSeconds": 4, "pointerSeconds": 2.5, "penWidth": 4, "markerWidth": 20, "spotRadius": 150, "offset": 104, "_comment": "Draw on screen (Super+A): tool = the first tool; colors (\"accent\" = theme accent); fade = pens fade after fadeSeconds; pointerSeconds = how long pointer ink stays; offset = toolbox distance from the bottom" },
   "overview": { "defaultMode": "windows", "shelf": true, "dock": true, "tilt": true, "maxScale": 0.72, "minWorkspaces": 5, "live": true, "_comment": "Mission Control: defaultMode windows (Super+Tab, every window) | desktops (Super+Shift+Tab); shelf / dock = show the drop shelf / the dock alongside; tilt = 3D hover tilt" },
   "launcher": {
     "width": 680,

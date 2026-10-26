@@ -65,6 +65,7 @@ Back to the [README](../README.md).
 | `nox wallpaper slideshow start\|stop\|next\|prev\|status\|list\|clear\|add\|remove` | cycle a list every `wallpaper.slideshowMinutes` (15) |
 | `nox wallpaper lock [<path>\|follow]` | lock-screen image: fixed, or follow the desktop |
 | `nox wallpaper prep [--out DIR] [--force] <image\|dir>...` | turn images into nox wallpapers (screen shape, subject on a third, dark top strip, grain; optional Real-ESRGAN upscale) |
+| `nox draw [toggle\|on [tool]\|off\|tool <name>\|undo\|clear\|status]` | draw on screen (Super+A): pointer, pen, marker, arrow, box, circle, spot, hand |
 | `nox shelf add <file\|url\|->...` | park files (by reference), links or stdin text on the drop shelf |
 | `nox shelf list\|open\|close\|toggle\|remove <id>\|undo\|clear\|status` | manage the shelf (items expire after `shelf.expireHours`, 24) |
 | `nox notes [toggle\|show\|hide\|new\|open <file>\|start\|quit\|qt <cmd>]` | the floating Markdown notepad (`~/Notes/*.md`) |

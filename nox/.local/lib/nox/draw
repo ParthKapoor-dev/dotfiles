@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# nox draw - draw on the screen (the shell's modules/draw; Super+A)
+#   nox draw [toggle]          on / off
+#   nox draw on [tool]         on, with a tool: pointer pen marker arrow box circle spot hand
+#   nox draw off | undo | clear | status
+#   nox draw tool <name>       switch tool (turns it on)
+set -euo pipefail
+cmd="${1:-toggle}"
+[ $# -gt 0 ] && shift
+case "$cmd" in
+    toggle | off | undo | clear | status) exec qs -c nox ipc call draw "$cmd" ;;
+    on) exec qs -c nox ipc call draw on "${1:-}" ;;
+    tool) [ $# -ge 1 ] || { echo "usage: nox draw tool <pointer|pen|marker|arrow|box|circle|spot|hand>" >&2; exit 2; }
+          exec qs -c nox ipc call draw tool "$1" ;;
+    -h | --help | help) sed -n '2,/^[^#]/{/^[^#]/d;s/^# \{0,1\}//;p}' "$0" ;;
+    *) echo "nox draw: unknown '$cmd' (toggle|on|off|tool|undo|clear|status)" >&2; exit 2 ;;
+esac

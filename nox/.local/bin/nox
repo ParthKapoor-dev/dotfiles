@@ -5,7 +5,7 @@
 set -euo pipefail
 LIB="${NOX_LIB:-$(cd "$(dirname "$(readlink -f "$0")")/../lib/nox" && pwd)}"
 QS=(qs -c nox)
-MODULES="theme shell layout shot record wallpaper dpms battery phone hypr greeter workspaces activity notes files agents voice ask shelf apps detect doctor update"
+MODULES="theme shell layout shot record wallpaper dpms battery phone hypr greeter workspaces activity notes files agents voice ask shelf apps draw detect doctor update"
 
 usage() {
     cat <<'EOF'
@@ -33,6 +33,7 @@ usage: nox <command> [args]
   files  terminal|copypath|ocr|webp|png|jpg|half|strip <file>...   (Dolphin right-click nox menu)
   agents [toggle|grid|list|usage|focus|turn|diff|send|repos|start|answer <id>|prune|hook]   (coding agents panel, Ctrl+Super+M)
   voice  [toggle|start|stop|cancel|status|tidy on|off|last|setup|server|doctor|bench]   (dictation: hold Super+Shift+Space)
+  draw   [toggle|on [tool]|off|tool <name>|undo|clear|status]   (draw on screen: pointer, pens, shapes; Super+A)
   apps   [list|search <text>|updates|info|open|install|remove|update <source> <id>|upgrade|clean]   (App Manager: pacman, AUR, Flatpak, AppImage; launcher "+")
   detect [--yes|--print|--check|--get KEY]     (machine values -> git-ignored local files)
   update [--check|--no-pull|--migrate]          (git pull --ff-only, migrations, re-stow, theme apply, doctor)
@@ -52,7 +53,7 @@ module_help() {
 cmd="${1:-help}"
 [ $# -gt 0 ] && shift
 case "$cmd" in
-    theme | shell | layout | shot | record | wallpaper | dpms | battery | phone | hypr | greeter | workspaces | activity | notes | files | agents | voice | ask | shelf | apps | detect | doctor | update) exec "$LIB/$cmd" "$@" ;;
+    theme | shell | layout | shot | record | wallpaper | dpms | battery | phone | hypr | greeter | workspaces | activity | notes | files | agents | voice | ask | shelf | apps | draw | detect | doctor | update) exec "$LIB/$cmd" "$@" ;;
     ws) exec "$LIB/workspaces" "$@" ;;
     ipc)
         [ $# -ge 2 ] || { echo "usage: nox ipc <target> <function> [args]   (targets: qs -c nox ipc show)" >&2; exit 2; }

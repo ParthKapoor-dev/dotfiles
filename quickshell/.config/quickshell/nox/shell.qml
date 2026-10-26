@@ -27,6 +27,7 @@ import qs.modules.notes
 import qs.modules.agents
 import qs.modules.ask
 import qs.modules.voice
+import qs.modules.draw
 import qs.modules.shelf
 
 ShellRoot {
@@ -47,6 +48,8 @@ ShellRoot {
     // voice typing: hold Super+Shift+Space, speak, release (IPC target voice, `nox voice`).
     // Pill only while in use; whisper-server only while warm (services/Voice)
     LazyLoader { active: Config.loaded && Config.moduleEnabled("voice"); component: VoiceTyping {} }
+    // draw on the screen: pointer, pens, shapes, spotlight (Super+A, IPC target draw, `nox draw`)
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("draw"); component: Draw {} }
     // coding agents at a glance (Ctrl+Super+M, `nox agents`, IPC target agents)
     LazyLoader { active: Config.loaded && Config.moduleEnabled("agents"); component: AgentsView {} }
     LazyLoader { active: Config.loaded && Config.moduleEnabled("session"); component: Session {} }

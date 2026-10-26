@@ -57,6 +57,9 @@ a specific machine (monitors, battery, mic, GPU) is detected and kept in git-ign
   to a session's window, reply to it, or start a new agent in the background (tmux), in Ghostty or
   in Orca. Fed by a read-only Claude Code hook (`nox agents hook install`).
 - **Circle to Ask** (Super+Shift+A): freeze the screen, circle anything, Claude answers beside it.
+- **Draw on screen** (Super+A): a glowing pointer whose ink fades like a Slack huddle pointer,
+  pen, marker, arrow, box, circle and spotlight, from a floating toolbox; the hand tool hands clicks
+  back to your apps while the drawings stay. Shows up in screen shares and recordings.
   Chips for OCR, explain more, translate, table to CSV, Google Lens, or sending the region to an
   agent (Claude, Codex, Gemini, opencode or a command of your own).
 - **Voice typing** (hold Super+Shift+Space): local speech-to-text with whisper.cpp on the GPU
@@ -253,6 +256,7 @@ their keys. The binds live in `hypr/.config/hypr/nox/binds/*.lua` and `nox/shell
 | Super+Q, Alt+F4 | close window |
 | Super+Tab | overview: all windows |
 | Super+Shift+Tab | overview: desktops |
+| Super+A | draw on screen |
 | Alt+Tab | window switcher |
 | Super+N / Super+M | notification center / Control Center |
 | Super+V / Super+. | clipboard history / emoji |
@@ -294,6 +298,7 @@ their keys. The binds live in `hypr/.config/hypr/nox/binds/*.lua` and `nox/shell
 | Super+. | emoji picker |
 | Super+Tab | overview: all windows |
 | Super+Shift+Tab | overview: desktops |
+| Super+A | draw on screen |
 | Alt+Tab / Alt+Shift+Tab | window switcher (release Alt to switch) |
 | Super+N | notification center |
 | Super+Alt+D | Do Not Disturb |
