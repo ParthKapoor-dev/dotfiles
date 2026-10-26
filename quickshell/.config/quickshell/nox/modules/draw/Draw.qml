@@ -329,13 +329,17 @@ Scope {
                     cursorShape: root.tool === "pointer" || root.tool === "spot" ? Qt.BlankCursor : Qt.CrossCursor
                     property point a
                     property var pts: []
+                    // the stroke being drawn, as plain JS arrays: read back from the shape's
+                    // property it comes out as a Qt list (no .flat, .map, ...), so this is the copy
+                    property var cur: []
+                    function show(paths) { cur = paths; live.paths = paths; }
                     onPressed: m => {
                         // right click = undo while drawing
                         if (m.button === Qt.RightButton) { root.undo(); return; }
                         a = Qt.point(m.x, m.y);
                         root.inkGen++;
                         pts = [a];
-                        live.paths = [[a, a]];
+                        show([[a, a]]);
                         live.drawing = true;
                     }
                     onPositionChanged: m => {
@@ -343,30 +347,32 @@ Scope {
                         if (!live.drawing) return;
                         const p = Qt.point(m.x, m.y), shift = m.modifiers & Qt.ShiftModifier;
                         const t = root.tool;
-                        if (t === "arrow") live.paths = root.arrowPaths(a, shift ? straight(a, p) : p, live.lineWidth);
-                        else if (t === "box") live.paths = root.boxPaths(a, p, shift);
-                        else if (t === "circle") live.paths = root.circlePaths(a, p, shift);
-                        else if (shift && t !== "pointer") live.paths = [[a, straight(a, p)]];
+                        if (t === "arrow") show(root.arrowPaths(a, shift ? straight(a, p) : p, live.lineWidth));
+                        else if (t === "box") show(root.boxPaths(a, p, shift));
+                        else if (t === "circle") show(root.circlePaths(a, p, shift));
+                        else if (shift && t !== "pointer") show([[a, straight(a, p)]]);
                         else {
                             // freehand: skip jitter, smooth towards the pointer
                             const last = pts[pts.length - 1];
                             if (Math.hypot(p.x - last.x, p.y - last.y) < 1.6) return;
                             const q = Qt.point(last.x + (p.x - last.x) * 0.55, last.y + (p.y - last.y) * 0.55);
                             pts = pts.concat([q]);
-                            live.paths = [pts.concat([p])];
+                            show([pts.concat([p])]);
                         }
                     }
                     onReleased: m => {
                         if (!live.drawing) return;
                         live.drawing = false;
-                        const out = live.paths;
-                        live.paths = [];
+                        // plain arrays of points whatever the property handed back
+                        const out = Array.from(cur, path => Array.from(path, q => Qt.point(q.x, q.y)));
+                        show([]);
                         // a click without a drag leaves a dot (pen / pointer), not an empty shape
-                        const span = out.flat().reduce((s, q) => Math.max(s, Math.hypot(q.x - a.x, q.y - a.y)), 0);
+                        let span = 0;
+                        for (const path of out) for (const q of path) span = Math.max(span, Math.hypot(q.x - a.x, q.y - a.y));
                         if (span < 3 && ["arrow", "box", "circle"].includes(root.tool)) return;
                         root.commit(span < 3 ? [[a, Qt.point(a.x + 0.1, a.y + 0.1)]] : out, root.tool);
                     }
-                    onCanceled: { live.drawing = false; live.paths = []; }
+                    onCanceled: { live.drawing = false; show([]); }
                     onWheel: w => {
                         if (root.tool === "spot") spot.r = Math.max(60, Math.min(520, spot.r + (w.angleDelta.y > 0 ? 18 : -18)));
                         else if (w.angleDelta.y !== 0) root.nextColor(w.angleDelta.y > 0 ? -1 : 1);
