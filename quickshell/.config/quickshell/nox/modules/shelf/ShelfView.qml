@@ -166,6 +166,30 @@ Scope {
         pinned = false; hover = false; peek = false;
     }
 
+    // Mission Control opens the shelf alongside (shell.json overview.shelf, default true), empty or
+    // not, and closes it again unless it was already pinned open. While Mission Control is up the
+    // shelf windows move to the Overlay layer, a moment after it maps so they stack above it
+    // (Hyprland appends a surface that changes layer); back to Top once it has faded out.
+    property bool byOverview: false
+    property bool overOverview: false
+    Connections {
+        target: Panels
+        function onOverviewOpenChanged() {
+            if (Panels.overviewOpen) {
+                if (!(Config.opt.overview?.shelf ?? true)) return;
+                overlayOff.stop();
+                overlayOn.restart();
+                if (!root.pinned) { root.byOverview = true; root.open(); }
+            } else {
+                overlayOn.stop();
+                if (root.overOverview) overlayOff.restart();
+                if (root.byOverview) { root.byOverview = false; root.close(); }
+            }
+        }
+    }
+    Timer { id: overlayOn; interval: 60; onTriggered: root.overOverview = true }
+    Timer { id: overlayOff; interval: Theme.durWorkspace + 60; onTriggered: root.overOverview = false }
+
     Connections {
         target: Shelf
         function onAdded(ids) { if (root.st === "hidden" || root.st === "tab") root.screenName = root.focusedScreen(); root.peekFor(1900); }

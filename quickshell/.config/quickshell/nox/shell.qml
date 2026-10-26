@@ -103,11 +103,15 @@ ShellRoot {
         function commit(): void { Panels.switcherCommand("commit"); }
         function cancel(): void { Panels.switcherCommand("cancel"); }
     }
-    // qs -c nox ipc call overview toggle | open | close | next | prev
+    // qs -c nox ipc call overview toggle | open | close | windows | desktops | next | prev
     IpcHandler {
         target: "overview"
         function toggle(): void { Panels.overviewOpen = !Panels.overviewOpen; }
         function open(): void { Panels.overviewOpen = true; }
+        // open in that view; again = close, from the other view = switch (Super+Tab / Super+Shift+Tab)
+        function windows(): void { Panels.overview("windows"); }
+        function desktops(): void { Panels.overview("desktops"); }
+        function mode(): string { return Panels.overviewMode; }
         function close(): void { Panels.overviewOpen = false; }
         // while open: next / previous desktop without closing (the arrow keys)
         function next(): void { Panels.overviewStep(1); }

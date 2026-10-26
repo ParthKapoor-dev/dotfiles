@@ -24,7 +24,8 @@ P.IPC = {
     clipboard      = "launcher clipboard",      -- live
     emoji          = "launcher emoji",          -- live
     palette        = "launcher palette",        -- live (command palette, prefix ">")
-    overview       = "overview toggle",         -- planned
+    overview       = "overview windows",        -- live (Mission Control, every window; again = close)
+    overview_desktops = "overview desktops",    -- live (Mission Control, desktop by desktop)
     overview_close = "overview close",          -- planned (assumed: every target has open/close/toggle)
     session        = "session toggle",          -- planned
     notifications  = "notifications toggle",    -- live
@@ -114,7 +115,7 @@ P.gestures = {
 -- ii                                 nox
 -- Super tap (release) search         global launcherToggleRelease + interrupts; fuzzel if shell dead
 -- Super_L/R hold: workspaceNumber    DROPPED (no hold-to-show-numbers overlay in nox)
--- Super+Tab overview                 ipc overview toggle
+-- Super+Tab overview                 ipc overview windows (Super+Shift+Tab: overview desktops)
 -- Super+V clipboard                  ipc launcher clipboard; cliphist | fuzzel if shell dead
 -- Super+. emoji                      ipc launcher emoji; fuzzel-emoji.sh if shell dead
 -- Super+A, Super+Alt+A, Super+B/O    DROPPED (ii left sidebar: AI chat, translator, booru)
@@ -164,7 +165,8 @@ function P.binds(ctx)
     end
 
     local rest = {
-        { "SUPER + Tab", X(ipc("overview")), desc = "Open overview" },
+        { "SUPER + Tab", X(ipc("overview")), desc = "Mission Control: all windows" },
+        { "SUPER + SHIFT + Tab", X(ipc("overview_desktops")), desc = "Mission Control: desktops" },
         { "CTRL + SUPER + S", X("nox notes toggle"), desc = "Show or hide Notes" },
         -- Super+Shift+M / Super+Alt+M are mute / mic mute (binds/system.lua)
         { "CTRL + SUPER + M", X(ipc("agents")), desc = "Agent mission control" },

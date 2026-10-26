@@ -14,6 +14,20 @@ Singleton {
     property bool launcherOpen: false
     property string launcherQuery: ""  // text to start the next launcher session with
     property bool overviewOpen: false
+    // Mission Control view: "windows" (every desktop's windows spread out) | "desktops" (strip of
+    // desktops + one desktop's windows). Opening with a view = its shortcut; the same shortcut again
+    // closes, the other one switches views (Super+Tab / Super+Shift+Tab)
+    // closed = back to the default view (shell.json overview.defaultMode), so a plain open (menu,
+    // swipe, `overview toggle`) gets it
+    readonly property string overviewDefault: Config.opt.overview?.defaultMode === "desktops" ? "desktops" : "windows"
+    property string overviewMode: overviewDefault
+    onOverviewOpenChanged: if (!overviewOpen) overviewMode = overviewDefault
+    function overview(mode) {
+        const m = mode === "desktops" ? "desktops" : "windows";
+        if (overviewOpen && overviewMode === m) { overviewOpen = false; return; }
+        overviewMode = m;
+        overviewOpen = true;
+    }
     signal overviewStep(int delta)
     signal switcherCommand(string cmd)
     signal notesCommand(string cmd)     // Notes window: toggle | show | new (modules/notes)  // Alt+Tab switcher: next | prev | commit | cancel (modules/switcher)     // Mission Control: browse desktops while open (IPC overview next|prev)

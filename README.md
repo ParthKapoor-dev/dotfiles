@@ -73,7 +73,7 @@ a specific machine (monitors, battery, mic, GPU) is detected and kept in git-ign
   one list; search and install from the repos, the AUR and Flathub; pending updates, clean up
   (orphans, caches), AppImage install from ~/Downloads. Changes run in a terminal that asks first.
 - Control Center (connectivity, sound, display, media, performance, notifications), notification
-  center with DND, OSDs, dock, overview (Super+Tab or a 4-finger swipe), Alt+Tab switcher, session
+  center with DND, OSDs, dock, overview (Super+Tab: every window spread out, 3D hover tilt; Super+Shift+Tab: desktop by desktop, hover a desktop to see its windows; the drop shelf opens alongside), Alt+Tab switcher, session
   menu, polkit agent, keyboard cheatsheet (Super+/), desktop clock and commit-activity widgets.
 - Runtime layout cycling (dwindle, master, scrolling, monocle) and saved window sessions
   (`nox workspaces save` / `restore`).
@@ -251,7 +251,8 @@ their keys. The binds live in `hypr/.config/hypr/nox/binds/*.lua` and `nox/shell
 | Super+Return, Super+T | terminal |
 | Super+E / Super+W / Super+C / Super+X | files / browser / code editor / Neovim |
 | Super+Q, Alt+F4 | close window |
-| Super+Tab | overview |
+| Super+Tab | overview: all windows |
+| Super+Shift+Tab | overview: desktops |
 | Alt+Tab | window switcher |
 | Super+N / Super+M | notification center / Control Center |
 | Super+V / Super+. | clipboard history / emoji |
@@ -291,7 +292,8 @@ their keys. The binds live in `hypr/.config/hypr/nox/binds/*.lua` and `nox/shell
 | Ctrl+Super+Space | command palette |
 | Super+V | clipboard history |
 | Super+. | emoji picker |
-| Super+Tab | overview |
+| Super+Tab | overview: all windows |
+| Super+Shift+Tab | overview: desktops |
 | Alt+Tab / Alt+Shift+Tab | window switcher (release Alt to switch) |
 | Super+N | notification center |
 | Super+Alt+D | Do Not Disturb |

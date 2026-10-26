@@ -5,7 +5,7 @@ import Quickshell.Wayland
 import qs.core
 import qs.services
 
-// One screen edge of the shelf (namespace nox:shelf, Top layer, no exclusive zone).
+// One screen edge of the shelf (namespace nox:shelf, Top layer (Overlay over Mission Control), no exclusive zone).
 // Wayland has no global "a drag started" signal, so the window always keeps a 2 px input strip on
 // the edge (the middle 70% of its height): a drag reaching it enters this surface's DropArea, the
 // shelf slides out as the drop target and the input region grows to the panel. Everything else of
@@ -23,7 +23,8 @@ PanelWindow {
 
     color: "transparent"
     WlrLayershell.namespace: "nox:shelf"
-    WlrLayershell.layer: WlrLayer.Top
+    // above Mission Control while it is open (ShelfView.overOverview)
+    WlrLayershell.layer: ctl.overOverview ? WlrLayer.Overlay : WlrLayer.Top
     WlrLayershell.keyboardFocus: active && ctl.pinned ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
     anchors.top: true
