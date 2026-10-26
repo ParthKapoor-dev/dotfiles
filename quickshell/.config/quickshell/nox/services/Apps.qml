@@ -7,6 +7,9 @@ import qs.core
 
 // Dock model: pinned apps (shell.json dock.pinned) + running unpinned apps, as plain JS objects
 // (no per-recompute QObject allocation). Running state comes from the wlr foreign-toplevel protocol.
+// A dock.pinned entry { "folder": "Dev", "apps": [ids] } is a folder tile (modules/dock/DockFolder):
+// { key: "__folder:<name>", folder, apps: [app objects] }. Its apps are not pinned on their own, so
+// a running one also gets a normal running tile; its windows show in the folder as well.
 Singleton {
     id: root
 
@@ -34,7 +37,25 @@ Singleton {
         const ignored = (Config.opt.dock?.ignoredAppIds ?? []).map(p => new RegExp(p, "i"));
         const out = [];
         const byKey = {};
+        const inFolders = {};    // key -> that app's objects inside folders (they get its windows too)
         for (const id of root.pinned) {
+            if (typeof id !== "string") {
+                if (!id || !id.folder) continue;
+                const apps = [];
+                for (const a of (Array.isArray(id.apps) ? id.apps : [])) {
+                    if (typeof a !== "string" || !a) continue;
+                    const entry = entryFor(a);
+                    const o = { key: keyFor(a, entry), appId: a, entry, pinned: true, toplevels: [], sep: false };
+                    apps.push(o);
+                    if (!inFolders[o.key]) inFolders[o.key] = [];
+                    inFolders[o.key].push(o);
+                }
+                const key = "__folder:" + id.folder;
+                if (byKey[key]) continue;
+                byKey[key] = { key, folder: String(id.folder), apps, appId: "", entry: null, pinned: true, toplevels: [], sep: false };
+                out.push(byKey[key]);
+                continue;
+            }
             const entry = entryFor(id);
             const key = keyFor(id, entry);
             if (byKey[key]) continue;
@@ -46,6 +67,7 @@ Singleton {
             if (!t.appId || ignored.some(r => r.test(t.appId))) continue;
             const entry = entryFor(t.appId);
             const key = keyFor(t.appId, entry);
+            for (const o of inFolders[key] ?? []) o.toplevels.push(t);
             if (!byKey[key]) {
                 if (Config.opt.dock?.showRunning === false) continue;
                 byKey[key] = { key, appId: t.appId, entry, pinned: false, toplevels: [], sep: false };
@@ -67,7 +89,7 @@ Singleton {
     function isPinned(key) { return items.some(i => !i.sep && i.pinned && i.key === key); }
     function togglePin(item) {
         const list = root.pinned.slice();
-        const idx = list.findIndex(id => keyFor(id, entryFor(id)) === item.key);
+        const idx = list.findIndex(id => typeof id === "string" && keyFor(id, entryFor(id)) === item.key);
         if (idx >= 0) list.splice(idx, 1); else list.push(item.entry ? item.entry.id : item.appId);
         Config.setDockPinned(list);
     }

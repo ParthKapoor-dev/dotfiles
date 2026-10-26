@@ -10,23 +10,28 @@ import qs.services
 // 6px under the icon for the running indicator (4px dot; Telemetry: 8x2 accent bar).
 // Icons are normalised: their opaque bounding box is measured once (Canvas) and scaled to
 // `fill` of the tile, so icons with and without built-in padding look the same size.
+// A folder (dock.pinned entry { folder, apps }) shows a 2x2 grid of its first apps' icons on a
+// rounded glass plate; clicking it asks the dock to fan the apps out (folderRequested).
 Item {
     id: root
     property var item
     property real size: 44
     property real scale_: 1
     readonly property bool sep: item?.sep ?? false
+    readonly property bool folder: !!item?.folder
     property real s: scale_
     readonly property real iconSize: size * s
-    readonly property string label: item?.stack === "downloads" ? "Downloads" : item?.stack === "trash" ? "Trash"
+    readonly property string label: folder ? item.folder : item?.stack === "downloads" ? "Downloads" : item?.stack === "trash" ? "Trash"
         : (item?.entry?.name || item?.appId || "")
-    readonly property bool running: (item?.toplevels.length ?? 0) > 0
+    // a folder counts as running while any of its apps is
+    readonly property bool running: folder ? (item.apps ?? []).some(a => a.toplevels.length > 0) : (item?.toplevels.length ?? 0) > 0
     readonly property alias hovered: mouse.containsMouse
-    readonly property string source: sep ? "" : Apps.iconFor(item)
+    readonly property string source: sep || folder ? "" : Apps.iconFor(item)
     readonly property real fill: 0.9                       // target visual size of the icon content
-    readonly property real norm: sep ? 1 : Math.min(1.25, Apps.iconScale(item))
+    readonly property real norm: sep || folder ? 1 : Math.min(1.25, Apps.iconScale(item))
     signal menuRequested()
     signal clicked()
+    signal folderRequested()
 
     Behavior on s { NumberAnimation { duration: Theme.durPop; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEase } }
 
@@ -44,7 +49,7 @@ Item {
 
     IconImage {
         id: icon
-        visible: !root.sep
+        visible: !root.sep && !root.folder
         x: 2; y: 0
         width: root.iconSize; height: root.iconSize
         implicitSize: 96
@@ -59,9 +64,47 @@ Item {
         layer.effect: MultiEffect { saturation: -1; brightness: -0.08 }
     }
 
+    // folder plate: up to four mini icons in a 2x2 grid (mock stack tile, Dock folder)
+    Loader {
+        active: root.folder
+        x: 2; y: 0
+        width: root.iconSize; height: root.iconSize
+        sourceComponent: Item {
+            readonly property real inset: width * 0.07
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: parent.inset
+                radius: Theme.square ? 4 : width * 0.24
+                color: Theme.white(mouse.containsMouse ? 0.16 : 0.11)
+                border.width: Theme.rimWidth
+                border.color: Theme.white(0.16)
+                Behavior on color { ColorAnimation { duration: Theme.durHover } }
+                Grid {
+                    id: grid
+                    anchors.centerIn: parent
+                    columns: 2
+                    readonly property real cell: (parent.width - parent.width * 0.16 - spacing) / 2
+                    spacing: parent.width * 0.06
+                    Repeater {
+                        model: (root.item?.apps ?? []).slice(0, 4)
+                        IconImage {
+                            required property var modelData
+                            width: grid.cell; height: grid.cell
+                            implicitSize: 48
+                            source: Apps.iconFor(modelData)
+                            mipmap: true
+                        }
+                    }
+                }
+            }
+            opacity: mouse.pressed ? 0.7 : 1
+            Behavior on opacity { NumberAnimation { duration: Theme.durHover } }
+        }
+    }
+
     // one-shot measurement of the icon's opaque bounds (cached per app in Apps.measured)
     Loader {
-        active: !root.sep && root.source !== "" && Apps.measured[root.item.key] === undefined
+        active: !root.sep && !root.folder && root.source !== "" && Apps.measured[root.item.key] === undefined
             && (Config.opt.dock?.normalizeIcons ?? true)
         sourceComponent: Item {
             width: 64; height: 64
@@ -119,7 +162,9 @@ Item {
         onPressed: Panels.notePointer()
         onClicked: m => {
             if (m.button === Qt.RightButton) root.menuRequested();
-            // (a click from Mission Control closes it, like clicking a window there)
+            // (a click from Mission Control closes it, like clicking a window there; a folder
+            // only fans out, its apps close it)
+            else if (root.folder) { if (m.button === Qt.LeftButton) root.folderRequested(); }
             else if (m.button === Qt.MiddleButton) { if (!root.item.stack) { Panels.overviewOpen = false; Apps.launch(root.item); } }
             else { Panels.close(); Panels.overviewOpen = false; root.clicked(); Apps.activate(root.item); }
         }

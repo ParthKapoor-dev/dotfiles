@@ -254,8 +254,8 @@ function P.layer_rules(ctx)
         { match = { namespace = "^nox:notifications$" }, animation = "fade" },
         -- 0.5: lower values blur the soft card shadows (orange halo on Ember wallpaper)
         -- full-screen / static surfaces: no blur, no compositor animation (they animate themselves)
-        { match = { namespace = "^nox:(wallpaper|corners|overview|widgets|agents|ask|draw)$" }, blur = false },
-        { match = { namespace = "^nox:(corners|overview|session|polkit|widgets|agents|ask|draw)$" }, no_anim = true },
+        { match = { namespace = "^nox:(wallpaper|corners|hotcorners|cursorfind|overview|widgets|agents|ask|draw)$" }, blur = false },
+        { match = { namespace = "^nox:(corners|hotcorners|cursorfind|overview|session|polkit|widgets|agents|ask|draw)$" }, no_anim = true },
         -- drop shelf: slides itself; soft shadow + accent glow stay out of the blur
         { match = { namespace = "^nox:shelf$" }, no_anim = true, ignore_alpha = padded },
         -- selection bar: animates itself; its shadow stays out of the blur

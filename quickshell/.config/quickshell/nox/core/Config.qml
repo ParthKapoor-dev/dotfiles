@@ -36,7 +36,9 @@ Singleton {
             "voice": true,
             "shelf": true,
             "draw": true,
-            "selbar": true
+            "selbar": true,
+            "hotCorners": true,
+            "cursorFind": true
         },
         "terminal": [
             "ghostty"
@@ -192,6 +194,8 @@ Singleton {
             "directory": "~/Downloads",
             "doneSeconds": 5
         },
+        "hotCorners": { "tl": "overview", "tr": "none", "bl": "none", "br": "none", "dwellMs": 150 },
+        "cursorFind": { "enabled": false, "hz": 30, "travel": 600, "reversals": 3, "windowMs": 400, "cooldownMs": 1000, "size": 220 },
         "dock": {
             "screens": [],
             "autohide": true,

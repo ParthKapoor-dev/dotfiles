@@ -20,6 +20,9 @@ import qs.services
 // Moving to another running tile switches the card at once; it closes 250 ms after the pointer
 // has left both the tile and the card. Tiles with a card get no name tooltip. dock.previews: false = off.
 // The layer surface is full width but its input mask is only the shelf (or the hot strip).
+// Folders (a dock.pinned entry { "folder": "Dev", "apps": [...] }) show a 2x2 icon grid; a click
+// fans their apps out above the dock (DockFolder), right-click = Open / Remove from Dock. The
+// fan counts as the dock's menu (keeps an autohiding dock up, hides tooltip and previews).
 Variants {
     model: Config.screensFor(Config.opt.dock?.screens)
 
@@ -36,7 +39,7 @@ Variants {
         readonly property real range: size * 2.8
         readonly property var items: Apps.items
         readonly property bool autohide: Config.opt.dock?.autohide ?? false
-        readonly property bool menuOpen: Panels.popup === menu.popupId
+        readonly property bool menuOpen: Panels.popup === menu.popupId || folderFan.open
         readonly property bool hovering: hover.hovered
         // shown = on screen; with autohide only while revealed
         // autohide stays revealed on an empty desktop (no windows on this screen's workspace;
@@ -163,6 +166,7 @@ Variants {
                             preview.tileHovered(this, hovered);
                         }
                         onClicked: preview.hide()
+                        onFolderRequested: { preview.hide(); folderFan.toggle(this); }
                         onMenuRequested: { preview.hide(); menu.target = modelData; menu.anchorItem = this; Panels.open(menu.popupId); }
                     }
                 }
@@ -351,6 +355,13 @@ Variants {
             }
         }
 
+        // folder fan (one per dock; above the magnified tiles)
+        DockFolder {
+            id: folderFan
+            dockWindow: win
+            bottomOffset: win.bottomGap + win.size * Math.max(win.peak, 1) + 10
+        }
+
         // right-click menu (mock Dock.menu), opens upwards above the shelf, centred on the tile
         GPopup {
             id: menu
@@ -363,13 +374,30 @@ Variants {
             content: Column {
                 readonly property var t: menu.target
                 readonly property bool stack: !!t?.stack
+                readonly property bool fold: !!t?.folder
+                readonly property bool app: !stack && !fold
+                // folders
+                MenuRow { visible: parent.fold; width: parent.width; header: true; text: menu.target?.folder ?? "" }
+                MenuRow {
+                    visible: parent.fold; width: parent.width; text: "Open"
+                    onTriggered: { const t = menu.anchorItem; Panels.close(); if (t) folderFan.toggle(t); }
+                }
+                MenuSep { visible: parent.fold; width: parent.width }
+                MenuRow {
+                    visible: parent.fold; width: parent.width; text: "Remove from Dock"
+                    onTriggered: {
+                        const name = menu.target.folder;
+                        Panels.close();
+                        Config.setDockPinned(Apps.pinned.filter(p => !(p && typeof p === "object" && p.folder === name)));
+                    }
+                }
                 // stacks
                 MenuRow { visible: parent.stack; width: parent.width; text: "Open"; onTriggered: { Panels.close(); Apps.openStack(menu.target.stack); } }
                 MenuRow { visible: parent.stack && menu.target?.stack === "trash"; width: parent.width; text: "Empty Trash"; enabled: Apps.trashFull; onTriggered: { Panels.close(); Apps.emptyTrash(); } }
                 // apps
-                MenuRow { visible: !parent.stack && (parent.t?.toplevels.length ?? 0) > 0; width: parent.width; header: true; text: "Windows" }
+                MenuRow { visible: parent.app && (parent.t?.toplevels.length ?? 0) > 0; width: parent.width; header: true; text: "Windows" }
                 Repeater {
-                    model: !parent.stack && menu.target ? menu.target.toplevels : []
+                    model: parent.app && menu.target ? menu.target.toplevels : []
                     MenuRow {
                         required property var modelData
                         width: parent.width
@@ -378,23 +406,23 @@ Variants {
                         onTriggered: { Panels.close(); modelData.activate(); }
                     }
                 }
-                MenuSep { visible: !parent.stack && (parent.t?.toplevels.length ?? 0) > 0; width: parent.width }
-                MenuRow { visible: !parent.stack; width: parent.width; text: "New Window"; onTriggered: { Panels.close(); Apps.launch(menu.target); } }
+                MenuSep { visible: parent.app && (parent.t?.toplevels.length ?? 0) > 0; width: parent.width }
+                MenuRow { visible: parent.app; width: parent.width; text: "New Window"; onTriggered: { Panels.close(); Apps.launch(menu.target); } }
                 MenuRow {
-                    visible: !parent.stack
+                    visible: parent.app
                     width: parent.width
                     text: "Keep in Dock"
                     checked: menu.target?.pinned ?? false
                     onTriggered: { Panels.close(); Apps.togglePin(menu.target); }
                 }
                 MenuRow {
-                    visible: !parent.stack && Config.moduleEnabled("overview") && (parent.t?.toplevels.length ?? 0) > 0
+                    visible: parent.app && Config.moduleEnabled("overview") && (parent.t?.toplevels.length ?? 0) > 0
                     width: parent.width; text: "Show All Windows"
                     onTriggered: { Panels.close(); Panels.overviewOpen = true; }
                 }
-                MenuSep { visible: !parent.stack && (parent.t?.toplevels.length ?? 0) > 0; width: parent.width }
+                MenuSep { visible: parent.app && (parent.t?.toplevels.length ?? 0) > 0; width: parent.width }
                 MenuRow {
-                    visible: !parent.stack && (parent.t?.toplevels.length ?? 0) > 0
+                    visible: parent.app && (parent.t?.toplevels.length ?? 0) > 0
                     width: parent.width; text: "Quit"
                     onTriggered: { Panels.close(); Apps.quit(menu.target); }
                 }

@@ -3,7 +3,7 @@
   "modules": {
     "bar": true, "dock": true, "controlCenter": true, "launcher": true, "osd": true, "notifications": true,
     "wallpaper": true, "corners": true, "overview": true, "session": true, "polkit": true, "clipboard": true, "cheatsheet": true,
-    "switcher": true, "notes": true, "agents": true, "shot": true, "ask": true, "voice": true, "shelf": true, "draw": true, "selbar": true
+    "switcher": true, "notes": true, "agents": true, "shot": true, "ask": true, "voice": true, "shelf": true, "draw": true, "selbar": true, "hotCorners": true, "cursorFind": true
   },
   "terminal": ["ghostty"],
   "bar": {
@@ -112,6 +112,8 @@
   "cheatsheet": { "labels": {}, "groups": {}, "showUnlabeled": false },
   "draw": { "tool": "pointer", "colors": ["accent", "#f4f4f2", "#ffd23f", "#3ddcff", "#5cf28a"], "fade": true, "fadeSeconds": 1, "fadeOutSeconds": 1, "pointerSeconds": 1, "penWidth": 4, "markerWidth": 20, "spotRadius": 150, "offset": 104, "_comment": "Draw on screen (Super+A): tool = the first tool; colors (\"accent\" = theme accent); fade = pens / shapes fade out (over fadeOutSeconds) fadeSeconds after the last stroke, drawing again restarts the wait; the marker never fades; pointerSeconds = how long pointer ink stays; offset = toolbox distance from the bottom" },
   "selbar": { "enabled": true, "ignore": ["com.mitchellh.ghostty", "dev.neovim", "kitty", "foot", "footclient", "Alacritty", "org.wezfurlong.wezterm", "org.kde.konsole", "org.gnome.Console", "org.gnome.Terminal", "xterm", "st-256color"], "_comment": "Selection action bar (modules/selbar, `nox selbar on|off`): select text and Ask / Search / Translate / Copy / Shelf / Open link / Case / = result / Speak appear 14 px above the pointer. ignore = window classes that never show it (terminals). Optional: maxBytes (20000), settleMs (300), stillMs (200), awayPx (160), idleSeconds (6), searchUrl / translateUrl (%s = the text; search defaults to the launcher's web engine), translateTo (en), opener ([\"xdg-open\"])." },
+  "hotCorners": { "_comment": "rest the pointer in a corner for dwellMs: overview | desktops | controlcenter | launcher | showDesktop | notifications | lock | none (none = no surface)", "tl": "overview", "tr": "none", "bl": "none", "br": "none", "dwellMs": 150 },
+  "cursorFind": { "_comment": "shake the pointer to show a ring around it. Off by default: Hyprland samples the pointer (2 Hz idle / hz while moving, ~0.25 ms each). travel px + reversals within windowMs = a shake", "enabled": false, "hz": 30 },
   "overview": { "defaultMode": "windows", "shelf": true, "dock": true, "tilt": true, "maxScale": 0.72, "minWorkspaces": 5, "live": true, "liveAll": true, "_comment": "Mission Control: liveAll = live previews on every desktop (the other desktops keep drawing at misc:render_unfocused_fps while open); defaultMode windows (Super+Tab, every window) | desktops (Super+Shift+Tab); shelf / dock = show the drop shelf / the dock alongside; tilt = 3D hover tilt" },
   "launcher": {
     "width": 680,
