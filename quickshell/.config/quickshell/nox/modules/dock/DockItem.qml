@@ -12,6 +12,8 @@ import qs.services
 // `fill` of the tile, so icons with and without built-in padding look the same size.
 // A folder (dock.pinned entry { folder, apps }) shows a 2x2 grid of its first apps' icons on a
 // rounded glass plate; clicking it asks the dock to fan the apps out (folderRequested).
+// A file stack ({ stack, path, count }) shows its folder icon; a click fans its newest files out the
+// same way (folderRequested), middle click opens the folder in the file manager.
 Item {
     id: root
     property var item
@@ -19,9 +21,10 @@ Item {
     property real scale_: 1
     readonly property bool sep: item?.sep ?? false
     readonly property bool folder: !!item?.folder
+    readonly property bool fileStack: !!item?.fileStack
     property real s: scale_
     readonly property real iconSize: size * s
-    readonly property string label: folder ? item.folder : item?.stack === "downloads" ? "Downloads" : item?.stack === "trash" ? "Trash"
+    readonly property string label: folder ? item.folder : fileStack ? item.stackName : item?.stack === "downloads" ? "Downloads" : item?.stack === "trash" ? "Trash"
         : (item?.entry?.name || item?.appId || "")
     // a folder counts as running while any of its apps is
     readonly property bool running: folder ? (item.apps ?? []).some(a => a.toplevels.length > 0) : (item?.toplevels.length ?? 0) > 0
@@ -165,6 +168,7 @@ Item {
             // (a click from Mission Control closes it, like clicking a window there; a folder
             // only fans out, its apps close it)
             else if (root.folder) { if (m.button === Qt.LeftButton) root.folderRequested(); }
+            else if (root.fileStack) { if (m.button === Qt.LeftButton) root.folderRequested(); else { Panels.close(); Apps.openPath(root.item.path); } }
             else if (m.button === Qt.MiddleButton) { if (!root.item.stack) { Panels.overviewOpen = false; Apps.launch(root.item); } }
             else { Panels.close(); Panels.overviewOpen = false; root.clicked(); Apps.activate(root.item); }
         }

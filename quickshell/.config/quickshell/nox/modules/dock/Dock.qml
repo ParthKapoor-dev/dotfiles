@@ -23,6 +23,8 @@ import qs.services
 // Folders (a dock.pinned entry { "folder": "Dev", "apps": [...] }) show a 2x2 icon grid; a click
 // fans their apps out above the dock (DockFolder), right-click = Open / Remove from Dock. The
 // fan counts as the dock's menu (keeps an autohiding dock up, hides tooltip and previews).
+// File stacks (a dock.pinned entry { "stack": "Downloads", "path": "~/Downloads", "count": 12 })
+// fan their newest files out the same way (DockFolder); right-click = Open in Files / Remove.
 Variants {
     model: Config.screensFor(Config.opt.dock?.screens)
 
@@ -359,6 +361,7 @@ Variants {
         DockFolder {
             id: folderFan
             dockWindow: win
+            screenHeight: win.modelData.height
             bottomOffset: win.bottomGap + win.size * Math.max(win.peak, 1) + 10
         }
 
@@ -375,7 +378,8 @@ Variants {
                 readonly property var t: menu.target
                 readonly property bool stack: !!t?.stack
                 readonly property bool fold: !!t?.folder
-                readonly property bool app: !stack && !fold
+                readonly property bool fstack: !!t?.fileStack
+                readonly property bool app: !stack && !fold && !fstack
                 // folders
                 MenuRow { visible: parent.fold; width: parent.width; header: true; text: menu.target?.folder ?? "" }
                 MenuRow {
@@ -389,6 +393,22 @@ Variants {
                         const name = menu.target.folder;
                         Panels.close();
                         Config.setDockPinned(Apps.pinned.filter(p => !(p && typeof p === "object" && p.folder === name)));
+                    }
+                }
+                // file stacks
+                MenuRow { visible: parent.fstack; width: parent.width; header: true; text: menu.target?.stackName ?? "" }
+                MenuRow {
+                    visible: parent.fstack; width: parent.width; text: "Open"
+                    onTriggered: { const t = menu.anchorItem; Panels.close(); if (t) folderFan.toggle(t); }
+                }
+                MenuRow { visible: parent.fstack; width: parent.width; text: "Open in Files"; onTriggered: { Panels.close(); Apps.openPath(menu.target.path); } }
+                MenuSep { visible: parent.fstack; width: parent.width }
+                MenuRow {
+                    visible: parent.fstack; width: parent.width; text: "Remove from Dock"
+                    onTriggered: {
+                        const name = menu.target.stackName;
+                        Panels.close();
+                        Config.setDockPinned(Apps.pinned.filter(p => !(p && typeof p === "object" && p.stack === name)));
                     }
                 }
                 // stacks

@@ -52,7 +52,7 @@
     "stacks": ["downloads", "trash"],
     "iconScale": {},
     "ignoredAppIds": [],
-    "pinned": ["zen", "slack", "dev.zed.Zed", "stably-orca", "netsoft-com.netsoft.hubstaff", "chromium", "helium", "com.mitchellh.ghostty", { "folder": "More", "apps": ["obsidian", "spotify-launcher", "code-oss", "dev.nox.Notes", "btop"] }]
+    "pinned": ["zen", "slack", "dev.zed.Zed", "stably-orca", "netsoft-com.netsoft.hubstaff", "chromium", "helium", "com.mitchellh.ghostty", { "stack": "Downloads", "path": "~/Downloads", "count": 12 }, { "folder": "More", "apps": ["obsidian", "spotify-launcher", "code-oss", "dev.nox.Notes", "btop"] }]
   },
   "caffeine": { "default": true },
   "controlCenter": {

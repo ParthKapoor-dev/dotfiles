@@ -10,6 +10,10 @@ import qs.core
 // A dock.pinned entry { "folder": "Dev", "apps": [ids] } is a folder tile (modules/dock/DockFolder):
 // { key: "__folder:<name>", folder, apps: [app objects] }. Its apps are not pinned on their own, so
 // a running one also gets a normal running tile; its windows show in the folder as well.
+// A dock.pinned entry { "stack": "Downloads", "path": "~/Downloads", "count": 12 } is a file stack
+// (macOS Downloads stack): { key: "__stack:<name>", fileStack: true, stackName, path, count }. A
+// click fans its newest files out (DockFolder); nothing reads the folder until then. A pinned stack
+// on ~/Downloads replaces the built-in dock.stacks "downloads" tile.
 Singleton {
     id: root
 
@@ -19,6 +23,7 @@ Singleton {
     }
     function keyFor(id, entry) { return (entry ? entry.id : id).toLowerCase(); }
     function iconFor(item) {
+        if (item.fileStack) return Quickshell.iconPath(item.path === root.home + "/Downloads" ? "folder-download" : "folder", "folder");
         if (item.stack === "downloads") return Quickshell.iconPath("folder-download", "folder");
         if (item.stack === "trash") return Quickshell.iconPath(root.trashFull ? "user-trash-full" : "user-trash", "user-trash");
         const name = item.entry?.icon || item.appId;
@@ -40,6 +45,16 @@ Singleton {
         const inFolders = {};    // key -> that app's objects inside folders (they get its windows too)
         for (const id of root.pinned) {
             if (typeof id !== "string") {
+                if (id && id.stack && typeof id.stack === "string") {
+                    const sk = "__stack:" + id.stack;
+                    if (byKey[sk]) continue;
+                    const path = String(id.path ?? "~/" + id.stack).replace(/^~(?=\/|$)/, root.home).replace(/(.)\/+$/, "$1");
+                    const n = Number(id.count);
+                    byKey[sk] = { key: sk, fileStack: true, stackName: id.stack, path, count: n >= 1 ? Math.min(30, Math.floor(n)) : 12,
+                        appId: "", entry: null, pinned: true, toplevels: [], sep: false };
+                    out.push(byKey[sk]);
+                    continue;
+                }
                 if (!id || !id.folder) continue;
                 const apps = [];
                 for (const a of (Array.isArray(id.apps) ? id.apps : [])) {
@@ -78,7 +93,8 @@ Singleton {
         if (out.length && running.length) out.push({ key: "__sep", sep: true, toplevels: [] });
         const all = out.concat(running);
         // folder stacks after a separator (mock: Downloads, Trash)
-        const stacks = (Config.opt.dock?.stacks ?? []).filter(s => s === "downloads" || s === "trash");
+        const dlPinned = out.some(o => o.fileStack && o.path === root.home + "/Downloads");
+        const stacks = (Config.opt.dock?.stacks ?? []).filter(s => s === "trash" || (s === "downloads" && !dlPinned));
         if (stacks.length) {
             all.push({ key: "__sep2", sep: true, toplevels: [] });
             for (const s of stacks) all.push({ key: "__" + s, stack: s, appId: s, entry: null, pinned: false, toplevels: [], sep: false });
@@ -122,11 +138,15 @@ Singleton {
         const cmd = c[s] ?? (s === "downloads" ? ["xdg-open", home + "/Downloads"] : trash);
         Quickshell.execDetached(cmd.map(a => String(a).replace(/^~/, home)));
     }
+    // file stacks (DockFolder): open a file / folder in its default app
+    function openPath(p) { Quickshell.execDetached(["xdg-open", p]); }
+    function fileUrl(p) { return "file://" + encodeURI(p).replace(/#/g, "%23").replace(/\?/g, "%3F"); }
     function emptyTrash() { Quickshell.execDetached(["gio", "trash", "--empty"]); }
 
     // click: launch if not running, else focus; cycle windows if already focused
     function activate(item) {
         if (item.stack) { openStack(item.stack); return; }
+        if (item.fileStack) { openPath(item.path); return; }
         const tl = item.toplevels;
         if (!tl.length) { launch(item); return; }
         const cur = tl.findIndex(t => t.activated);
