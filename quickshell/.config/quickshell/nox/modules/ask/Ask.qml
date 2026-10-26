@@ -60,18 +60,34 @@ Scope {
     }
     function toggle() { if (alive) close(); else start(); }
 
+    // Selection bar (modules/selbar, services/Selection): "Ask Claude" with the selected text. The
+    // screen freezes as usual, then the area where the bar was is selected as if clicked, and Claude
+    // gets the text (no image, no OCR). The text is held only until the card asks.
+    property string pendingText: ""
+    property var pendingRect: null
+    function askText(text, rect) {
+        if (capturing || alive || String(text).trim() === "") return;
+        pendingText = text;
+        pendingRect = rect;
+        start();
+    }
+    Connections {
+        target: Selection
+        function onAskRequested(text, rect) { root.askText(text, rect); }
+    }
+
     Process {
         id: grab
         onExited: code => {
             root.capturing = false;
             if (code === 0) { root.alive = true; root.open = true; }
-            else { session.stopClaude(); Panels.hud("Couldn't capture the screen", "x"); }
+            else { root.pendingText = ""; session.stopClaude(); Panels.hud("Couldn't capture the screen", "x"); }
         }
     }
     Timer {
         id: killTimer
         interval: Math.max(Theme.durSheet, 700 * Theme.durSheet / 320) + 60
-        onTriggered: if (!root.open) { root.alive = false; session.shutdown(root.frame); root.frame = ""; }
+        onTriggered: if (!root.open) { root.alive = false; root.pendingText = ""; session.shutdown(root.frame); root.frame = ""; }
     }
 
     AskSession {
@@ -144,8 +160,22 @@ Scope {
                 frame: root.frame
                 open: root.open
                 windowAt: (x, y) => root.windowAt(x, y)
-                onReadyChanged: if (ready && root.freezeMs < 0) root.freezeMs = Date.now() - root.tKey
-                onSelected: (box, geom, w) => session.ask(root.frame, geom, w?.app ?? "", w?.title ?? "")
+                onReadyChanged: {
+                    if (ready && root.freezeMs < 0) root.freezeMs = Date.now() - root.tKey;
+                    // selection bar text: select where the bar was (the card opens beside it)
+                    if (ready && root.pendingText !== "") {
+                        const r = root.pendingRect ?? { x: width / 2 - 80, y: height / 2 - 20, w: 160, h: 40 };
+                        const w = root.windowAt(r.x + r.w / 2, r.y + r.h / 2);
+                        stage.selectWindow({ x: r.x - 6, y: r.y - 6, w: r.w + 12, h: r.h + 12, app: w?.app ?? "", title: w?.title ?? "" });
+                    }
+                }
+                onSelected: (box, geom, w) => {
+                    if (root.pendingText !== "") {
+                        const t = root.pendingText;
+                        root.pendingText = "";
+                        session.askText(t, w?.app ?? "", w?.title ?? "");
+                    } else session.ask(root.frame, geom, w?.app ?? "", w?.title ?? "");
+                }
                 onCloseRequested: root.close()
                 Connections {
                     target: root

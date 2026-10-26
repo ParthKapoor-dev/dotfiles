@@ -29,6 +29,7 @@ import qs.modules.ask
 import qs.modules.voice
 import qs.modules.draw
 import qs.modules.shelf
+import qs.modules.selbar
 
 ShellRoot {
     LazyLoader { active: Config.loaded && Config.moduleEnabled("bar"); component: Bar {} }
@@ -64,6 +65,9 @@ ShellRoot {
     // Drop shelf: drag anything to the right screen edge to park it, drag it out into any app later
     // (Super+Shift+D, `nox shelf`, IPC target shelf; shell.json "shelf"; store in services/Shelf)
     LazyLoader { active: Config.loaded && Config.moduleEnabled("shelf"); component: ShelfView {} }
+    // selection action bar: select text, a bar of actions appears above the pointer (`nox selbar`,
+    // IPC target selbar; shell.json "selbar"; watcher + state in services/Selection)
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("selbar"); component: SelBar {} }
     // clock / date / now playing on the empty side of the wallpaper (desktopWidgets.enabled,
     // `nox widgets on|off`; services/DesktopWidgets)
     LazyLoader { active: Config.loaded && DesktopWidgets.ready && DesktopWidgets.enabled; component: Widgets {} }

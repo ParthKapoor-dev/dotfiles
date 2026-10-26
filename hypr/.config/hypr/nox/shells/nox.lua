@@ -53,6 +53,7 @@ P.GLOBAL = {
     voice_release       = "voiceRelease",                   -- live (any Space release ends a hold)
     shelf               = "shelfToggle",                    -- live (Super+Shift+D, drop shelf)
     draw                = "drawToggle",                     -- live (Super+A, draw on screen)
+    selbar_dismiss      = "selbarDismiss",                  -- live (Esc dismisses the selection bar)
 }
 
 -- exits != 0 only when no nox instance answers (`ipc call` to a missing
@@ -185,6 +186,8 @@ function P.binds(ctx)
         -- voice typing (nox voice): hold to talk, release to type it. The Space release bind ends a
         -- hold even when Super / Shift came up first; non-consuming, so apps still get every Space
         { "SUPER + SHIFT + Space", G("voice_hold"), desc = "Voice typing (hold to talk)" },
+        -- selection bar (modules/selbar): Esc dismisses it; non-consuming, apps still get every Esc
+        { "Escape", G("selbar_dismiss"), ignore_mods = true, non_consuming = true, transparent = true, desc = "Internal: Esc dismisses the selection bar" },
         { "Space", G("voice_release"), release = true, ignore_mods = true, non_consuming = true, transparent = true, desc = "Internal: voice typing, Space release ends the hold" },
         { "SUPER + N", G("notification_center"), desc = "Open notification center" },
         { "SUPER + ALT + D", G("dnd"), desc = "Toggle Do Not Disturb" },
@@ -255,6 +258,8 @@ function P.layer_rules(ctx)
         { match = { namespace = "^nox:(corners|overview|session|polkit|widgets|agents|ask|draw)$" }, no_anim = true },
         -- drop shelf: slides itself; soft shadow + accent glow stay out of the blur
         { match = { namespace = "^nox:shelf$" }, no_anim = true, ignore_alpha = padded },
+        -- selection bar: animates itself; its shadow stays out of the blur
+        { match = { namespace = "^nox:selbar$" }, no_anim = true, ignore_alpha = padded },
     }
 end
 

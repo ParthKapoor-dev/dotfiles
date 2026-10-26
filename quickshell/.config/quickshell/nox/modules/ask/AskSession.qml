@@ -141,6 +141,20 @@ Item {
             "sh", frame, geom, crop];
         cropper.running = true;
     }
+    // Selection bar (modules/selbar): ask about selected text instead of a crop. No image and no OCR
+    // run; the text stands in for the OCR text (Copy text, Translate), only in memory, never logged.
+    function askText(text, appName, winTitle) {
+        reset();
+        prewarm();
+        app = appName ?? ""; title = winTitle ?? "";
+        tAsk = Date.now();
+        waiting = true; waitText = "Reading the selection";
+        ocrText = String(text).trim();
+        ocrLines = ocrText.split("\n").filter(l => l.trim() !== "").length;
+        const ctx = app ? "Window: " + app + (title ? " — " + title : "") + "\n" : "";
+        lastQuestion = "What is this? Help me with it.";
+        send([{ type: "text", text: ctx + "No image this time: this is text I selected on screen.\n<selection>\n" + ocrText + "\n</selection>\n\n" + lastQuestion }]);
+    }
     Process {
         id: cropper
         stdout: StdioCollector {

@@ -34,7 +34,9 @@ Singleton {
             "shot": true,
             "ask": true,
             "voice": true,
-            "shelf": true
+            "shelf": true,
+            "draw": true,
+            "selbar": true
         },
         "terminal": [
             "ghostty"

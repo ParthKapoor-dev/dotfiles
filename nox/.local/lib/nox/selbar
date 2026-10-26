@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# nox selbar - the selection action bar (the shell's modules/selbar; select text, a bar of actions appears)
+#   nox selbar [status]        on / off, whether the primary-selection watcher runs, the bar is up
+#   nox selbar on | off | toggle   runtime pick (~/.local/state/nox/selbar.json, over shell.json selbar.enabled)
+#   nox selbar reset           back to shell.json selbar.enabled
+#   nox selbar dismiss         hide the bar if it is up
+# Apps listed in shell.json selbar.ignore (terminals by default) never show it.
+# The selected text is never printed, logged or stored: status reports states only.
+set -euo pipefail
+cmd="${1:-status}"
+[ $# -gt 0 ] && shift
+case "$cmd" in
+    status | reset | dismiss) exec qs -c nox ipc call selbar "$cmd" ;;
+    on | off) qs -c nox ipc call selbar "$cmd" >/dev/null && exec qs -c nox ipc call selbar status ;;
+    toggle) qs -c nox ipc call selbar toggle >/dev/null && exec qs -c nox ipc call selbar status ;;
+    -h | --help | help) sed -n '2,/^[^#]/{/^[^#]/d;s/^# \{0,1\}//;p}' "$0" ;;
+    *) echo "nox selbar: unknown '$cmd' (status|on|off|toggle|reset|dismiss)" >&2; exit 2 ;;
+esac
