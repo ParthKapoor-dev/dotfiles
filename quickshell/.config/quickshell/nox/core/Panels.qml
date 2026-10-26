@@ -22,6 +22,10 @@ Singleton {
     readonly property string overviewDefault: Config.opt.overview?.defaultMode === "desktops" ? "desktops" : "windows"
     property string overviewMode: overviewDefault
     onOverviewOpenChanged: if (!overviewOpen) overviewMode = overviewDefault
+    // true while the shelf and the dock should sit above Mission Control (Overlay layer): set by
+    // the overview a moment after it maps (Hyprland stacks a surface that changes layer on top)
+    // and cleared once it has faded out
+    property bool overviewLayered: false
     function overview(mode) {
         const m = mode === "desktops" ? "desktops" : "windows";
         if (overviewOpen && overviewMode === m) { overviewOpen = false; return; }

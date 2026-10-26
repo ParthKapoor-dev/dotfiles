@@ -41,7 +41,10 @@ Variants {
         // shown = on screen; with autohide only while revealed
         // autohide stays revealed on an empty desktop (no windows on this screen's workspace;
         // minimized windows live in special:minimized and don't count)
-        readonly property bool shown: Panels.dockVisible && (!autohide || revealed || menuOpen || preview.hovered || (emptyDesktop && !fullscreen))
+        // Mission Control (on this screen) keeps it up, above the overview (Panels.overviewLayered)
+        readonly property bool inOverview: Panels.overviewOpen && (Config.opt.overview?.dock ?? true)
+            && (Hyprland.focusedMonitor?.name ?? "") === modelData.name
+        readonly property bool shown: Panels.dockVisible && (!autohide || revealed || menuOpen || preview.hovered || inOverview || (emptyDesktop && !fullscreen))
         property bool revealed: false
         // this screen's workspace, not the focused one: a fullscreen window on another monitor
         // must not disable this dock's hot strip
@@ -85,7 +88,7 @@ Variants {
         }
 
         WlrLayershell.namespace: "nox:dock"
-        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.layer: Panels.overviewLayered && (Config.opt.overview?.dock ?? true) ? WlrLayer.Overlay : WlrLayer.Top
         anchors { bottom: true; left: true; right: true }
         exclusionMode: ExclusionMode.Normal
         exclusiveZone: !autohide && (Config.opt.dock?.reserveSpace ?? true) && Panels.dockVisible ? shelfH + bottomGap : 0
@@ -328,7 +331,7 @@ Variants {
                                 hoverEnabled: true
                                 acceptedButtons: Qt.LeftButton | Qt.MiddleButton
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: m => { if (m.button === Qt.MiddleButton) th.modelData.close(); else { preview.hide(); th.modelData.activate(); } }
+                                onClicked: m => { if (m.button === Qt.MiddleButton) th.modelData.close(); else { preview.hide(); Panels.overviewOpen = false; th.modelData.activate(); } }
                             }
                             // close (mock .nt .x), on hover
                             Rectangle {

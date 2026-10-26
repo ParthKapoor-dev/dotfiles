@@ -119,8 +119,9 @@ Item {
         onPressed: Panels.notePointer()
         onClicked: m => {
             if (m.button === Qt.RightButton) root.menuRequested();
-            else if (m.button === Qt.MiddleButton) { if (!root.item.stack) Apps.launch(root.item); }
-            else { Panels.close(); root.clicked(); Apps.activate(root.item); }
+            // (a click from Mission Control closes it, like clicking a window there)
+            else if (m.button === Qt.MiddleButton) { if (!root.item.stack) { Panels.overviewOpen = false; Apps.launch(root.item); } }
+            else { Panels.close(); Panels.overviewOpen = false; root.clicked(); Apps.activate(root.item); }
         }
     }
 }

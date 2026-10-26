@@ -110,7 +110,7 @@
     ]
   },
   "cheatsheet": { "labels": {}, "groups": {}, "showUnlabeled": false },
-  "overview": { "defaultMode": "windows", "shelf": true, "tilt": true, "maxScale": 0.72, "minWorkspaces": 5, "live": true, "_comment": "Mission Control: defaultMode windows (Super+Tab, every window) | desktops (Super+Shift+Tab); shelf = open the drop shelf alongside; tilt = 3D hover tilt" },
+  "overview": { "defaultMode": "windows", "shelf": true, "dock": true, "tilt": true, "maxScale": 0.72, "minWorkspaces": 5, "live": true, "_comment": "Mission Control: defaultMode windows (Super+Tab, every window) | desktops (Super+Shift+Tab); shelf / dock = show the drop shelf / the dock alongside; tilt = 3D hover tilt" },
   "launcher": {
     "width": 680,
     "top": 0.18,

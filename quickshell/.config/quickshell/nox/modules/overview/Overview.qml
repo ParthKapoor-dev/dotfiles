@@ -55,6 +55,7 @@ Scope {
         if (open) {
             Hyprland.refreshToplevels(); Hyprland.refreshWorkspaces();
             hideTimer.stop(); sel = -1; hoverWs = -1;
+            layerOn.restart();
             capture = true; shown = true;
             readyWait.elapsed = 0; readyWait.restart();
         } else {
@@ -74,7 +75,11 @@ Scope {
             if (elapsed >= 48 && (root.readyCheck() || elapsed >= 160)) { stop(); root.target = 1; root.p = 1; }
         }
     }
-    Timer { id: hideTimer; interval: Theme.durWorkspace + 20; onTriggered: { if (!root.open) { root.shown = false; root.capture = false; } } }
+    Timer { id: hideTimer; interval: Theme.durWorkspace + 20; onTriggered: { if (!root.open) { root.shown = false; root.capture = false; Panels.overviewLayered = false; } } }
+    // the shelf and the dock move above Mission Control a moment after it maps (Panels.overviewLayered)
+    Timer { id: layerOn; interval: 60; onTriggered: if (root.open) Panels.overviewLayered = true }
+    // the dock stays up in Mission Control (shell.json overview.dock, default true)
+    readonly property bool dockOn: (opts.dock ?? true) && Panels.dockVisible
     property int sel: -1
     function lerp(a, b, t) { return a + (b - a) * t; }
 
@@ -300,7 +305,7 @@ Scope {
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.bottom: parent.bottom
-                    anchors.bottomMargin: 22
+                    anchors.bottomMargin: root.dockOn ? Theme.dockSize + 30 : 22
                     opacity: 0.55 * root.p
                     text: Theme.labelsMono
                         ? (root.desks ? "SPACE WINDOWS   ←→ DESKTOPS   ↑↓ WINDOWS   ⇧←→ MOVE WINDOW   ⇧1-9 SEND   DEL CLOSE   ↵ OPEN   ESC"
@@ -491,7 +496,8 @@ Scope {
                     readonly property bool shelfLeft: (Config.opt.shelf?.side ?? "right") === "left"
                     readonly property real ax: (shelfLeft ? shelfW : 40)
                     readonly property real aw: win.sw - 40 - shelfW
-                    readonly property real ab: win.sh - (Panels.dockVisible ? Theme.dockSize + 44 : 44)
+                    // above the dock and the key hints over it
+                    readonly property real ab: win.sh - (root.dockOn ? Theme.dockSize + 62 : 44)
                     readonly property real ayWin: 66
                     readonly property real ayDesk: 216
                     readonly property real label: 34
@@ -580,8 +586,10 @@ Scope {
                             y: home ? root.lerp(fy, ty, root.p) : ty + wh * (ts - s) / 2
                             width: ww * s; height: wh * s
                             z: hot ? 2 : 1
-                            opacity: (home ? 1 : root.p) * fade
-                            visible: opacity > 0.01 && !(dragProxy.active && dragProxy.target === cell)
+                            // the picked-up window stays (invisible) so its MouseArea keeps the grab
+                            readonly property bool picked: dragProxy.active && dragProxy.target === cell
+                            opacity: picked ? 0 : (home ? 1 : root.p) * fade
+                            visible: opacity > 0.01 || picked
 
                             // hover: tilt towards the pointer (3D, Qt's perspective rotation) and lift
                             readonly property bool tilting: (root.opts.tilt ?? true) && cellMouse.containsMouse && !dragProxy.active && root.p > 0.98
@@ -669,7 +677,7 @@ Scope {
                                 id: cellMouse
                                 anchors.fill: parent
                                 hoverEnabled: true
-                                enabled: root.open && cell.fade > 0.5
+                                enabled: root.open && (cell.fade > 0.5 || cell.picked)
                                 property point pressAt
                                 onPressed: m => pressAt = Qt.point(m.x, m.y)
                                 onPositionChanged: m => {
@@ -678,6 +686,7 @@ Scope {
                                     if (dragProxy.active) dragProxy.moveTo(mapToItem(stage, m.x, m.y));
                                 }
                                 onReleased: m => { if (dragProxy.active) dragProxy.finish(); }
+                                onCanceled: if (dragProxy.active) dragProxy.finish()
                                 onClicked: if (!dragProxy.wasDrag) win.focus(cell.modelData)
                             }
                         }
@@ -721,9 +730,11 @@ Scope {
                         Behavior on border.color { ColorAnimation { duration: Theme.durHover } }
                     }
                     ScreencopyView { anchors.fill: parent; anchors.margins: 2; captureSource: dragProxy.active && dragProxy.target ? dragProxy.target.modelData.wayland : null; live: false }
+                    // picking a window up brings the desktops view in (the strip comes down), still holding it
                     function start(c, p) {
                         target = c; k = 1; at = p; active = true; wasDrag = true;
                         k = 0;
+                        if (!root.desks) Panels.overviewMode = "desktops";
                     }
                     function moveTo(p) {
                         at = p;
