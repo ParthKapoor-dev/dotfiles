@@ -8,12 +8,14 @@ const GROUPS: G[] = [
     ["SUPER + SHIFT + Space", "Voice typing (hold to talk)"],
     ["CTRL + SUPER + M", "Agent mission control"],
     ["CTRL + SUPER + Space", "Command palette (launcher, >)"],
+    ["SUPER + Semicolon", "Hint mode: click anything by its label"],
   ] },
   { id: "shell", name: "Shell", rows: [
     ["SUPER", "Open launcher (tap)"],
     ["SUPER + Space", "Open launcher"],
-    ["SUPER + Tab", "Open overview"],
-    ["ALT + Tab", "Switch to the previous window"],
+    ["SUPER + Tab", "Mission Control: all windows"],
+    ["SUPER + SHIFT + Tab", "Mission Control: desktops"],
+    ["ALT + Tab", "Switch to the previous window (hold Alt, Tab to step)"],
     ["SUPER + SHIFT + D", "Drop shelf: open / close"],
     ["SUPER + V", "Open clipboard history"],
     ["SUPER + Period", "Emoji picker"],
@@ -36,6 +38,7 @@ const GROUPS: G[] = [
     ["SUPER + SHIFT + R", "Record region (toggle)"],
     ["CTRL + ALT + R", "Record screen (toggle)"],
     ["SUPER + SHIFT + C", "Color picker"],
+    ["SUPER + A", "Draw on screen (pointer, pen, shapes)"],
   ] },
   { id: "windows", name: "Windows", rows: [
     ["SUPER + Q", "Close window"],
@@ -77,12 +80,12 @@ const GROUPS: G[] = [
   ] },
 ];
 
-const pretty = (k: string) => ({ SUPER: "Super", SHIFT: "Shift", CTRL: "Ctrl", ALT: "Alt", Backslash: "\\", Slash: "/", Period: ".", Minus: "−", Equal: "=", Return: "↵", Delete: "Del" } as Record<string, string>)[k] ?? k;
+const pretty = (k: string) => ({ SUPER: "Super", SHIFT: "Shift", CTRL: "Ctrl", ALT: "Alt", Backslash: "\\", Slash: "/", Period: ".", Semicolon: ";", Minus: "−", Equal: "=", Return: "↵", Delete: "Del" } as Record<string, string>)[k] ?? k;
 
 export function initKeys(root: HTMLElement) {
   root.innerHTML = "";
   const search = h("label.keys-search", { html: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>' });
-  const input = h("input", { type: "search", placeholder: "Search binds: “shelf”, “record”, “super shift”…", "aria-label": "Search keybinds" }) as HTMLInputElement;
+  const input = h("input", { type: "search", placeholder: "Search binds: “draw”, “hint”, “mission”, “super shift”…", "aria-label": "Search keybinds" }) as HTMLInputElement;
   search.append(input);
   const filters = h("div.keys-filters", { role: "group", "aria-label": "Filter groups" });
   let group = "all";

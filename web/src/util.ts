@@ -18,7 +18,12 @@ export function h<T extends HTMLElement = HTMLElement>(
       if (k === "html") el.innerHTML = v;
       else if (k === "text") el.textContent = v;
       else if (k.startsWith("on") && typeof v === "function") el.addEventListener(k.slice(2), v);
-      else if (k === "style" && typeof v === "object") Object.assign(el.style, v);
+      else if (k === "style" && typeof v === "object") {
+        for (const [sk, sv] of Object.entries(v)) {
+          if (sk.startsWith("--")) el.style.setProperty(sk, String(sv));
+          else (el.style as any)[sk] = sv;
+        }
+      }
       else el.setAttribute(k, v === true ? "" : String(v));
     }
   }

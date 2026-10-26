@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>nox · an Arch + Hyprland desktop</title>
-  <meta name="description" content="nox is a personal Arch Linux desktop in one repo: Hyprland 0.56 with a Lua config, a hand-built Quickshell shell, one CLI. Circle anything to ask Claude, local voice typing, Mission Control for coding agents, a drop shelf and a token theme engine." />
+  <meta name="description" content="nox is a personal Arch Linux desktop in one repo: Hyprland 0.56 with a Lua config, a hand-built Quickshell shell, one CLI. Circle anything to ask Claude, a selection action bar, a Dynamic Island in the bar, hint mode to click anything from the keyboard, local voice typing, Mission Control for coding agents, a drop shelf and a token theme engine." />
   <meta name="theme-color" content="#050505" />
   <meta name="color-scheme" content="dark" />
   <link rel="canonical" href="https://nox.parthkapoor.me/" />
@@ -14,7 +14,7 @@
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://nox.parthkapoor.me/" />
   <meta property="og:title" content="nox · the whole desktop in one repo" />
-  <meta property="og:description" content="Arch + Hyprland 0.56 (Lua) + Quickshell 0.3.2 + one CLI. Circle to Ask, local voice typing, Mission Control for coding agents. Try it in the browser." />
+  <meta property="og:description" content="Arch + Hyprland 0.56 (Lua) + Quickshell 0.3.2 + one CLI. Circle to Ask, a selection bar, a Dynamic Island, hint mode, local voice typing, Mission Control for coding agents. Try it in the browser." />
   <meta property="og:image" content="https://nox.parthkapoor.me/og.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
@@ -35,7 +35,9 @@
     <span class="bar-chapter" id="bar-chapter" aria-hidden="true">00 · INTRO</span>
     <nav class="bar-nav" aria-label="Sections">
       <a href="#ask">Ask</a>
+      <a href="#select">Select</a>
       <a href="#agents">Agents</a>
+      <a href="#island">Island</a>
       <a href="#desktop">Desktop</a>
       <a href="#look">Look</a>
       <a href="#try">Try it</a>
@@ -62,7 +64,7 @@
           <p class="hero-lede">
             <span class="hl">The whole desktop, in one repo.</span>
             A hand-built shell, a Lua compositor config, one theme file and one command, <code>nox</code>.
-            Circle anything and ask Claude. Talk instead of type. Watch every coding agent from one panel.
+            Circle anything and ask Claude. Select text and act on it. Talk instead of type. Watch every coding agent from one panel.
           </p>
           <div class="hero-cta">
             <a class="btn btn-ember" href="#try">Try it in the browser <span class="arr">→</span></a>
@@ -82,8 +84,8 @@
           <figcaption><span class="mono">Telemetry look</span> · the real bar, real popover. Black, one signal red, Doto numerals.</figcaption>
         </figure>
         <div class="stats" data-reveal-group>
-          <div class="stat" data-reveal><b data-count="20">20</b><span>shell modules, each one switchable in <code>shell.json</code></span></div>
-          <div class="stat" data-reveal><b data-count="22">22</b><span><code>nox</code> commands behind one entry point</span></div>
+          <div class="stat" data-reveal><b data-count="25">25</b><span>shell modules, each one switchable in <code>shell.json</code></span></div>
+          <div class="stat" data-reveal><b data-count="27">27</b><span><code>nox</code> commands behind one entry point</span></div>
           <div class="stat" data-reveal><b data-count="20">20</b><span>app themes rendered from one <code>tokens.json</code></span></div>
           <div class="stat" data-reveal><b>0</b><span>bytes of your voice leave the machine</span></div>
         </div>
@@ -126,11 +128,30 @@
       </div>
     </section>
 
-    <!-- ============================================================ 03 AGENTS -->
-    <section class="chapter chapter-wide" id="agents" data-chapter="03 · AGENTS">
+    <!-- ============================================================ 03 SELECT -->
+    <section class="chapter" id="select" data-chapter="03 · SELECT">
+      <div class="wrap chapter-grid">
+        <div class="chapter-copy">
+          <p class="num" data-reveal>03 <span>/ Selection bar</span></p>
+          <h2 class="title" data-split>Select any text.<br /><em>The next step is right there.</em></h2>
+          <p class="body" data-reveal>Highlight words in any app and a small bar appears above them once the pointer is still: <em>Ask Claude</em>, Search, Translate, Copy, send it to the Shelf. A link adds <em>Open link</em>, maths adds the answer inline. It never takes keyboard focus, so typing keeps going to the app. Select something in the window.</p>
+          <ul class="facts" data-reveal>
+            <li><span>actions</span><span class="v">Ask · Search · Translate · Copy · Shelf · Open link · Case (UPPER, lower, Title, Sentence) · <code>= result</code></span></li>
+            <li><span>cost</span><span class="v">one <code>wl-paste --primary</code> watcher; the bar's window exists only while it is up</span></li>
+            <li><span>quiet</span><span class="v">terminals are ignored, <kbd>Esc</kbd> dismisses, and the text is never logged</span></li>
+            <li><span>cli</span><span class="v"><code>nox selbar on</code> · <code>off</code> · <code>status</code></span></li>
+          </ul>
+          <a class="more" href="#try" data-try="popbar">Play it in the desktop model <span class="arr">→</span></a>
+        </div>
+        <div class="demo demo-selbar" id="demo-selbar" data-reveal></div>
+      </div>
+    </section>
+
+    <!-- ============================================================ 04 AGENTS -->
+    <section class="chapter chapter-wide" id="agents" data-chapter="04 · AGENTS">
       <div class="wrap">
         <div class="chapter-head">
-          <p class="num" data-reveal>03 <span>/ Mission Control</span></p>
+          <p class="num" data-reveal>04 <span>/ Agent mission control</span></p>
           <h2 class="title" data-split>Every agent on the machine.<br /><em>One glance, one key.</em></h2>
           <p class="body" data-reveal><kbd>Ctrl</kbd><kbd>Super</kbd><kbd>M</kbd> shows every Claude Code session running anywhere on the box: what needs you, what is working, what is done. Answer from the panel, jump to its window, open the last turn's diff, or start a new task in the background with <code>&gt; task in repo</code>. A read-only hook writes the state; the panel never touches your sessions.</p>
         </div>
@@ -149,20 +170,38 @@
       </div>
     </section>
 
-    <!-- ============================================================ 04 DESKTOP -->
-    <section class="chapter chapter-wide" id="desktop" data-chapter="04 · DESKTOP">
+    <!-- ============================================================ 05 ISLAND -->
+    <section class="chapter chapter-wide" id="island" data-chapter="05 · ISLAND">
       <div class="wrap">
         <div class="chapter-head">
-          <p class="num" data-reveal>04 <span>/ The everyday desktop</span></p>
+          <p class="num" data-reveal>05 <span>/ Dynamic Island</span></p>
+          <h2 class="title" data-split>The middle of the bar<br /><em>shows what is live.</em></h2>
+          <p class="body" data-reveal>One black pill in the bar's centre morphs to the most important thing running: a recording, the mic, an agent that needs you, a timer, a download, the music, a shelf drop. The rest wait as dots on its edge. Hover for a card with controls, click to pin it, scroll to cycle. Start a few below, or type a timer.</p>
+        </div>
+        <div class="demo demo-island" id="demo-island" data-reveal></div>
+        <div class="island-notes" data-reveal-group>
+          <div class="sys" data-reveal><h3>Priority, from config</h3><p><code>widgets.island.order</code>: recording, mic, agent, timer, download, music, shelf. Leave one out to never show it.</p></div>
+          <div class="sys" data-reveal><h3><code>nox timer 5m tea</code></h3><p>One countdown in the island: <code>5m</code>, <code>90s</code>, <code>1h30m</code>, <code>1:30</code>. A notification and a sound when it ends.</p></div>
+          <div class="sys" data-reveal><h3>Idle means idle</h3><p>Downloads are read only while a <code>.part</code> file exists. Nothing polls and nothing loops while nothing is live.</p></div>
+        </div>
+        <p class="center-more" data-reveal><a class="more" href="#try" data-try="island">Play it in the desktop model <span class="arr">→</span></a></p>
+      </div>
+    </section>
+
+    <!-- ============================================================ 06 DESKTOP -->
+    <section class="chapter chapter-wide" id="desktop" data-chapter="06 · DESKTOP">
+      <div class="wrap">
+        <div class="chapter-head">
+          <p class="num" data-reveal>06 <span>/ The everyday desktop</span></p>
           <h2 class="title" data-split>The parts you touch<br /><em>a thousand times a day.</em></h2>
-          <p class="body" data-reveal>A shell written from scratch in Quickshell: twenty modules, each one switched in <code>shell.json</code>. Nothing here is a theme over someone else's widgets.</p>
+          <p class="body" data-reveal>A shell written from scratch in Quickshell: twenty-five modules, each one switched in <code>shell.json</code>. Nothing here is a theme over someone else's widgets.</p>
         </div>
         <div class="bento" id="bento">
           <article class="tile tile-launcher" data-reveal>
             <div class="tile-demo" id="demo-launcher"></div>
             <div class="tile-text">
               <h3>Launcher</h3>
-              <p>Tap <kbd>Super</kbd>. Apps, files, windows, calculator, clipboard, emoji, wallpapers, web search, and <code>&gt;</code> for a command palette with every bind and its keys. Try it.</p>
+              <p>Tap <kbd>Super</kbd>. Apps, files, windows, calculator, clipboard, emoji, wallpapers, web search, and <code>&gt;</code> for a command palette with every bind and its keys. <code>+</code> opens the App Manager. Try it.</p>
             </div>
           </article>
           <article class="tile" data-reveal>
@@ -198,6 +237,13 @@
             </div>
             <div class="tile-text"><h3>Lock screen &amp; greeter</h3><p>hyprlock themed from the tokens, and a login screen that is its own small Hyprland + Quickshell on greetd, with a boot intro.</p></div>
           </article>
+          <article class="tile tile-wide tile-mission" data-reveal>
+            <div class="tile-demo mx" id="demo-mission"></div>
+            <div class="tile-text">
+              <h3>Mission Control</h3>
+              <p><kbd>Super</kbd><kbd>Tab</kbd> spreads every window of every desktop in rows, live, with the dock and the shelf alongside. <kbd>Super</kbd><kbd>Shift</kbd><kbd>Tab</kbd> (or <kbd>Space</kbd>) brings the desktops strip down. Fling a window up to close it; try it.</p>
+            </div>
+          </article>
           <article class="tile" data-reveal>
             <div class="tile-art art-batt" aria-hidden="true">
               <div class="batt-wrap"><b class="batt-num">80<small>%</small></b><div class="batt"><i style="--v:.8"></i></div></div>
@@ -206,12 +252,19 @@
             <div class="tile-text"><h3>Battery that lasts years</h3><p>Charging stops at 80% through UPower; <code>nox battery full</code> for travel days.</p></div>
           </article>
           <article class="tile" data-reveal>
-            <div class="tile-art art-ov" aria-hidden="true">
-              <i></i><i class="on"></i><i></i><i></i><i></i><i></i>
+            <div class="tile-art art-apps" aria-hidden="true">
+              <div class="ap-in"><b>+</b><span>obsidian</span></div>
+              <div class="ap-row"><i style="background:#7c5cff">O</i><span>obsidian<small>Flathub</small></span><em class="ap-src">flatpak</em></div>
+              <div class="ap-row"><i style="background:#3ddc97">O</i><span>obsidian<small>extra</small></span><em class="ap-src">pacman</em></div>
+              <div class="ap-row"><i style="background:#ffc24b">O</i><span>obsidian-bin<small>AUR</small></span><em class="ap-src">yay</em></div>
             </div>
-            <div class="tile-text"><h3>Overview, switcher, sessions</h3><p><kbd>Super</kbd><kbd>Tab</kbd> overview, <kbd>Alt</kbd><kbd>Tab</kbd> switcher, layouts on <kbd>Super</kbd><kbd>\</kbd>, and <code>nox ws save</code> to restore apps and window layout later.</p></div>
+            <div class="tile-text"><h3>App Manager</h3><p><code>+</code> in the launcher searches the repos, the AUR and Flathub at once, and adopts AppImages from Downloads. Installs run in a floating terminal that asks first.</p></div>
           </article>
-          <article class="tile" data-reveal>
+          <article class="tile tile-wide" data-reveal>
+            <div class="tile-demo dr" id="demo-draw"></div>
+            <div class="tile-text"><h3>Draw on screen</h3><p><kbd>Super</kbd><kbd>A</kbd>: a pointer with a comet tail, pens, a marker, arrows, boxes and a spotlight over everything. Pens fade two seconds after your last stroke; the marker stays. Draw on it.</p></div>
+          </article>
+          <article class="tile tile-wide" data-reveal>
             <div class="tile-art art-wall" aria-hidden="true"><i></i><i></i><i></i></div>
             <div class="tile-text"><h3>Wallpaper, Notes, widgets</h3><p>A slideshow and GPU upscaling for wallpapers, a Markdown notepad on <kbd>Ctrl</kbd><kbd>Super</kbd><kbd>S</kbd>, a desktop clock column and a commit grid.</p></div>
           </article>
@@ -219,11 +272,56 @@
       </div>
     </section>
 
-    <!-- ============================================================ 05 SHELF -->
-    <section class="chapter" id="shelf" data-chapter="05 · SHELF">
+    <!-- ============================================================ 07 HINTS -->
+    <section class="chapter chapter-flip" id="hints" data-chapter="07 · HINTS">
       <div class="wrap chapter-grid">
         <div class="chapter-copy">
-          <p class="num" data-reveal>05 <span>/ Drop shelf</span></p>
+          <p class="num" data-reveal>07 <span>/ Hint mode</span></p>
+          <h2 class="title" data-split>Click anything<br /><em>without the mouse.</em></h2>
+          <p class="body" data-reveal><kbd>Super</kbd><kbd>;</kbd> puts a two-letter label on everything you can click: windows, the bar, the dock and the focused app's own buttons. Type the letters and it is clicked. Here, focus the window, press <kbd>;</kbd> and type a label.</p>
+          <ul class="facts" data-reveal>
+            <li><span>source</span><span class="v">the app's accessibility tree over AT-SPI, read on demand: at most 300 elements in 250 ms</span></li>
+            <li><span>press</span><span class="v">through the element's own action, so the pointer never moves; a click is the fallback</span></li>
+            <li><span>labels</span><span class="v">home row only: <code>a s d f j k l ;</code></span></li>
+            <li><span>idle</span><span class="v">nothing runs while it is closed</span></li>
+          </ul>
+          <a class="more" href="#try" data-try="hints">Play it in the desktop model <span class="arr">→</span></a>
+        </div>
+        <div class="demo demo-hints" id="demo-hints" data-reveal></div>
+      </div>
+    </section>
+
+    <!-- ============================================================ 08 TOUCHES -->
+    <section class="chapter chapter-wide" id="touches" data-chapter="08 · TOUCHES">
+      <div class="wrap">
+        <div class="chapter-head">
+          <p class="num" data-reveal>08 <span>/ Small touches</span></p>
+          <h2 class="title" data-split>Things you only notice<br /><em>when they are missing.</em></h2>
+          <p class="body" data-reveal>Hyprland has no hot corners, dock folders or cursor finder, so the shell adds them. Each one is a switch in <code>shell.json</code>, and none of them runs anything while you are not using it.</p>
+        </div>
+        <div class="touch-grid">
+          <article class="tile" data-reveal>
+            <div class="tile-art art-hc" id="demo-corners"></div>
+            <div class="tile-text"><h3>Hot corners</h3><p>Rest the pointer in a corner for 150 ms: Mission Control, Control Center, show desktop, lock, or whatever <code>hotCorners</code> says. Flicking past does nothing.</p></div>
+          </article>
+          <article class="tile" data-reveal>
+            <div class="tile-art art-fd" id="demo-folder"></div>
+            <div class="tile-text"><h3>Dock folders</h3><p>Group apps into a folder in <code>dock.pinned</code>. Click it and they fan out in an arc above the dock.</p></div>
+          </article>
+          <article class="tile" data-reveal>
+            <div class="tile-art art-sk" id="demo-shake"></div>
+            <div class="tile-text"><h3>Shake to find the cursor</h3><p>Lost the pointer on a big screen? Shake the mouse and a ring blooms around it. The shake is detected in the compositor, in Lua.</p></div>
+          </article>
+        </div>
+        <p class="center-more" data-reveal><a class="more" href="#try" data-try="touches">Play them all in the desktop model <span class="arr">→</span></a></p>
+      </div>
+    </section>
+
+    <!-- ============================================================ 09 SHELF -->
+    <section class="chapter" id="shelf" data-chapter="09 · SHELF">
+      <div class="wrap chapter-grid">
+        <div class="chapter-copy">
+          <p class="num" data-reveal>09 <span>/ Drop shelf</span></p>
           <h2 class="title" data-split>Park it at the edge.<br /><em>Drop it anywhere later.</em></h2>
           <p class="body" data-reveal>Drag a file, text, an image or a link to the right edge of the screen and it waits there. Drag it out into any app when you need it. <kbd>Super</kbd><kbd>Shift</kbd><kbd>D</kbd> opens the shelf; Dolphin has <em>Send to Shelf</em> in its menu.</p>
           <ul class="facts" data-reveal>
@@ -236,11 +334,11 @@
       </div>
     </section>
 
-    <!-- ============================================================ 06 PHONE -->
-    <section class="chapter chapter-flip" id="phone" data-chapter="06 · PHONE">
+    <!-- ============================================================ 10 PHONE -->
+    <section class="chapter chapter-flip" id="phone" data-chapter="10 · PHONE">
       <div class="wrap chapter-grid">
         <div class="chapter-copy">
-          <p class="num" data-reveal>06 <span>/ Phone link</span></p>
+          <p class="num" data-reveal>10 <span>/ Phone link</span></p>
           <h2 class="title" data-split>Your phone is<br /><em>a remote for the desk.</em></h2>
           <p class="body" data-reveal>A lightweight KDE Connect daemon written in Rust (kdeconnect-rs), with a local patch that adds Remote Input: the phone becomes a touchpad and keyboard. Run-command buttons lock, sleep or screenshot the laptop from across the room. Works with the official KDE Connect app.</p>
           <ul class="facts" data-reveal>
@@ -253,11 +351,11 @@
       </div>
     </section>
 
-    <!-- ============================================================ 07 LOOK -->
-    <section class="chapter chapter-wide" id="look" data-chapter="07 · LOOK">
+    <!-- ============================================================ 11 LOOK -->
+    <section class="chapter chapter-wide" id="look" data-chapter="11 · LOOK">
       <div class="wrap">
         <div class="chapter-head">
-          <p class="num" data-reveal>07 <span>/ One file of tokens</span></p>
+          <p class="num" data-reveal>11 <span>/ One file of tokens</span></p>
           <h2 class="title" data-split>Change one value.<br /><em>Every app follows.</em></h2>
           <p class="body" data-reveal><code>tokens.json</code> holds every colour, radius, font and timing. Looks are overlays on top of it. <code>nox theme apply</code> renders them into GTK 3/4, KDE and Dolphin, Ghostty, kitty, fuzzel, btop, hyprlock and satty, with a backup, and the shell and Hyprland read the tokens live. Pick a look:</p>
         </div>
@@ -265,11 +363,11 @@
       </div>
     </section>
 
-    <!-- ============================================================ 08 FILES -->
-    <section class="chapter" id="files" data-chapter="08 · FILES">
+    <!-- ============================================================ 12 FILES -->
+    <section class="chapter" id="files" data-chapter="12 · FILES">
       <div class="wrap chapter-grid">
         <div class="chapter-copy">
-          <p class="num" data-reveal>08 <span>/ Files</span></p>
+          <p class="num" data-reveal>12 <span>/ Files</span></p>
           <h2 class="title" data-split>Dolphin,<br /><em>with a nox menu.</em></h2>
           <p class="body" data-reveal>Dolphin themed from the same tokens, with a right-click <em>nox</em> menu for the small jobs: a terminal here, copy the path, send to the shelf or the phone, and for images OCR, annotate, convert, halve, or strip EXIF and GPS. Right-click a file.</p>
         </div>
@@ -277,13 +375,13 @@
       </div>
     </section>
 
-    <!-- ============================================================ 09 TRY -->
-    <section class="chapter chapter-wide try" id="try" data-chapter="09 · TRY">
+    <!-- ============================================================ 13 TRY -->
+    <section class="chapter chapter-wide try" id="try" data-chapter="13 · TRY">
       <div class="wrap">
         <div class="chapter-head center">
-          <p class="num" data-reveal>09 <span>/ Try the whole desktop</span></p>
+          <p class="num" data-reveal>13 <span>/ Try the whole desktop</span></p>
           <h2 class="title" data-split>The desktop,<br /><em>in a browser tab.</em></h2>
-          <p class="body" data-reveal>A full interactive model of nox. Use it like the real one, or jump straight to a part.</p>
+          <p class="body" data-reveal>A full interactive model of nox. Use it like the real one, or jump straight to a part. In the model, <kbd>Alt</kbd> stands in for <kbd>Super</kbd>, so a browser tab can take the keys.</p>
         </div>
         <div class="try-frame" id="try-frame" data-reveal>
           <div class="try-chrome"><i></i><i></i><i></i><span>nox · /desktop</span><a href="/desktop/" class="try-full">Open fullscreen →</a></div>
@@ -301,7 +399,12 @@
           <button data-demo="notifications">Notifications</button>
           <button data-demo="ask">Circle to Ask</button>
           <button data-demo="voice">Voice</button>
-          <button data-demo="agents">Mission Control</button>
+          <button data-demo="popbar">Selection bar</button>
+          <button data-demo="island">Dynamic Island</button>
+          <button data-demo="hints">Hint mode</button>
+          <button data-demo="touches">Small touches</button>
+          <button data-demo="draw">Draw</button>
+          <button data-demo="agents">Agents</button>
           <button data-demo="shelf">Shelf</button>
           <button data-demo="overview">Overview</button>
           <button data-demo="switcher">Switcher</button>
@@ -319,11 +422,11 @@
       </div>
     </section>
 
-    <!-- ============================================================ 10 KEYS -->
-    <section class="chapter chapter-wide" id="keys" data-chapter="10 · KEYS">
+    <!-- ============================================================ 14 KEYS -->
+    <section class="chapter chapter-wide" id="keys" data-chapter="14 · KEYS">
       <div class="wrap">
         <div class="chapter-head">
-          <p class="num" data-reveal>10 <span>/ Keybinds</span></p>
+          <p class="num" data-reveal>14 <span>/ Keybinds</span></p>
           <h2 class="title" data-split>Keyboard first.<br /><em>Every bind, from the config.</em></h2>
           <p class="body" data-reveal>Straight from the Lua bind groups. In the real thing, <kbd>Super</kbd><kbd>/</kbd> shows this sheet and <kbd>Ctrl</kbd><kbd>Super</kbd><kbd>Space</kbd> searches it.</p>
         </div>
@@ -331,11 +434,11 @@
       </div>
     </section>
 
-    <!-- ============================================================ 11 SYSTEM -->
-    <section class="chapter chapter-wide" id="install" data-chapter="11 · INSTALL">
+    <!-- ============================================================ 15 SYSTEM -->
+    <section class="chapter chapter-wide" id="install" data-chapter="15 · INSTALL">
       <div class="wrap">
         <div class="chapter-head">
-          <p class="num" data-reveal>11 <span>/ One command</span></p>
+          <p class="num" data-reveal>15 <span>/ One command</span></p>
           <h2 class="title" data-split>A fresh Arch install<br /><em>to this, in one script.</em></h2>
           <p class="body" data-reveal><code>install.sh</code> is idempotent: every step checks first and prints <code>[ok]</code> when there is nothing to do. Machine facts go to git-ignored files, so the repo stays the same on every laptop. <code>nox doctor</code> gives every red line its fix.</p>
         </div>
@@ -360,7 +463,7 @@
     </section>
 
     <!-- ============================================================ OUTRO -->
-    <section class="outro" data-chapter="11 · INSTALL">
+    <section class="outro" data-chapter="15 · INSTALL">
       <div class="wrap">
         <p class="outro-word" aria-hidden="true">nox</p>
         <p class="outro-line">A personal system, not a distro. Public so anyone can clone it, run one script and get the same desktop.</p>

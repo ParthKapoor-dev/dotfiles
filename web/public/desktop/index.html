@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>nox — try the desktop</title>
-<meta name="description" content="A browser simulation of nox, a Hyprland + Quickshell desktop: bar, dock, launcher, control center, Circle to Ask, voice typing, agent mission control and more.">
+<meta name="description" content="A browser simulation of nox, a Hyprland + Quickshell desktop: bar, dock, launcher, control center, Circle to Ask, voice typing, agent mission control, the selection bar, the Dynamic Island, hint mode and more.">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#050505">
 <style>
@@ -105,7 +105,7 @@ svg{display:block;flex:none}
 @keyframes wallin{from{opacity:.0}to{opacity:1}}
 #stage.overview #wall{filter:brightness(.55) saturate(.9)}
 #desk{position:absolute;inset:0}
-#hotcorner{position:absolute;left:0;top:0;width:4px;height:4px;z-index:5000}
+#hotcorner{position:absolute;left:0;top:0;width:10px;height:10px;z-index:5000} /* 10px: the frame's rounded corner clips a 4px zone */
 #snapghost{position:absolute;left:0;top:0;border-radius:var(--r-win);background:rgba(var(--accent-rgb),.16);
   box-shadow:inset 0 0 0 1px rgba(var(--accent-rgb),.55);opacity:0;pointer-events:none;z-index:5;
   transition:opacity var(--t-fade) var(--ease),transform var(--t-sheet) var(--sheet),width var(--t-sheet) var(--sheet),height var(--t-sheet) var(--sheet)}
@@ -1240,6 +1240,10 @@ body.clean :is(#twbtn,#hint,#gr-chip){display:none!important}
      C4 Agent mission control  #agents (.mc-*) + bar dot (.agi)
      C5 Concepts menu (page chrome, unscaled) #cptbtn / #cpt (.cp-*)
      C6 Drop shelf ........... #shelf (.dsh-*, .th-*) + ghost, target overlay, demo cursor
+     C7 Selection bar ........ #popbar (.pb-*)
+     C8 Dynamic Island ....... #island (.isl-*)
+     C9 Click anything ....... #hints (.hk-*)
+     C10 Small touches ....... #findcur, hot corners (.hc, .hcg), #draw (.dr-*), show desktop (.pk-chip), #dfan (.df-*)
    Only shared tokens are used, so every preset skins them; Telemetry (the live
    look) gets square corners, mono labels and corner brackets at the end of each
    block. Reduced motion (OS setting or Tweaks > Motion > Reduced) is honoured
@@ -1978,6 +1982,362 @@ body.clean :is(#cptbtn,#cpt){display:none!important}
 :root[data-preset=obsidian] .dsh-tab{border-radius:12px 0 0 12px}
 :root[data-preset=obsidian] .dsh-th{border-radius:10px}
 
+/* ---------------- C7 · SELECTION BAR (#popbar .pb-*): PopClip-style actions over any selected text ----------------
+   Text inside app windows is selectable (browser pages, editors, terminal output, chat, notes). Releasing a selection
+   floats a small bar above it in the voice pill's material; actions that answer (Ask, Translate) open a card under the
+   bar and the stack grows upward so the selected text stays visible. Layer: above menus (4000), below overlays. */
+#stage .win :is(.page,.nv,.tout,.onote,.slmsgs .msg p,.eai){user-select:text;-webkit-user-select:text}
+#stage .win :is(.page :is(p,h1,h2,td,li,code,a,.callout,.crumb),.nv .nl,.tout > div,.msg p,.onote :is(h1,h3,li,p)){cursor:text}
+#stage .page a.lnk{color:#8ab4ff;text-decoration:underline;text-decoration-color:rgba(138,180,255,.35);text-underline-offset:2px;font-family:var(--mono);font-size:12px;word-break:break-all}
+#stage .win ::selection{background:rgba(var(--accent-rgb),.4);color:#fff}
+#popbar{position:absolute;left:0;top:0;z-index:4200;display:none;flex-direction:column;align-items:center;pointer-events:none;transform:translate(-50%,-100%);--ax:50%}
+#popbar.dn{transform:translate(-50%,0)}
+#popbar.show{display:flex}
+/* leader tick from the stack to the selection */
+#popbar::after{content:"";position:absolute;left:var(--ax);bottom:-9px;width:1px;height:7px;margin-left:-.5px;background:var(--accent);opacity:0;transition:opacity var(--t-fade) var(--ease)}
+#popbar::before{content:"";position:absolute;left:var(--ax);bottom:-11px;width:3px;height:3px;margin-left:-1.5px;background:var(--accent);opacity:0;transition:opacity var(--t-fade) var(--ease)}
+#popbar.dn::after{bottom:auto;top:-9px}
+#popbar.dn::before{bottom:auto;top:-11px}
+#popbar.in::after{opacity:.9}
+#popbar.in::before{opacity:1}
+.pb-bar{position:relative;display:flex;align-items:center;gap:1px;height:40px;padding:0 5px;border-radius:20px;white-space:nowrap;pointer-events:auto;overflow:hidden;
+  background:rgba(var(--glass-rgb),calc(var(--glass-a) + .16));-webkit-backdrop-filter:blur(var(--blur)) saturate(var(--sat));backdrop-filter:blur(var(--blur)) saturate(var(--sat));
+  box-shadow:0 18px 50px rgba(0,0,0,.55),var(--rim);
+  opacity:0;transform:translateY(7px) scale(.92);transform-origin:var(--ax) 100%;
+  transition:opacity var(--t-fade) var(--ease),transform calc(520ms*var(--mv)*var(--slowk)) var(--dsh-spring),width calc(420ms*var(--mv)*var(--slowk)) var(--sheet)}
+:root.noglass .pb-bar{background:rgb(var(--surface-rgb))}
+#popbar.dn .pb-bar{transform:translateY(-7px) scale(.92);transform-origin:var(--ax) 0}
+#popbar.in .pb-bar{opacity:1;transform:none}
+#popbar.out .pb-card{opacity:0;transition:opacity calc(160ms*var(--fd)) var(--ease)}
+#popbar.out .pb-bar{opacity:0;transform:scale(.96);transition:opacity calc(160ms*var(--fd)) var(--ease),transform calc(200ms*var(--fd)) var(--ease)}
+.pb-c{position:relative;height:30px;padding:0 10px 0 8px;border-radius:15px;display:flex;align-items:center;gap:7px;flex:none;font-size:12px;color:var(--label);
+  transition:background var(--t-pop) var(--ease),color var(--t-pop),box-shadow var(--t-pop),transform var(--t-pop) var(--ease)}
+#popbar.in .pb-c{animation:pbIn calc(360ms*var(--fd)*var(--slowk)) var(--ease) both;animation-delay:calc(var(--d,0ms) * var(--fd))}
+@keyframes pbIn{from{opacity:0;transform:translateY(3px);filter:blur(3px)}}
+.pb-c:hover{background:var(--fill2)}
+.pb-c:active{transform:scale(.95)}
+.pb-c svg{width:14px;height:14px;color:var(--label2);transition:color var(--t-pop)}
+.pb-c:hover svg{color:var(--label)}
+.pb-c .spk{fill:currentColor;stroke:none;color:var(--accent)}
+.pb-c.ask:hover .spk{color:var(--accent)}
+.pb-c.ask{box-shadow:inset 0 0 0 1px rgba(var(--accent-rgb),.38)}
+.pb-c.ask:hover{background:rgba(var(--accent-rgb),.14)}
+.pb-c.on{background:rgba(var(--accent-rgb),.15);box-shadow:inset 0 0 0 1px rgba(var(--accent-rgb),.6)}
+.pb-c.on svg{color:var(--accent)}
+.pb-c.ok{color:var(--label2)}
+.pb-c.ok svg{color:var(--green)}
+.pb-c .nb{font-family:var(--num-font);font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent);letter-spacing:0}
+.pb-c.case .lb{text-transform:none!important}
+.pb-c.more{padding:0 8px}
+.pb-c.more svg{width:16px;height:16px}
+.pb-c.ov{display:none}
+.pb-bar.all .pb-c.ov{display:flex}
+.pb-bar.all .pb-c.more{display:none}
+.pb-sep{width:1px;height:16px;margin:0 3px;background:var(--sep);flex:none}
+/* speak: the chip's icon becomes a live level meter */
+.pb-eq{display:flex;align-items:center;gap:2px;width:14px;height:14px}
+.pb-eq i{flex:1;height:30%;border-radius:1px;background:var(--accent);animation:pbEq 700ms ease-in-out infinite}
+.pb-eq i:nth-child(2){animation-delay:-.25s}.pb-eq i:nth-child(3){animation-delay:-.5s}.pb-eq i:nth-child(4){animation-delay:-.1s}
+@keyframes pbEq{50%{height:100%}}
+/* answer card under the bar */
+.pb-card{position:relative;align-self:center;width:420px;margin-top:0;height:0;border-radius:var(--r-panel);overflow:hidden;pointer-events:auto;display:flex;flex-direction:column;
+  background:rgba(var(--glass-rgb),calc(var(--glass-a) + .17));-webkit-backdrop-filter:blur(var(--blur)) saturate(var(--sat));backdrop-filter:blur(var(--blur)) saturate(var(--sat));
+  box-shadow:0 34px 90px rgba(0,0,0,.65),0 0 0 .5px rgba(0,0,0,.9),var(--rim);opacity:0;transform:translateY(-4px) scale(.985);
+  transition:height calc(460ms*var(--mv)*var(--slowk)) var(--sheet),margin calc(460ms*var(--mv)*var(--slowk)) var(--sheet),opacity var(--t-fade) var(--ease),transform calc(460ms*var(--mv)*var(--slowk)) var(--sheet)}
+:root.noglass .pb-card{background:rgb(var(--surface-rgb))}
+#popbar.pbx .pb-card{height:var(--ch,0px);margin-top:8px;opacity:1;transform:none}
+.pb-ci{position:absolute;left:0;right:0;top:0;display:flex;flex-direction:column}
+.pb-ci .ak-body{max-height:230px;padding-bottom:6px}
+.pb-ci .ak-h b{white-space:nowrap}
+.pb-tr{padding:13px 15px 6px}
+.pb-tr .src{font-size:11.5px;line-height:1.5;color:var(--label3);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pb-tr .dst{margin-top:9px;font-size:14px;line-height:1.5;color:var(--label);text-wrap:pretty}
+.pb-tr .dst code{font-family:var(--mono);font-size:12px;padding:1px 5px;border-radius:4px;background:var(--fill2)}
+.pb-w{animation:voIn calc(260ms*var(--fd)) var(--ease) both}
+.pb-lang{display:flex;align-items:center;gap:6px}
+.pb-lang span{height:18px;padding:0 6px;border-radius:4px;display:grid;place-items:center;font:600 9.5px/1 var(--label-font);letter-spacing:.08em;color:var(--label2);box-shadow:inset 0 0 0 1px var(--hair2)}
+.pb-lang span.to{color:var(--on-accent);background:var(--accent);box-shadow:none}
+.pb-lang svg{width:11px;height:11px;color:var(--label3)}
+.pb-acts{display:flex;gap:6px;padding:8px 13px 12px}
+.pb-b{height:26px;padding:0 10px;border-radius:13px;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--label);background:var(--fill);box-shadow:inset 0 0 0 .5px var(--hair2);transition:background var(--t-pop),transform var(--t-pop) var(--ease)}
+.pb-b:hover{background:var(--fill2)}
+.pb-b:active{transform:scale(.96)}
+.pb-b svg{width:12px;height:12px;color:var(--label2)}
+.pb-b.pri{background:var(--accent);color:var(--on-accent);box-shadow:none}
+.pb-b.pri svg{color:var(--on-accent)}
+.pb-acts .pb-b:last-child{margin-left:auto}
+.pb-ci .ak-in{margin-top:2px}
+:root[data-preset=telemetry] .pb-bar{border-radius:5px;background:#060606;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:0 18px 50px rgba(0,0,0,.7),inset 0 0 0 1px rgba(255,255,255,.14)}
+:root[data-preset=telemetry] .pb-c{border-radius:3px;font:500 10.5px/1 var(--label-font);letter-spacing:.07em;text-transform:uppercase}
+:root[data-preset=telemetry] .pb-c .nb{font-size:15px;font-weight:900;font-variation-settings:"ROND" 100;letter-spacing:.02em}
+:root[data-preset=telemetry] .pb-card{border-radius:6px;background:#070707;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:0 30px 80px rgba(0,0,0,.8),inset 0 0 0 1px rgba(255,255,255,.14)}
+:root[data-preset=telemetry] :is(.pb-b,.pb-lang span){border-radius:3px}
+:root[data-preset=telemetry] .pb-b{font:500 10px/1 var(--label-font);letter-spacing:.07em;text-transform:uppercase}
+:root[data-preset=telemetry] .pb-eq i{border-radius:0}
+:root[data-preset=obsidian] .pb-c,:root[data-preset=obsidian] .pb-b{border-radius:999px}
+
+/* ---------------- C8 · DYNAMIC ISLAND (#island .isl-*): live activities in the menu bar's empty centre ----------------
+   One black pill hanging in the bar. It morphs (width / height / radius on the shelf spring) between the most important
+   live activity and expands into a card on hover. Other live activities show as mini glyphs at its right end; a click
+   cycles through them. Hidden with the bar in Mission Control / screenshots, and in the Current preset (no bar). */
+#island{position:absolute;left:50%;top:3px;z-index:950;width:var(--iw,40px);height:calc(var(--bar-h) - 6px);border-radius:calc((var(--bar-h) - 6px) / 2);overflow:hidden;
+  color:var(--label);background:#000;box-shadow:inset 0 0 0 1px var(--hair),0 6px 18px rgba(0,0,0,.35);
+  transform:translateX(-50%) scale(.6);opacity:0;pointer-events:none;cursor:default;
+  transition:width calc(620ms*var(--mv)*var(--slowk)) var(--dsh-spring),height calc(620ms*var(--mv)*var(--slowk)) var(--dsh-spring),border-radius calc(420ms*var(--mv)*var(--slowk)) var(--sheet),
+    transform calc(520ms*var(--mv)*var(--slowk)) var(--dsh-spring),opacity var(--t-fade) var(--ease),box-shadow var(--t-fade) var(--ease)}
+#island.live{opacity:1;transform:translateX(-50%);pointer-events:auto}
+#island.open{width:var(--xw,372px);height:var(--xh,120px);border-radius:var(--r-panel);box-shadow:inset 0 0 0 1px var(--hair2),0 28px 70px rgba(0,0,0,.65),0 0 0 .5px rgba(0,0,0,.9)}
+#island.need:not(.open){animation:islNeed 1.6s ease-in-out infinite}
+@keyframes islNeed{0%,100%{box-shadow:inset 0 0 0 1px rgba(var(--accent-rgb),.55),0 0 0 0 rgba(var(--accent-rgb),.45),0 6px 18px rgba(0,0,0,.35)}50%{box-shadow:inset 0 0 0 1px rgba(var(--accent-rgb),.95),0 0 0 5px rgba(var(--accent-rgb),0),0 0 22px rgba(var(--accent-rgb),.35)}}
+#island.bump:not(.open){animation:islBump calc(520ms*var(--mv)) var(--dsh-spring)}
+@keyframes islBump{40%{transform:translateX(-50%) scale(1.07)}}
+#stage.overview #island,#stage.shooting #island{transform:translate(-50%,-180%);opacity:0;pointer-events:none}
+:root[data-preset=current] #island{display:none}
+.isl-c{position:absolute;left:0;right:0;top:0;height:calc(var(--bar-h) - 6px);transition:opacity calc(160ms*var(--fd)) var(--ease)}
+#island.open .isl-c{opacity:0;pointer-events:none}
+.isl-l{position:absolute;left:50%;top:0;height:100%;width:max-content;display:flex;align-items:center;gap:7px;padding:0 11px 0 10px;white-space:nowrap;transform:translateX(-50%);
+  font-size:12px;transition:opacity calc(240ms*var(--fd)) var(--ease),filter calc(240ms*var(--fd)) var(--ease),transform calc(420ms*var(--mv)) var(--dsh-spring)}
+.isl-l.enter{opacity:0;filter:blur(5px);transform:translateX(-50%) scale(.9)}
+.isl-l.leave{opacity:0;filter:blur(5px);transform:translateX(-50%) scale(1.08)}
+.isl-t{font-weight:500;color:var(--label)}
+.isl-t.acc{color:var(--accent)}
+.isl-m{font:500 10px/1 var(--label-font);letter-spacing:.06em;text-transform:uppercase;color:var(--label3);font-variant-numeric:tabular-nums}
+.isl-l svg{width:13px;height:13px;color:var(--label2)}
+.isl-spin{width:11px;height:11px;border-radius:50%;border:1.5px solid var(--fill3);border-top-color:var(--accent);animation:spin 800ms linear infinite;flex:none}
+.isl-ping{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:agPing 1.3s ease-out infinite;flex:none}
+.isl-rec{width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 8px rgba(255,69,58,.8);animation:islBlink 1.4s ease-in-out infinite;flex:none}
+@keyframes islBlink{50%{opacity:.35}}
+.isl-ok{width:14px;height:14px;border-radius:50%;display:grid;place-items:center;background:rgba(var(--accent-rgb),.16);box-shadow:inset 0 0 0 1px rgba(var(--accent-rgb),.6);flex:none}
+.isl-ok svg{width:8px!important;height:8px!important;color:var(--accent)!important}
+.isl-art{width:15px;height:15px;border-radius:3px;flex:none;background:var(--art,linear-gradient(135deg,#1a0f0a,#c2410c 55%,#fbbf24));box-shadow:inset 0 0 0 .5px rgba(255,255,255,.2)}
+.isl-eq{display:flex;align-items:flex-end;gap:2px;height:11px;width:14px}
+.isl-eq i{flex:1;height:35%;border-radius:1px;background:var(--accent);animation:pbEq 900ms ease-in-out infinite}
+.isl-eq i:nth-child(2){animation-delay:-.3s}.isl-eq i:nth-child(3){animation-delay:-.6s}.isl-eq i:nth-child(4){animation-delay:-.15s}
+.isl-eq.paused i{animation:none;height:25%;background:var(--label3)}
+.isl-bar{width:38px;height:3px;border-radius:2px;background:var(--fill2);overflow:hidden;flex:none}
+.isl-bar i{display:block;height:100%;background:var(--accent);border-radius:inherit;transition:width 600ms var(--ease)}
+.isl-ring{width:14px;height:14px;flex:none;transform:rotate(-90deg)}
+.isl-ring circle{fill:none;stroke-width:2.4}
+.isl-ring .bg{stroke:var(--fill3)}
+.isl-ring .fg{stroke:var(--accent);stroke-linecap:round;transition:stroke-dashoffset 600ms var(--ease)}
+.isl-mic{width:7px;height:7px;border-radius:50%;background:var(--orange);box-shadow:0 0 8px rgba(255,159,10,.75);flex:none}
+.isl-o{display:flex;align-items:center;gap:5px;margin-left:3px;padding-left:9px;box-shadow:inset 1px 0 0 var(--sep);height:12px}
+.isl-o i{position:relative;display:grid;place-items:center;width:12px;height:12px;color:var(--label3)}
+.isl-o i svg{width:11px!important;height:11px!important;color:inherit!important}
+.isl-o i.hot{color:var(--accent)}
+.isl-o i.hot::after{content:"";position:absolute;right:-2px;top:-2px;width:4px;height:4px;border-radius:50%;background:var(--accent)}
+/* expanded card */
+.isl-x{position:absolute;left:0;top:0;width:var(--xw,372px);padding:13px 14px 12px;opacity:0;pointer-events:none;transition:opacity calc(160ms*var(--fd)) var(--ease)}
+#island.open .isl-x{opacity:1;pointer-events:auto;transition:opacity calc(260ms*var(--fd)) var(--ease) calc(140ms*var(--fd))}
+.isl-xh{display:flex;align-items:center;gap:11px}
+.isl-xi{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;flex:none;background:var(--fill2);color:var(--label);overflow:hidden}
+.isl-xi svg{width:17px;height:17px}
+.isl-xi.acc{background:var(--accent);color:var(--on-accent)}
+.isl-xi.rec{background:rgba(255,69,58,.16);color:var(--red)}
+.isl-xi .isl-art{width:34px;height:34px;border-radius:9px}
+.isl-xh small{display:block;margin-bottom:4px;font:500 9.5px/1 var(--label-font);letter-spacing:.1em;text-transform:uppercase;color:var(--label3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.isl-xh b{display:block;font-size:14px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.isl-xh > div{min-width:0;flex:1}
+.isl-xr{font:300 22px/1 var(--num-font);font-variant-numeric:tabular-nums;color:var(--label);letter-spacing:-.01em;flex:none}
+.isl-xr.acc{color:var(--accent)}
+.isl-xb{margin-top:12px;font-size:12px;line-height:1.45;color:var(--label2)}
+.isl-xb code{font:11px var(--mono);padding:1px 4px;border-radius:3px;background:var(--fill2);color:var(--label)}
+.isl-xb .mono{font:11px/1.5 var(--mono);color:var(--label3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.isl-xb .mono b{color:var(--label2);font-weight:500}
+.isl-xb .mono i{font-style:normal;color:var(--green)}
+.isl-pr{height:4px;border-radius:2px;background:var(--fill2);overflow:hidden;margin:2px 0 8px}
+.isl-pr i{display:block;height:100%;border-radius:inherit;background:var(--accent);transition:width 600ms var(--ease)}
+.isl-tm{display:flex;justify-content:space-between;font:500 10px/1 var(--label-font);color:var(--label3);font-variant-numeric:tabular-nums;margin-top:-2px}
+.isl-q{padding:8px 10px;border-radius:7px;background:rgba(var(--accent-rgb),.09);box-shadow:inset 2px 0 0 var(--accent);color:var(--label)}
+.isl-lv{display:flex;align-items:center;gap:3px;height:22px}
+.isl-lv i{flex:1;height:20%;border-radius:1px;background:var(--label3);animation:pbEq 800ms ease-in-out infinite;animation-delay:calc(var(--k) * -70ms)}
+.isl-lv i:nth-child(3n){background:var(--accent)}
+.isl-xa{display:flex;align-items:center;gap:7px;margin-top:12px}
+.isl-b{height:28px;padding:0 12px;border-radius:14px;display:flex;align-items:center;gap:7px;font-size:12px;font-weight:500;color:var(--label);background:var(--fill2);transition:background var(--t-pop),transform var(--t-pop) var(--ease)}
+.isl-b:hover{background:var(--fill3)}
+.isl-b:active{transform:scale(.95)}
+.isl-b svg{width:12px;height:12px}
+.isl-b.pri{background:var(--accent);color:var(--on-accent)}
+.isl-b.pri:hover{filter:brightness(1.08)}
+.isl-b.ico{width:32px;padding:0;justify-content:center}
+.isl-b.ico svg{width:13px;height:13px}
+.isl-xt{display:flex;gap:4px;margin-left:auto}
+.isl-tab{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;color:var(--label3);transition:background var(--t-pop),color var(--t-pop)}
+.isl-tab svg{width:12px;height:12px}
+.isl-tab:hover{background:var(--fill);color:var(--label)}
+.isl-tab.on{background:var(--fill2);color:var(--label)}
+.isl-tab.hot{color:var(--accent)}
+.isl-big{font:700 38px/1 var(--num-font);letter-spacing:-.01em;font-variant-numeric:tabular-nums;color:var(--label)}
+:root[data-preset=telemetry] #island{border-radius:4px;background:#000;box-shadow:inset 0 0 0 1px rgba(255,255,255,.16)}
+:root[data-preset=telemetry] #island.open{border-radius:6px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2),0 28px 70px rgba(0,0,0,.8)}
+:root[data-preset=telemetry] #island.open::after{content:"";position:absolute;left:0;top:0;width:10px;height:10px;pointer-events:none;box-shadow:inset 1.5px 1.5px 0 var(--accent)}
+:root[data-preset=telemetry] .isl-t{font:500 11px/1 var(--label-font);letter-spacing:.06em;text-transform:uppercase}
+:root[data-preset=telemetry] :is(.isl-ping,.isl-rec,.isl-mic,.isl-o i.hot::after){border-radius:0}
+:root[data-preset=telemetry] .isl-spin{border-radius:1px}
+:root[data-preset=telemetry] :is(.isl-art,.isl-xi,.isl-xi .isl-art){border-radius:2px}
+:root[data-preset=telemetry] :is(.isl-b,.isl-tab,.isl-q){border-radius:3px}
+:root[data-preset=telemetry] .isl-b{font:500 10.5px/1 var(--label-font);letter-spacing:.07em;text-transform:uppercase}
+:root[data-preset=telemetry] .isl-xh b{font:600 12.5px/1.2 var(--label-font);letter-spacing:.05em;text-transform:uppercase}
+:root[data-preset=telemetry] :is(.isl-xr,.isl-big){font-weight:800;font-variation-settings:"ROND" 100}
+:root[data-preset=telemetry] .isl-xr{font-size:20px}
+:root[data-preset=telemetry] .isl-pr{height:7px;border-radius:0;background:radial-gradient(circle at 2.5px 3.5px,rgba(255,255,255,.16) 1.4px,transparent 1.8px) 0 0/6px 7px}
+:root[data-preset=telemetry] .isl-pr i{border-radius:0;background:radial-gradient(circle at 2.5px 3.5px,var(--accent) 1.5px,transparent 1.9px) 0 0/6px 7px}
+:root[data-preset=telemetry] .isl-bar{height:4px;border-radius:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.16) 0 3px,transparent 3px 5px)}
+:root[data-preset=telemetry] .isl-bar i{border-radius:0;background:repeating-linear-gradient(90deg,var(--accent) 0 3px,transparent 3px 5px)}
+:root[data-preset=obsidian] #island{top:5px;height:calc(var(--bar-h) - 10px)}
+:root[data-preset=obsidian] .isl-c{height:calc(var(--bar-h) - 10px)}
+
+/* ---------------- C9 · CLICK ANYTHING (#hints .hk-*): Homerow-style keyboard hints ----------------
+   Super+Shift+F (mock: Alt+Shift+F) labels every visible clickable thing with a two-letter home-row keycap.
+   Typing filters (non-matching keycaps dim), a full match flashes and clicks. Above everything but lock / login. */
+#hints{position:absolute;inset:0;z-index:7050;display:none;pointer-events:none}
+#hints.on{display:block}
+#hints::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 40%,rgba(0,0,0,.05),rgba(0,0,0,.28));opacity:0;transition:opacity var(--t-fade) var(--ease)}
+#hints.in::before{opacity:1}
+.hk{position:absolute;left:0;top:0;height:19px;min-width:25px;padding:0 4px;display:flex;align-items:center;justify-content:center;border-radius:4px;
+  font:700 11px/1 var(--label-font);letter-spacing:.06em;color:var(--on-accent);background:var(--accent);
+  box-shadow:inset 0 -2px 0 rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.28),0 0 0 1px rgba(0,0,0,.75),0 4px 12px rgba(0,0,0,.55);
+  transform:translate(-50%,-50%) scale(.4);opacity:0;
+  transition:opacity calc(150ms*var(--fd)) var(--ease) var(--d,0ms),transform calc(420ms*var(--mv)*var(--slowk)) var(--dsh-spring) var(--d,0ms),filter var(--t-pop)}
+#hints.in .hk{opacity:1;transform:translate(-50%,-50%)}
+.hk b{font-weight:700;min-width:7px;text-align:center;transition:opacity var(--t-pop)}
+.hk b.typed{opacity:.42}
+#hints.in .hk.miss{opacity:.14;transform:translate(-50%,-50%) scale(.8);filter:saturate(0);transition-delay:0ms}
+#hints.in .hk.match{transform:translate(-50%,-50%) scale(1.08);transition-delay:0ms}
+#hints.in .hk.hit{background:#fff;color:#000;transform:translate(-50%,-50%) scale(1.3);transition-delay:0ms}
+#hints.out .hk:not(.hit){opacity:0;transform:translate(-50%,-50%) scale(.6);transition-delay:0ms}
+.hk-ring{position:absolute;pointer-events:none;border-radius:6px;box-shadow:0 0 0 2px var(--accent),0 0 0 6px rgba(var(--accent-rgb),.18),0 0 30px rgba(var(--accent-rgb),.5);animation:hkRing calc(650ms*var(--fd)) var(--ease) both}
+@keyframes hkRing{0%{opacity:0;transform:scale(1.25)}30%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1)}}
+.hk-pill{position:absolute;left:50%;bottom:calc(var(--dock) + 44px);height:34px;display:flex;align-items:center;gap:10px;padding:0 7px 0 13px;border-radius:17px;white-space:nowrap;
+  font-size:12.5px;color:var(--label2);background:rgba(var(--glass-rgb),.92);box-shadow:0 18px 50px rgba(0,0,0,.55),var(--rim);
+  opacity:0;transform:translate(-50%,10px);transition:opacity var(--t-fade) var(--ease),transform calc(460ms*var(--mv)) var(--dsh-spring)}
+#hints.in .hk-pill{opacity:1;transform:translate(-50%,0)}
+#hints.out .hk-pill{opacity:0;transform:translate(-50%,6px)}
+.hk-pill.shake{animation:hkShake calc(360ms*var(--fd)) var(--ease)}
+@keyframes hkShake{20%,60%{transform:translate(calc(-50% - 5px),0)}40%,80%{transform:translate(calc(-50% + 5px),0)}}
+.hk-pill > i{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px rgba(var(--accent-rgb),.9)}
+.hk-pill b{font:600 10px/1 var(--label-font);letter-spacing:.12em;text-transform:uppercase;color:var(--label)}
+.hk-pill .n{font:500 10px/1 var(--label-font);letter-spacing:.06em;color:var(--label3);font-variant-numeric:tabular-nums}
+.hk-buf{min-width:44px;height:22px;padding:0 8px;border-radius:5px;display:flex;align-items:center;gap:1px;font:700 12px/1 var(--label-font);letter-spacing:.08em;color:var(--accent);background:rgba(0,0,0,.4);box-shadow:inset 0 0 0 1px var(--hair)}
+.hk-buf::after{content:"";width:6px;height:12px;margin-left:2px;background:var(--accent);animation:akBlink 900ms steps(1) infinite}
+.hk-pill kbd{font-size:10.5px}
+:root[data-preset=telemetry] .hk{border-radius:2px;font-size:10.5px}
+:root[data-preset=telemetry] .hk-pill{border-radius:4px;background:#060606;font:500 11px/1 var(--label-font);letter-spacing:.06em;text-transform:uppercase;box-shadow:0 18px 50px rgba(0,0,0,.7),inset 0 0 0 1px rgba(255,255,255,.14)}
+:root[data-preset=telemetry] :is(.hk-pill > i,.hk-buf::after){border-radius:0}
+:root[data-preset=telemetry] .hk-buf{border-radius:2px}
+:root[data-preset=telemetry] .hk-ring{border-radius:3px}
+
+/* ---------------- C10 · SMALL TOUCHES: shake to find the cursor · hot corners (+ draw, show desktop) · dock stack fan ---------------- */
+/* shake to find: an enlarged pointer blooms at the tip, a ring pings out */
+#findcur{position:absolute;left:0;top:0;z-index:7080;pointer-events:none;width:0;height:0}
+#findcur .fc-a{position:absolute;left:-3px;top:-2px;width:66px;height:78px;transform-origin:3px 2px;transform:scale(.33);opacity:0;filter:drop-shadow(0 6px 16px rgba(0,0,0,.6)) drop-shadow(0 0 18px rgba(var(--accent-rgb),.45));
+  transition:transform calc(380ms*var(--mv)*var(--slowk)) var(--dsh-spring),opacity calc(140ms*var(--fd)) var(--ease)}
+#findcur .fc-a svg{width:100%;height:100%}
+#findcur.on .fc-a{transform:scale(1);opacity:1}
+#findcur .fc-r{position:absolute;left:-60px;top:-60px;width:120px;height:120px;border-radius:50%;box-shadow:0 0 0 1.5px rgba(var(--accent-rgb),.9),inset 0 0 30px rgba(var(--accent-rgb),.25);opacity:0}
+#findcur.ping .fc-r{animation:fcRing calc(900ms*var(--fd)) var(--ease) both}
+#findcur.ping .fc-r:nth-child(2){animation-delay:calc(160ms*var(--fd))}
+@keyframes fcRing{0%{opacity:.9;transform:scale(.2)}100%{opacity:0;transform:scale(1.5)}}
+/* hot corners: 4 px trigger zones, a quarter glow + bracket + label when the pointer arrives */
+.hc{position:absolute;width:10px;height:10px;z-index:5000}
+.hc.tr{left:auto;right:0;top:0}.hc.bl{top:auto;bottom:0;left:0}.hc.br{left:auto;top:auto;right:0;bottom:0}
+.hcg{position:absolute;width:190px;height:190px;z-index:4990;pointer-events:none;opacity:0;transition:opacity calc(260ms*var(--fd)) var(--ease)}
+.hcg.tl{left:0;top:0}.hcg.tr{right:0;top:0}.hcg.bl{left:0;bottom:0}.hcg.br{right:0;bottom:0}
+.hcg::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at var(--o),rgba(var(--accent-rgb),.34),rgba(var(--accent-rgb),.08) 38%,transparent 68%)}
+.hcg.tl{--o:0 0}.hcg.tr{--o:100% 0}.hcg.bl{--o:0 100%}.hcg.br{--o:100% 100%}
+.hcg::after{content:"";position:absolute;width:34px;height:34px;border:0 solid var(--accent);filter:drop-shadow(0 0 6px rgba(var(--accent-rgb),.9))}
+.hcg.tl::after{left:3px;top:3px;border-width:2px 0 0 2px}.hcg.tr::after{right:3px;top:3px;border-width:2px 2px 0 0}
+.hcg.bl::after{left:3px;bottom:3px;border-width:0 0 2px 2px}.hcg.br::after{right:3px;bottom:3px;border-width:0 2px 2px 0}
+.hcg.on{opacity:1}
+.hcg.fire::before{animation:hcFire calc(600ms*var(--fd)) var(--ease)}
+@keyframes hcFire{30%{opacity:1;filter:brightness(1.8)}}
+.hcg span{position:absolute;height:22px;padding:0 9px;border-radius:5px;display:flex;align-items:center;gap:7px;white-space:nowrap;font:600 9.5px/1 var(--label-font);letter-spacing:.12em;text-transform:uppercase;
+  color:var(--label);background:rgba(var(--glass-rgb),.94);box-shadow:0 8px 24px rgba(0,0,0,.5),inset 0 0 0 1px rgba(var(--accent-rgb),.5);opacity:0;transform:scale(.9);
+  transition:opacity var(--t-fade) var(--ease),transform calc(420ms*var(--mv)) var(--dsh-spring)}
+.hcg span svg{width:12px;height:12px;color:var(--accent)}
+.hcg.on span{opacity:1;transform:none}
+.hcg.tl span{left:44px;top:calc(var(--bar-h) + 12px)}.hcg.tr span{right:44px;top:calc(var(--bar-h) + 12px)}.hcg.bl span{left:44px;bottom:30px}.hcg.br span{right:44px;bottom:30px}
+.hcg.off span{color:var(--label3);box-shadow:0 8px 24px rgba(0,0,0,.5),inset 0 0 0 1px var(--hair2)}
+.hcg.off::after{border-color:var(--label3);filter:none}
+.hcg.off::before{background:radial-gradient(circle at var(--o),rgba(255,255,255,.1),transparent 55%)}
+/* draw on screen */
+#draw{position:absolute;inset:0;z-index:4500;display:none;cursor:crosshair;touch-action:none}
+#draw.on{display:block}
+#draw canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+#draw::before{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 0 2px rgba(var(--accent-rgb),.55),inset 0 0 60px rgba(var(--accent-rgb),.12);opacity:0;transition:opacity var(--t-fade) var(--ease)}
+#draw.in::before{opacity:1}
+.dr-bar{position:absolute;left:50%;top:calc(var(--bar-h) + 14px);height:36px;display:flex;align-items:center;gap:4px;padding:0 5px 0 12px;border-radius:18px;cursor:default;white-space:nowrap;
+  background:rgba(var(--glass-rgb),.94);box-shadow:0 18px 50px rgba(0,0,0,.55),var(--rim);opacity:0;transform:translate(-50%,-10px);
+  transition:opacity var(--t-fade) var(--ease),transform calc(460ms*var(--mv)) var(--dsh-spring)}
+#draw.in .dr-bar{opacity:1;transform:translate(-50%,0)}
+.dr-bar b{font:600 10px/1 var(--label-font);letter-spacing:.12em;text-transform:uppercase;color:var(--label);margin-right:6px;display:flex;align-items:center;gap:7px}
+.dr-bar b i{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px rgba(var(--accent-rgb),.9)}
+.dr-sw{width:24px;height:24px;border-radius:50%;display:grid;place-items:center}
+.dr-sw i{width:12px;height:12px;border-radius:50%;background:var(--c);box-shadow:0 0 0 1px rgba(0,0,0,.5)}
+.dr-sw.on{box-shadow:inset 0 0 0 1.5px var(--label)}
+.dr-sep{width:1px;height:16px;background:var(--sep);margin:0 4px}
+.dr-b{height:26px;padding:0 10px;border-radius:13px;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--label2)}
+.dr-b:hover{background:var(--fill2);color:var(--label)}
+.dr-b svg{width:12px;height:12px}
+.dr-b kbd{font-size:10px}
+/* show desktop: windows zoom away, a chip says how to come back */
+#stage #desk{transition:transform calc(700ms*var(--mv)*var(--slowk)) var(--sheet),filter calc(500ms*var(--fd)) var(--ease),opacity calc(420ms*var(--fd)*var(--slowk)) var(--ease)}
+#stage.peek #desk{opacity:0;transform:scale(1.08);pointer-events:none}
+#stage.peek #banners{opacity:0;pointer-events:none}
+.pk-chip{position:absolute;left:50%;bottom:calc(var(--dock) + 44px);z-index:2350;height:32px;display:flex;align-items:center;gap:9px;padding:0 6px 0 12px;border-radius:16px;white-space:nowrap;pointer-events:none;
+  font-size:12px;color:var(--label2);background:rgba(var(--glass-rgb),.92);box-shadow:0 18px 50px rgba(0,0,0,.5),var(--rim);opacity:0;transform:translate(-50%,10px);
+  transition:opacity var(--t-fade) var(--ease),transform calc(460ms*var(--mv)) var(--dsh-spring)}
+#stage.peek .pk-chip{opacity:1;transform:translate(-50%,0)}
+.pk-chip svg{width:13px;height:13px;color:var(--accent)}
+.pk-chip kbd{font-size:10.5px}
+/* dock stack fan (Downloads): items arc up out of the tile, staggered */
+#dfan{position:absolute;inset:0;z-index:845;pointer-events:none}
+.df-it{position:absolute;left:0;top:0;width:50px;height:50px;margin:-25px 0 0 -25px;pointer-events:none;opacity:0;
+  transform:translate(var(--x0),var(--y0)) scale(.3);
+  transition:transform calc(560ms*var(--mv)*var(--slowk)) var(--dsh-spring) var(--d,0ms),opacity calc(200ms*var(--fd)) var(--ease) var(--d,0ms)}
+#dfan.open .df-it{opacity:1;pointer-events:auto;transform:translate(var(--x),var(--y)) rotate(var(--r))}
+#dfan.closing .df-it{transition:transform calc(300ms*var(--mv)*var(--slowk)) var(--sheet) var(--d,0ms),opacity calc(220ms*var(--fd)) var(--ease) var(--d,0ms)}
+.df-ic{position:absolute;inset:0;display:grid;place-items:center;transition:transform calc(320ms*var(--mv)) var(--dsh-spring);filter:drop-shadow(0 6px 12px rgba(0,0,0,.55))}
+.df-ic .th{width:48px;height:36px;border-radius:4px;background-size:cover;background-position:center;box-shadow:0 0 0 2px #f2f2f4,0 0 0 2.5px rgba(0,0,0,.4)}
+.df-l{position:absolute;right:calc(100% + 8px);top:50%;transform:translateY(-50%);max-width:220px;height:22px;padding:0 9px;border-radius:11px;display:flex;align-items:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-size:12px;color:var(--label);background:rgba(var(--glass-rgb),.9);box-shadow:0 6px 18px rgba(0,0,0,.45),var(--rim);transition:background var(--t-pop),color var(--t-pop)}
+.df-it:hover .df-ic{transform:scale(1.12)}
+.df-it:hover .df-l{background:var(--accent);color:var(--on-accent)}
+.df-it.top .df-ic svg{width:40px;height:40px}
+.df-it.top .df-ic{filter:none}
+.df-it.top .df-ic > span{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:rgba(var(--glass-rgb),.94);box-shadow:0 8px 20px rgba(0,0,0,.5),var(--rim);color:var(--label)}
+.df-it.top .df-ic > span svg{width:16px;height:16px}
+.dt.fanned .ico{filter:brightness(1.15)!important}
+:root[data-preset=telemetry] .dt.fanned .ico{filter:none!important}
+:root[data-preset=telemetry] :is(.hcg span,.dr-bar,.pk-chip,.df-l,.dr-b){border-radius:3px}
+:root[data-preset=telemetry] :is(.hcg span,.dr-bar,.pk-chip,.df-l){background:#060606;box-shadow:0 10px 30px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.14)}
+:root[data-preset=telemetry] .hcg:not(.off) span{box-shadow:0 10px 30px rgba(0,0,0,.6),inset 0 0 0 1px rgba(var(--accent-rgb),.6)}
+:root[data-preset=telemetry] :is(.dr-bar,.pk-chip){font:500 11px/1 var(--label-font);letter-spacing:.06em;text-transform:uppercase}
+:root[data-preset=telemetry] .df-l{font:500 10.5px/1 var(--label-font);letter-spacing:.05em;text-transform:uppercase}
+:root[data-preset=telemetry] .df-it:hover .df-l{background:var(--accent);color:var(--on-accent);box-shadow:0 10px 30px rgba(0,0,0,.6)}
+:root[data-preset=telemetry] :is(.dr-bar b i,.dr-sw,.dr-sw i){border-radius:1px}
+:root[data-preset=telemetry] .df-it.top .df-ic > span{border-radius:3px;background:#060606}
+
+/* tweaks: hot-corner picker (page-level, unscaled; matches the Tweaks panel chrome) */
+.hc-map{position:relative;height:132px;margin:2px 0 4px;border-radius:10px;background:rgba(0,0,0,.35);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.1)}
+.hc-map .scr{position:absolute;left:50%;top:50%;width:100px;height:56px;margin:-28px 0 0 -50px;border-radius:4px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22);
+  background:radial-gradient(circle at 1px 1px,rgba(255,255,255,.14) .8px,transparent 1px) 0 0/7px 7px}
+.hc-map .scr::before{content:"";position:absolute;left:0;right:0;top:0;height:5px;background:rgba(255,255,255,.12)}
+.hc-map .scr::after{content:"";position:absolute;left:34%;right:34%;bottom:3px;height:5px;border-radius:2px;background:rgba(255,255,255,.14)}
+.hc-k{position:absolute;height:26px;min-width:84px;padding:0 9px;border-radius:7px;display:flex;align-items:center;gap:6px;font-size:11.5px;color:rgba(255,255,255,.88);background:rgba(255,255,255,.07);
+  box-shadow:inset 0 0 0 .5px rgba(255,255,255,.12);transition:background 160ms,box-shadow 160ms}
+.hc-k:hover{background:rgba(255,255,255,.12)}
+.hc-k svg{width:12px;height:12px;color:var(--accent);flex:none}
+.hc-k.off{color:rgba(255,255,255,.4)}
+.hc-k.off svg{color:rgba(255,255,255,.35)}
+.hc-k::after{content:"";position:absolute;width:6px;height:6px;border:0 solid var(--accent)}
+.hc-k.tl{left:8px;top:8px}.hc-k.tr{right:8px;top:8px}.hc-k.bl{left:8px;bottom:8px}.hc-k.br{right:8px;bottom:8px}
+.hc-k.tl::after{left:-1px;top:-1px;border-width:1.5px 0 0 1.5px}.hc-k.tr::after{right:-1px;top:-1px;border-width:1.5px 1.5px 0 0}
+.hc-k.bl::after{left:-1px;bottom:-1px;border-width:0 0 1.5px 1.5px}.hc-k.br::after{right:-1px;bottom:-1px;border-width:0 1.5px 1.5px 0}
+.hc-k.off::after{border-color:rgba(255,255,255,.25)}
+.hc-k.flash{animation:hcK 420ms cubic-bezier(.25,.1,.25,1)}
+@keyframes hcK{40%{background:rgba(var(--accent-rgb),.3)}}
+
 /* ---------------- reduced motion (OS setting or Tweaks > Motion > Reduced) ---------------- */
 :root[data-motion=reduced] :is(.cx-grain,.vo-dot,.agd,.ak-caret,.ak-think i,.ak-shim,.ag-pulse,.ag-think i,.mc-ping,.mc-spin,.dt-cur,.mc-t,.mc-feed > div,.vo-ghost .w,.vo-ghost .cap,.ask-glow,.ask-ants,.ag-st .ag-sp){animation:none!important}
 @media (prefers-reduced-motion:reduce){
@@ -1994,6 +2354,12 @@ body.clean :is(#cptbtn,#cpt){display:none!important}
   #shelf.over .dsh-p{transform:translate(0,-50%)}
 }
 :root[data-motion=reduced] #stage.asking :is(#wall,#desk,#widgets),:root[data-motion=reduced] #stage.agents-open :is(#desk,#widgets){transform:none}
+:root[data-motion=reduced] :is(.isl-spin,.isl-ping,.isl-rec,.isl-eq i,.isl-lv i,.pb-eq i,#island,.hk-buf::after,.hk-pill,#findcur .fc-r,.hcg::before,.pb-c,.pb-w){animation:none!important}
+:root[data-motion=reduced] #stage.peek #desk{transform:none}
+@media (prefers-reduced-motion:reduce){
+  :is(.isl-spin,.isl-ping,.isl-rec,.isl-eq i,.isl-lv i,.pb-eq i,#island,.hk-buf::after,.hk-pill,#findcur .fc-r,.hcg::before,.pb-c,.pb-w){animation:none!important}
+  #stage.peek #desk{transform:none}
+}
 /* ============ PUBLIC SITE: embed mode + back link ============ */
 #noxback{position:fixed;left:max(16px,env(safe-area-inset-left,0px));top:9px;z-index:130;font:500 12px/18px var(--ui);letter-spacing:.01em;
   color:rgba(255,255,255,.55);text-decoration:none;padding:0 4px;border-radius:5px;transition:color 160ms}
@@ -2189,6 +2555,7 @@ const DEFAULTS = {
   glass: true, blur: 24, glassA: 0.78, radius: 12, barH: 30,
   dockShow: true, dockSize: 52, mag: true, gaps: 10, focus: 'shadow', lights: true,
   layout: 'floating', motion: 'mac', slow: false, fs: 13, widgets: false,
+  hcTL: 'mission', hcTR: 'off', hcBL: 'draw', hcBR: 'desktop', /* hot corners (23k) */
 };
 const PRESETS = {
   sequoia: { accent: '#0A84FF', palette: 'tinted', wall: 'blue', font: 'sf', glass: true, blur: 30, glassA: 0.6, radius: 12, barH: 30, dockShow: true, dockSize: 56, mag: true, gaps: 10, focus: 'shadow', lights: true, motion: 'mac', fs: 13, widgets: false },
@@ -2588,7 +2955,9 @@ const PAGES = {
     </table>
     <div class="callout">Focus without a border: keep <code>border_size = 1</code> with a white 12% hairline, and let <code>shadow:color_inactive</code> carry focus.</div>
     <h2>animations</h2>
-    <p>Define curves with <code>bezier = NAME, X0, Y0, X1, Y1</code>. Apple's system curve is <code>0.25, 0.1, 0.25, 1</code>; sheets use <code>0.32, 0.72, 0, 1</code>.</p>` },
+    <p>Define curves with <code>bezier = NAME, X0, Y0, X1, Y1</code>. Apple's system curve is <code>0.25, 0.1, 0.25, 1</code>; sheets use <code>0.32, 0.72, 0, 1</code>.</p>
+    <p>At 144 Hz, a 380 ms window animation is <code>380 * 144 / 1000</code> frames, so keep curves short and front-loaded.</p>
+    <p class="crumb">Source: <a class="lnk">https://wiki.hypr.land/Configuring/Animations/</a></p>` },
   github: { fav: favi('G', '#24292F'), host: 'github.com', path: '/quickshell-mirror/quickshell', title: 'quickshell-mirror/quickshell', html: () => `
     <div class="gh-head">${ic('folder', 'style="width:18px;height:18px;color:#8e8e93"')}<span style="color:#7cc4ff">quickshell-mirror</span> / <b>quickshell</b> <span class="gh-tag">Public</span></div>
     <div class="gh-files">
@@ -2672,9 +3041,9 @@ const VIEWS = {
       ['Kai', '12:40', 'does blur hold up on nvidia? <code>passes = 3</code> was fine for me at 144hz, only layers blurred', '+1 3'],
     ];
     return {
-      title: 'desktop-redesign (Channel) - void labs',
+      title: 'desktop-redesign (Channel) - nox labs',
       body: `<div class="sl"><div class="slside scroll">
-        <div class="slws"><i>v</i>void labs</div>
+        <div class="slws"><i>n</i>nox labs</div>
         <div class="slh">Channels</div>
         <button class="slc">${ic('hash', 'style="width:14px;height:14px"')}general</button>
         <button class="slc on">${ic('hash', 'style="width:14px;height:14px"')}desktop-redesign</button>
@@ -2784,7 +3153,7 @@ function renderFiles(w) {
       ? `<div class="fgrid scroll">${items.map(([n, t], i) => `<div class="ff" data-i="${i}"><div class="fi">${t === 'dir' ? folderSvg() : fileSvg(t)}</div><span>${esc(n)}</span></div>`).join('')}</div>`
       : `<div class="flist scroll"><div class="fr hd"><span>Name</span><span>Date Modified</span><span>Size</span></div>${items.map(([n, t], i) => `<div class="fr" data-i="${i}"><span class="nm">${t === 'dir' ? folderSvg(18) : fileSvg(t, 16)}${esc(n)}</span><span class="m">17 Oct 2026, ${10 + (i % 3)}:${(12 + i * 7) % 60 < 10 ? '0' : ''}${(12 + i * 7) % 60}</span><span class="m">${t === 'dir' ? '—' : (1 + i * 13 % 90) + ' KB'}</span></div>`).join('')}</div>`;
   $('.fm', w.el).innerHTML = `<div class="fside scroll"><div class="fh">Favourites</div>${side.map(([n, i]) => `<button class="fit${(w.folder === n || (n === 'code' && ['nox', 'design', 'projects', 'code'].includes(w.folder))) ? ' on' : ''}" data-go="${n}">${ic(i)}${n}</button>`).join('')}
-    <div class="fh">Locations</div><button class="fit" data-go="Home">${ic('drive')}void (NVMe)</button><button class="fit${w.folder === 'Trash' ? ' on' : ''}" data-go="Trash">${ic('trash')}Trash</button></div>
+    <div class="fh">Locations</div><button class="fit" data-go="Home">${ic('drive')}nox (NVMe)</button><button class="fit${w.folder === 'Trash' ? ' on' : ''}" data-go="Trash">${ic('trash')}Trash</button></div>
     <div class="fmain">${main}<div class="fstat">${items.length} items, 312.4 GB available</div></div>`;
   w.title = f.path[f.path.length - 1];
   $$('[data-go]', w.el).forEach((b) => b.addEventListener('click', () => { w.folder = b.dataset.go; renderFiles(w); MenuBar.update(); }));
@@ -3185,7 +3554,7 @@ const Pops = {
   },
   wifi() {
     return `<div class="pop-h">Wi-Fi<button class="switch${R.wifi ? ' on' : ''}" data-p="wifi" role="switch" aria-checked="${R.wifi}" aria-label="Wi-Fi"></button></div>
-      ${R.wifi ? `<div class="psec">Known Network</div><div class="prow on"><span class="pic">${ic('wifi')}</span><span>void-5G</span><span class="r">${ic('lock', 'style="width:12px;height:12px"')}</span></div>
+      ${R.wifi ? `<div class="psec">Known Network</div><div class="prow on"><span class="pic">${ic('wifi')}</span><span>nox-5G</span><span class="r">${ic('lock', 'style="width:12px;height:12px"')}</span></div>
       <div class="psec">Other Networks</div>${['Home', 'Studio 5G', 'Pixel hotspot'].map((n) => `<div class="prow" data-net="${n}"><span class="pic">${ic('wifi')}</span><span>${n}</span><span class="r">${ic('lock', 'style="width:12px;height:12px"')}</span></div>`).join('')}` : '<div class="psec" style="padding-bottom:10px">Wi-Fi is off</div>'}
       <div class="msep"></div><div class="mi" data-p="settings">Wi-Fi Settings…</div>`;
   },
@@ -3394,7 +3763,7 @@ const Dock = {
     const r = rectOf(t.el); return { x: r.x + r.w / 2, y: r.y + r.h / 2 };
   },
   click(app) {
-    const A = APPS[app]; if (A.stack) { openFolder(A.stack); return; }
+    const A = APPS[app]; if (A.stack) { if (app === 'downloads') DockFan.toggle(app); else openFolder(A.stack); return; }
     const mine = R.wins.filter((w) => w.app === app);
     if (!mine.length) { launch(app); return; }
     const f = focused();
@@ -3468,7 +3837,7 @@ const CC = {
     const tg = (k, on, icon, name, sub) => `<button class="ctog${on ? ' on' : ''}" data-t="${k}" aria-pressed="${on}"><span class="ci">${ic(icon)}</span><span style="min-width:0"><div class="cn">${name}</div><div class="cs">${sub}</div></span></button>`;
     this.el.innerHTML = `
       <div class="mod span2 row2" style="display:flex;flex-direction:column;justify-content:space-around">
-        ${tg('wifi', R.wifi, R.wifi ? 'wifi' : 'wifiOff', 'Wi-Fi', R.wifi ? 'void-5G' : 'Off')}
+        ${tg('wifi', R.wifi, R.wifi ? 'wifi' : 'wifiOff', 'Wi-Fi', R.wifi ? 'nox-5G' : 'Off')}
         ${tg('bt', R.bt, R.bt ? 'bt' : 'btOff', 'Bluetooth', R.bt ? 'JBL Tune 770NC' : 'Off')}
         ${tg('airplane', R.airplane, 'plane', 'Airplane', R.airplane ? 'On' : 'Off')}
       </div>
@@ -3567,7 +3936,7 @@ const NC = {
       <div class="card glass"><div class="mt">Today <small>Saturday, 17 October</small></div><div class="agenda">
         ${[['var(--accent)', '13:00 – 13:30', 'Design review · nox tokens'], ['var(--green)', '15:30 – 16:30', 'Gym'], ['var(--orange)', '19:30', 'Dinner with Mom']].map(([c, t, n]) => `<div class="ag"><i style="background:${c}"></i><div>${n}<small>${t}</small></div></div>`).join('')}</div></div>
       <div class="card glass"><div class="mt">Batteries</div><div class="batt">
-        ${[['laptop', R.battery, 'void'], ['headphones', 80, 'JBL 770NC'], ['mouse', 64, 'MX Master 3S']].map(([i, p, n]) => `<div><div class="ring" style="--p:${p}%"><i>${ic(i)}</i></div>${p}%<br>${n}</div>`).join('')}</div></div>`;
+        ${[['laptop', R.battery, 'nox'], ['headphones', 80, 'JBL 770NC'], ['mouse', 64, 'MX Master 3S']].map(([i, p, n]) => `<div><div class="ring" style="--p:${p}%"><i>${ic(i)}</i></div>${p}%<br>${n}</div>`).join('')}</div></div>`;
   },
   init() {
     this.el.addEventListener('click', (e) => {
@@ -3867,7 +4236,7 @@ const Widgets = {
         <button class="wg-play" data-media="toggle" aria-label="Play or pause"><span class="np-pp">${ic(Media.playing ? 'pause' : 'play')}</span></button></div>
         ${this.chart(this.wave, 4, 0.8)}<div class="prog"><i class="np-bar" style="width:${(Media.pos / Media.dur) * 100}%"></i></div></div>${go}</div>
       <div class="wgw"><div class="wg"><div class="wg-h"><span class="n">05</span>Network</div>
-        <div class="wg-big tnum">${net}<small>MB/s</small></div>${this.chart(this.net, 5, 0.85)}<div class="wg-sub"><span>wlan0</span><b>void-5G</b></div></div></div>
+        <div class="wg-big tnum">${net}<small>MB/s</small></div>${this.chart(this.net, 5, 0.85)}<div class="wg-sub"><span>wlan0</span><b>nox-5G</b></div></div></div>
       <div class="wgw"><div class="wg"><div class="wg-h"><span class="n">06</span>Next</div>
         <div class="wg-big tnum">13:00</div><div class="wg-sub" style="flex-direction:column;gap:3px"><b style="text-transform:none;font-family:var(--ui);font-size:13px;letter-spacing:0">Design review</b><span>in 15 min · Meet</span></div></div></div>`;
   },
@@ -3894,7 +4263,7 @@ const Lock = {
       <div class="lk-c"><div class="lk-date">Saturday, 17 October</div><div class="lk-time">${hhmm()}</div>
         <div class="lk-np">${npBlock()}</div>
         <div class="lk-user"><div class="avatar">Y</div><div class="lk-name">You</div>
-          <div class="lk-meta"><div><small>Host</small>void · arch</div><div><small>Session</small>hyprland 0.56</div><div><small>Uptime</small>1d 03:12</div><div><small>Status</small><b>Locked</b></div></div>
+          <div class="lk-meta"><div><small>Host</small>nox · arch</div><div><small>Session</small>hyprland 0.56</div><div><small>Uptime</small>1d 03:12</div><div><small>Status</small><b>Locked</b></div></div>
           <div class="lk-pw"><input type="password" placeholder="Enter Password" aria-label="Password"><button aria-label="Unlock">${ic('arrowR')}</button></div>
           <div class="lk-hint">Any password unlocks this mock · hyprlock on the real system</div></div></div>`;
     this.el.classList.add('open', 'enter'); raf(() => raf(() => this.el.classList.remove('enter')));
@@ -3962,12 +4331,12 @@ const Login = {
   render() {
     const s = SESSIONS[this.sess];
     this.el.innerHTML = `<div class="lk-bg" style="background-image:url(${wall(S.wall)})"></div><div class="gr-scrim"></div>
-      <div class="gr-st"><span>${ic('laptop')}void</span><span><span class="gr-kb" title="Keyboard layout">EN</span></span><span>${ic(R.wifi ? 'wifi' : 'wifiOff')}${R.wifi ? 'void-5G' : 'Offline'}</span><span>${batteryIcon(R.battery)}${R.battery}%</span></div>
+      <div class="gr-st"><span>${ic('laptop')}nox</span><span><span class="gr-kb" title="Keyboard layout">EN</span></span><span>${ic(R.wifi ? 'wifi' : 'wifiOff')}${R.wifi ? 'nox-5G' : 'Offline'}</span><span>${batteryIcon(R.battery)}${R.battery}%</span></div>
       <div class="lk-c"><div class="lk-date">Saturday, 17 October</div><div class="lk-time">${hhmm()}</div>
         <div class="lk-user gr-user">
           <div class="gr-hd"><span>Login</span><span>greetd · tty1</span></div>
           <div class="gr-who"><div class="avatar">Y</div><div class="gr-id"><div class="lk-name">You</div><div class="gr-un">you</div></div></div>
-          <div class="lk-meta"><div><small>Host</small>void · arch</div><div><small>Uptime</small>00:00:41</div><div><small>Keyboard</small>EN · US</div><div><small>Status</small><b class="gr-stt">Ready</b></div></div>
+          <div class="lk-meta"><div><small>Host</small>nox · arch</div><div><small>Uptime</small>00:00:41</div><div><small>Keyboard</small>EN · US</div><div><small>Status</small><b class="gr-stt">Ready</b></div></div>
           <div class="lk-pw gr-pw"><input type="password" placeholder="Password" aria-label="Password" autocomplete="current-password" spellcheck="false">
             <span class="gr-caps" title="Caps Lock is on">${ic('caps')}</span>
             <span class="gr-eye" role="button" tabindex="0" aria-label="Show password" title="Show password">${ic('eye')}</span>
@@ -4231,13 +4600,13 @@ Cheats.el.addEventListener('pointerdown', (e) => { if (e.target === Cheats.el) C
    ========================================================================== */
 function fastfetch() {
   const logo = ['       /\\        ', '      /  \\       ', '     /\\   \\      ', '    /      \\     ', '   /   ,,   \\    ', '  /   |  |  -\\   ', ' /_-\'\'    \'\'-_\\  ', '                 ', '                 ', '                 ', '                 '];
-  const info = [['', '<span class="a-c">you</span>@<span class="a-c">void</span>'], ['', '<span class="a-d">──────────</span>'], ['OS', 'Arch Linux x86_64'], ['Kernel', '6.18.35-1-lts'], ['WM', 'Hyprland 0.56 (Wayland)'], ['Shell', 'zsh 5.9'], ['Display', '1920x1080 @ 1.25x, 144 Hz'], ['Theme', `nox (${S.preset})`], ['Font', 'SF Pro Text 13 · SF Mono 12.5'], ['Terminal', 'ghostty 1.3.1'], ['GPU', 'NVIDIA (nvidia-open 610.43)']];
+  const info = [['', '<span class="a-c">you</span>@<span class="a-c">nox</span>'], ['', '<span class="a-d">──────────</span>'], ['OS', 'Arch Linux x86_64'], ['Kernel', '6.18.35-1-lts'], ['WM', 'Hyprland 0.56 (Wayland)'], ['Shell', 'zsh 5.9'], ['Display', '1920x1080 @ 1.25x, 144 Hz'], ['Theme', `nox (${S.preset})`], ['Font', 'SF Pro Text 13 · SF Mono 12.5'], ['Terminal', 'ghostty 1.3.1'], ['GPU', 'NVIDIA (nvidia-open 610.43)']];
   const blocks = ['#1c1c1e', '#FF453A', '#30D158', '#FFD60A', '#0A84FF', '#BF5AF2', '#64D2FF', '#f2f2f7'].map((c) => `<span class="blk" style="background:${c}"></span>`).join('');
   return info.map(([k, v], i) => `<span class="a-c">${esc(logo[i] || '')}</span>  ${k ? `<span class="a-c a-w">${k}</span>: ` : ''}${v}`).join('\n') + `\n${' '.repeat(19)}${blocks}`;
 }
 function initTerminal(w) {
   const inp = $('.tin', w.el), out = $('.tout', w.el), bot = $('.tsp.bot', w.el);
-  bot.addEventListener('click', () => inp.focus());
+  bot.addEventListener('click', () => { const sl = getSelection(); if (sl && !sl.isCollapsed && bot.contains(sl.anchorNode)) return; inp.focus(); });
   const hist = []; let hi = 0;
   const print = (html) => { $('.pr', out).insertAdjacentHTML('beforebegin', `<div>${html}</div>`); };
   inp.addEventListener('keydown', (e) => {
@@ -4398,13 +4767,18 @@ const Tweaks = {
         ${row('Curve', seg('motion', [['mac', 'macOS'], ['snap', 'Snappy'], ['material', 'Bounce'], ['reduced', 'Reduced']]), '', 'motion')}
         ${tog('slow', 'Slow motion ×3', 'Mock only: inspect windows, dock, panels and workspace slides')}
       </div>
+      ${HotCorners.twHTML()}
       <div class="tw-s"><h3>Concepts · not decided</h3><div class="tw-acts">
         <button class="tbtn" data-twa="c-ask">${ic('lasso', 'style="width:14px;height:14px"')}Circle to Ask</button>
         <button class="tbtn" data-twa="c-voice">${ic('mic', 'style="width:14px;height:14px"')}Voice typing</button>
         <button class="tbtn" data-twa="c-agent">${ic('sparkle', 'style="width:14px;height:14px"')}Agent bar</button>
         <button class="tbtn" data-twa="c-mission">${ic('grid', 'style="width:14px;height:14px"')}Mission control</button>
-        <button class="tbtn full" data-twa="c-shelf">${ic('shelf', 'style="width:14px;height:14px"')}Drop shelf</button></div>
-        <div class="tw-n">Scripted demos. Keys: Alt+Shift+A · hold Ctrl/Alt+Space · Alt+Shift+Space (or “&gt;” in the launcher) · Alt+Shift+M · Alt+Shift+D. Links: #concept/ask, #concept/voice, #concept/agent, #concept/mission, #concept/shelf, #concept/shelf-try, #concept/menu.</div></div>
+        <button class="tbtn full" data-twa="c-shelf">${ic('shelf', 'style="width:14px;height:14px"')}Drop shelf</button>
+        <button class="tbtn" data-twa="c-popbar">${ic('clip', 'style="width:14px;height:14px"')}Selection bar</button>
+        <button class="tbtn" data-twa="c-island">${ic('sparkle', 'style="width:14px;height:14px"')}Dynamic Island</button>
+        <button class="tbtn" data-twa="c-hints">${ic('keyboard', 'style="width:14px;height:14px"')}Click anything</button>
+        <button class="tbtn" data-twa="c-touches">${ic('pointer', 'style="width:14px;height:14px"')}Small touches</button></div>
+        <div class="tw-n">Scripted demos. Keys: Alt+Shift+A · hold Ctrl/Alt+Space · Alt+Shift+Space (or “&gt;” in the launcher) · Alt+Shift+M · Alt+Shift+D · Alt+Shift+P (selection bar) · Alt+Shift+I (island) · Alt+Shift+F (hints) · Alt+Shift+T (touches). Links: #concept/ask, #concept/voice, #concept/agent, #concept/mission, #concept/shelf, #concept/shelf-try, #concept/popbar, #concept/island, #concept/hints, #concept/touches, #concept/menu.</div></div>
       <div class="tw-s"><h3>Try it</h3><div class="tw-acts">
         <button class="tbtn" data-twa="notify">${ic('bell', 'style="width:14px;height:14px"')}Notification</button>
         <button class="tbtn" data-twa="launcher">${ic('search', 'style="width:14px;height:14px"')}Launcher</button>
@@ -4426,6 +4800,7 @@ const Tweaks = {
         setS({ [k]: typeof d === 'number' ? parseFloat(v.dataset.v) : typeof d === 'boolean' ? v.dataset.v === 'true' : v.dataset.v }); return;
       }
       const t = e.target.closest('[data-tk]'); if (t) { setS({ [t.dataset.tk]: !S[t.dataset.tk] }); return; }
+      const hc = e.target.closest('[data-hc]'); if (hc) { HotCorners.cycle(hc.dataset.hc); return; }
       const a = e.target.closest('[data-twa]'); if (!a) return;
       const act = a.dataset.twa;
       if (act === 'close') this.close();
@@ -4459,6 +4834,7 @@ const Tweaks = {
     $$('[data-vk]', el).forEach((n) => { const k = n.dataset.vk; n.textContent = (k === 'glassA' ? Math.round(S[k] * 100) + '%' : S[k] + n.dataset.u); });
     $$('[data-tk]', el).forEach((b) => { $('.switch', b).classList.toggle('on', !!S[b.dataset.tk]); b.setAttribute('aria-checked', !!S[b.dataset.tk]); });
     $$('[data-nk]', el).forEach((n) => { const m = NOTES[n.dataset.nk]; n.textContent = m ? (m[String(S[n.dataset.nk])] || '') : ''; });
+    HotCorners.syncTw(el);
   },
 };
 const Hint = {
@@ -4503,9 +4879,7 @@ stage.addEventListener('contextmenu', (e) => {
     '-', { label: 'Mission Control', act: () => Overview.open() }, { label: 'Design Tweaks…', act: () => Tweaks.open() },
   ], p.x, p.y);
 });
-let hcT = 0;
-$('#hotcorner').addEventListener('mouseenter', () => { clearTimeout(hcT); hcT = setTimeout(() => { if (!R.locked && !Shot.isOpen && !Launcher.isOpen) Overview.toggle(); }, 140); });
-$('#hotcorner').addEventListener('mouseleave', () => clearTimeout(hcT));
+/* hot corners: all four corners, one action each (Tweaks > Hot corners); see 23k HotCorners */
 let wheelAcc = 0, wheelLock = 0, wheelReset = 0;
 stage.addEventListener('wheel', (e) => {
   if (Math.abs(e.deltaX) <= Math.abs(e.deltaY) * 1.2 || R.locked) return;
@@ -4586,6 +4960,11 @@ window.addEventListener('blur', () => { if (Switcher.isOpen) Switcher.commit(); 
      23e Agent mission control  Super+Shift+M (mock: Alt+Shift+M) + bar dot .... #agents
      23f Concepts menu, cheat sheet rows, launcher commands, key routing, URL hooks
      23g Drop shelf ........... Super+Shift+D (mock: Alt+Shift+D) + drag to the right edge  #shelf
+     23h Selection bar ........ select text in any window (demo: Alt+Shift+P) ........... #popbar
+     23i Dynamic Island ....... bar centre, hover / click (demo: Alt+Shift+I) ........... #island
+     23j Click anything ....... Super+Shift+F (mock: Alt+Shift+F) ....................... #hints
+     23k Small touches ........ shake to find · hot corners · draw · show desktop · dock fan (demo: Alt+Shift+T)
+     23l wiring for 23h–23k (concepts rows, cheat sheet, launcher, keys)
    Everything is fake but believable: no real data, nothing leaves the page.
    ========================================================================== */
 
@@ -5597,7 +5976,7 @@ SYS.push(
 const Concepts = {
   el: $('#cpt'), btn: $('#cptbtn'), isOpen: false, spaceDown: false, held: false, holdT: 0,
   build() {
-    this.el.innerHTML = `<div class="cp-h"><b>Concepts</b><small>5 ideas · not decided</small><button class="x" data-cpa="close" aria-label="Close">${ic('x')}</button></div>
+    this.el.innerHTML = `<div class="cp-h"><b>Concepts</b><small>${CONCEPTS.length} ideas · not decided</small><button class="x" data-cpa="close" aria-label="Close">${ic('x')}</button></div>
       ${CONCEPTS.map((c, i) => `<div class="cp-row"><span class="cp-n">${pad(i + 1)}</span><div><b>${esc(c.name)}</b><p>${esc(c.pitch)}</p>
         <div class="cp-k">${c.keys.map((k) => (k === 'hold' ? '<em>hold</em>' : `<kbd>${esc(k)}</kbd>`)).join('')}<small>${esc(c.alias)}</small></div>
         <div class="cp-acts"><button class="cp-b pri" data-cpa="play" data-id="${c.id}">${ic('play')}Play demo</button><button class="cp-b" data-cpa="${c.extra[0]}" data-id="${c.id}">${c.id === 'voice' ? ic('mic') : ''}${esc(c.extra[1])}</button>${c.id === 'voice' ? '<button class="cp-b" data-cpa="mic" title="Ask for microphone permission so the waveform follows your voice">Use mic</button>' : ''}</div></div></div>`).join('')}
@@ -5607,7 +5986,7 @@ const Concepts = {
       const a = b.dataset.cpa;
       if (a === 'close') this.close();
       else if (a === 'play') this.play(b.dataset.id);
-      else if (a === 'try') { this.close(); if (b.dataset.id === 'ask') Ask.open(); else if (b.dataset.id === 'agent') Launcher.open('', { agent: true }); else if (b.dataset.id === 'shelf') { Demo.stop(); Shelf.handsOn(); } else Agents.open(); }
+      else if (a === 'try') { this.close(); if (CPT_TRY[b.dataset.id]) { Demo.stop(); CPT_TRY[b.dataset.id](); } else if (b.dataset.id === 'ask') Ask.open(); else if (b.dataset.id === 'agent') Launcher.open('', { agent: true }); else if (b.dataset.id === 'shelf') { Demo.stop(); Shelf.handsOn(); } else Agents.open(); }
       else if (a === 'mic') this.askMic();
     });
     const hold = $('[data-cpa="hold"]', this.el);
@@ -5626,8 +6005,9 @@ const Concepts = {
   close() { if (!this.isOpen) return; this.isOpen = false; this.el.classList.remove('open'); this.btn.classList.remove('on'); },
   toggle() { if (this.isOpen) this.close(); else this.open(); },
   play(id) {
-    this.close(); Tweaks.close(); if (Shelf.demoOn) Shelf.demoEnd(); const tok = Demo.start();
-    if (id === 'ask') Ask.open({ demo: true });
+    this.close(); Tweaks.close(); if (Shelf.demoOn) Shelf.demoEnd(); const tok = Demo.start(); Extras.reset();
+    if (CPT_PLAY[id]) { Ask.close(); Agents.close(true); Launcher.close(); CPT_PLAY[id](tok); }
+    else if (id === 'ask') Ask.open({ demo: true });
     else if (id === 'voice') { Ask.close(); Agents.close(true); Launcher.close(); Voice.demo(tok); }
     else if (id === 'agent') { Ask.close(); Agents.close(true); Agent.demo(tok); }
     else if (id === 'mission') Agents.demo(tok);
@@ -5638,6 +6018,7 @@ const Concepts = {
     const typing = isTyping(e.target), sup = e.altKey || e.metaKey;
     if (Ask.isOpen) { if (e.key === 'Escape') { e.preventDefault(); Demo.stop(); Ask.close(); } return true; }
     if (Agents.isOpen) return Agents.key(e, typing);
+    if (Extras.key(e, typing, sup)) return true; /* 23h-23k: hint mode owns the keyboard; Esc for bar / fan / draw / desktop */
     if (Voice.st !== 'idle' && e.key === 'Escape') { e.preventDefault(); Demo.stop(); Voice.cancel(); return true; }
     if (this.isOpen && e.key === 'Escape') { e.preventDefault(); this.close(); return true; }
     if (e.key === 'Escape' && Shelf.esc()) { e.preventDefault(); return true; }
@@ -5666,6 +6047,8 @@ const Concepts = {
     if (name === 'menu') this.open();
     else if (['ask', 'voice', 'agent', 'mission', 'shelf'].includes(name)) setTimeout(() => this.play(name), 400);
     else if (name === 'shelf-try') setTimeout(() => Shelf.handsOn(), 400);
+    else if (CPT_PLAY[name]) setTimeout(() => this.play(name), 400);
+    else if (/-try$/.test(name) && CPT_TRY[name.slice(0, -4)]) setTimeout(() => CPT_TRY[name.slice(0, -4)](), 400);
   },
 };
 window.addEventListener('blur', () => { if (Concepts.spaceDown) { Concepts.spaceDown = false; clearTimeout(Concepts.holdT); if (Concepts.held) { Concepts.held = false; Voice.stop(); } } });
@@ -6281,6 +6664,921 @@ stage.addEventListener('pointermove', (e) => { if (!Shelf.demoOn && !Shelf.drag)
 stage.addEventListener('contextmenu', (e) => { if (!e.target.closest('input,textarea') && !R.overview && Shelf.menuFor(e)) e.stopPropagation(); });
 ACTS.shelf = () => Shelf.toggle();
 
+/* ---------- 23h. SELECTION BAR (PopClip-style) ---------- */
+/* Select text in any app window and a small bar floats above it in the voice pill's material. Chips are context aware:
+   Open link only for URLs, Calc only for maths (the result is the chip's label). Answers (Ask, Translate) open a card
+   under the bar; the stack grows upward so the selection stays readable (flips below when there is no room). */
+Object.assign(P, {
+  link: '<path d="M10.5 13.5a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.1 1.1"/><path d="M13.5 10.5a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.1-1.1"/>',
+  textcase: '<path d="M3 18l4.5-12L12 18M4.7 13.5h5.6"/><circle cx="17" cy="15" r="3"/><path d="M20 12v6"/>',
+  more: '<path d="M6 12h.01M12 12h.01M18 12h.01" stroke-width="2.8"/>',
+  pen: '<path d="M4.5 19.5l1-4L16 5a2.1 2.1 0 0 1 3 3L8.5 18.5z"/><path d="M14 7l3 3"/>',
+  pointer: '<path d="M6 3.5v14.5l3.8-3.6 2.4 5.6 2.6-1.1-2.4-5.5H18z"/>',
+});
+const CASE_LB = { upper: 'UPPER', lower: 'lower', title: 'Title' };
+/* sentence-level pairs for the text that is on screen; anything else falls back to a small glossary */
+const PB_ES = [
+  ['Variables are set in hyprland.conf inside categories.', 'Las variables se definen en hyprland.conf, dentro de categorías.'],
+  ['Everything below can be hot-reloaded with hyprctl reload.', 'Todo lo que sigue se puede recargar en caliente con hyprctl reload.'],
+  ["rounded corners' radius (in layout px)", 'radio de las esquinas redondeadas (en px de layout)'],
+  ['adjusts the curve used for rounding corners, larger is smoother, 2.0 is a circle, 4.0 is a squircle', 'ajusta la curva con la que se redondean las esquinas; cuanto mayor, más suave: 2.0 es un círculo y 4.0 un squircle'],
+  ['Focus without a border: keep border_size = 1 with a white 12% hairline, and let shadow:color_inactive carry focus.', 'Foco sin borde: deja border_size = 1 con una línea blanca al 12 % y que shadow:color_inactive marque el foco.'],
+  ['Define curves with bezier = NAME, X0, Y0, X1, Y1.', 'Define las curvas con bezier = NAME, X0, Y0, X1, Y1.'],
+  ["Apple's system curve is 0.25, 0.1, 0.25, 1; sheets use 0.32, 0.72, 0, 1.", 'La curva del sistema de Apple es 0.25, 0.1, 0.25, 1; las hojas usan 0.32, 0.72, 0, 1.'],
+  ['At 144 Hz, a 380 ms window animation is 380 * 144 / 1000 frames, so keep curves short and front-loaded.', 'A 144 Hz, una animación de ventana de 380 ms dura 380 * 144 / 1000 fotogramas, así que usa curvas cortas que arranquen rápido.'],
+  ['dropped the orange border on my setup too. focus by shadow only feels so much calmer', 'yo también quité el borde naranja. marcar el foco solo con la sombra se siente mucho más tranquilo'],
+  ['the 30px flush bar is night and day vs the 60px floating pill. no gauges, just the clock', 'la barra de 30px pegada arriba es otro mundo frente a la píldora flotante de 60px. sin indicadores, solo el reloj'],
+  ['trying rounding = 12 + rounding_power = 2.4, squircle-ish corners', 'probando rounding = 12 + rounding_power = 2.4, esquinas casi squircle'],
+  ['does blur hold up on nvidia? passes = 3 was fine for me at 144hz, only layers blurred', '¿aguanta el blur en nvidia? passes = 3 me fue bien a 144 Hz, desenfocando solo las capas'],
+  ['Flexible QtQuick based desktop shell toolkit.', 'Kit flexible para crear shells de escritorio con QtQuick.'],
+  ['Build bars, docks, launchers and lockscreens in QML with live reload.', 'Crea barras, docks, lanzadores y pantallas de bloqueo en QML con recarga en vivo.'],
+];
+const PB_GLOSS = {
+  the: 'el', a: 'un', an: 'un', and: 'y', or: 'o', of: 'de', to: 'a', in: 'en', on: 'en', with: 'con', without: 'sin', for: 'para', is: 'es', are: 'son', be: 'ser', can: 'puede',
+  this: 'esto', that: 'eso', it: 'eso', not: 'no', no: 'no', only: 'solo', just: 'solo', all: 'todo', more: 'más', less: 'menos', larger: 'mayor', smoother: 'más suave', below: 'abajo',
+  window: 'ventana', windows: 'ventanas', border: 'borde', shadow: 'sombra', focus: 'foco', color: 'color', colour: 'color', corners: 'esquinas', corner: 'esquina', rounded: 'redondeadas',
+  radius: 'radio', curve: 'curva', curves: 'curvas', blur: 'desenfoque', bar: 'barra', clock: 'reloj', desktop: 'escritorio', layers: 'capas', opacity: 'opacidad', active: 'activa',
+  inactive: 'inactiva', default: 'predeterminado', enables: 'activa', dimming: 'atenuación', set: 'definen', inside: 'dentro de', categories: 'categorías', everything: 'todo',
+  circle: 'círculo', white: 'blanca', keep: 'mantén', let: 'deja', carry: 'lleve', fine: 'bien', was: 'fue', me: 'mí', my: 'mi', feels: 'se siente', calmer: 'más tranquilo',
+  terminal: 'terminal', file: 'archivo', files: 'archivos', open: 'abrir', reload: 'recargar', settings: 'ajustes', fast: 'rápido', short: 'corto', frames: 'fotogramas',
+};
+/* Ask answers keyed on what is selected (fake, but specific to what is on screen) */
+const PB_ASK = [
+  [/rounding_power|squircle/i, ['`rounding_power` is the exponent of the superellipse Hyprland draws each corner with. **2.0** is a plain circular arc, **4.0** a squircle.', 'Your config uses `2.4`: close to Apple\'s continuous corners, without the boxy look 4.0 gets at small radii.']],
+  [/bezier|0\.25, 0\.1|curve/i, ['A `bezier` line names a cubic curve from (0,0) to (1,1); the four numbers are its two control points.', '`0.25, 0.1, 0.25, 1` starts briskly and settles without overshoot, which is why it feels calm. Sheets use `0.32, 0.72, 0, 1`: faster out, longer tail.']],
+  [/hot-reload|hyprctl reload/i, ['`hyprctl reload` re-reads `hyprland.conf` (and everything it sources) without restarting the compositor, so windows, workspaces and layers stay where they are.', 'Variables apply instantly; a few things, like monitor modes, may still need a re-plug.']],
+  [/blur|nvidia|passes/i, ['Each blur **pass** is another downsample + upsample round, so cost grows roughly linearly. `passes = 3` with `size = 8` is the usual sweet spot.', 'Blurring only layers (bar, dock, menus) keeps the per-frame cost tiny even on NVIDIA at 144 Hz.']],
+  [/border|focus|shadow/i, ['Focus by shadow: give the active window a deeper, darker `shadow:color` and the inactive ones a lighter `color_inactive`.', 'Keep `border_size = 1` as a 12% white hairline so edges still read on dark wallpapers.']],
+  [/https?:\/\/|wiki\./i, ['That is the **Animations** page of the Hyprland wiki: `animation = NAME, ONOFF, SPEED, CURVE, STYLE`, plus the list of animatable things (`windows`, `layers`, `fade`, `workspaces`).', 'Speed is in deciseconds, so `speed = 4` is 400 ms.']],
+  [/qtquick|quickshell|qml/i, ['Quickshell runs a QML config as your shell: `PanelWindow`s for bars and docks, `Process` for commands, live reload on save.', 'The nox shell is one of these configs (`qs -c nox`).']],
+];
+const pbNorm = (s) => String(s).replace(/\s+/g, ' ').trim();
+const pbURLIn = (t) => { if (t.length > 160) return null; const m = /(https?:\/\/[^\s]+|\b(?:[a-z0-9-]+\.)+[a-z]{2,}\/[^\s]*)/i.exec(t); return m ? m[1].replace(/[.,;)]+$/, '') : null; };
+function pbCalc(t) {
+  let s = pbNorm(t).replace(/[×✕]/g, '*').replace(/÷/g, '/').replace(/−/g, '-').replace(/(\d),(?=\d{3}\b)/g, '$1').replace(/(\d)\s*x\s*(\d)/gi, '$1*$2').replace(/\^/g, '**').replace(/=\s*$/, '');
+  if (!s || s.length > 80 || !/^[\d\s.+\-*/()%]+$/.test(s)) return null;
+  if (!/\d\s*(\*\*|[+\-*/%])\s*[\d(.]/.test(s)) return null;
+  try { const v = Function(`"use strict";return (${s});`)(); return typeof v === 'number' && isFinite(v) ? v : null; } catch (e) { return null; }
+}
+const pbFmt = (v) => (Math.abs(v) >= 1e12 ? v.toExponential(3) : v.toLocaleString('en-US', { maximumFractionDigits: 4 }));
+const pbTitle = (s, prev = ' ') => { let o = '', p = prev; for (const ch of s.toLowerCase()) { o += /[\s\-_/(“"'[]/.test(p) ? ch.toUpperCase() : ch; p = ch; } return o; };
+const pbCaseNext = (t) => { const up = t.toUpperCase(), lo = t.toLowerCase(); if (up === lo || (t !== up && t !== lo)) return 'upper'; return t === up ? 'lower' : 'title'; };
+function pbTranslate(t) {
+  const n = pbNorm(t).toLowerCase();
+  const hits = PB_ES.filter(([s]) => { const sn = s.toLowerCase(); return n.includes(sn) || (sn.includes(n) && n.length > sn.length * 0.4); });
+  if (hits.length) return hits.map((h) => h[1]).join(' ');
+  return pbNorm(t).split(/(\s+)/).map((w) => {
+    const m = /^([^\p{L}]*)([\p{L}']+)([^\p{L}]*)$/u.exec(w); if (!m) return w;
+    const g = PB_GLOSS[m[2].toLowerCase()]; if (!g) return w;
+    return m[1] + (m[2][0] !== m[2][0].toLowerCase() ? g[0].toUpperCase() + g.slice(1) : g) + m[3];
+  }).join('');
+}
+function pbAnswer(t) {
+  const v = pbCalc(t);
+  if (v != null) return [`That works out to **${pbFmt(v)}**.`, /144/.test(t) ? 'So a 380 ms animation spans about 55 frames at 144 Hz, versus 23 at 60 Hz. That is why short, front-loaded curves feel smoother on high-refresh panels.' : 'Copy it with the **Calc** chip, or ask me to show the working.'];
+  for (const [re, a] of PB_ASK) if (re.test(t)) return a;
+  const short = t.length > 70 ? t.slice(0, 68) + '…' : t;
+  return [`You selected “${short}”.`, /[{}();=]|^\s*(const|let|import|export|def|fn)\b/m.test(t) ? 'It reads like code. I can explain what it does line by line, find where it is used in the repo, or turn it into a task for an agent.' : 'In short: it is a note about this desktop’s look. I can summarise it, rewrite it shorter, or turn it into a task for an agent.'];
+}
+const pbPage = (host, path) => ({ fav: favi(host[0].toUpperCase(), '#0FA5E9'), host, path, title: `${path.split('/').filter(Boolean).pop() || host} – ${host}`, html: () => `
+    <div class="crumb">${esc(host)}${esc(path)}</div><h1>${esc((path.split('/').filter(Boolean).pop() || host).replace(/[-_]/g, ' '))}</h1>
+    <p>Animations are declared with <code>animation = NAME, ONOFF, SPEED, CURVE [,STYLE]</code>. Speed is in deciseconds.</p>
+    <p><code>animation = windows, 1, 4, apple, popin 92%</code> · <code>animation = workspaces, 1, 5, sheet, slide</code></p>` });
+function pbTextNodes(root) { const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), o = []; while (w.nextNode()) o.push(w.currentNode); return o; }
+function pbPoint(nodes, off) { for (const n of nodes) { if (off <= n.length) return [n, off]; off -= n.length; } const l = nodes[nodes.length - 1]; return [l, l.length]; }
+
+const PopBar = {
+  el: null, bar: null, card: null, ci: null, isOpen: false, text: '', rect: null, range: null, kind: '', dn: false, busy: false, speaking: false,
+  tok: { dead: true }, hideT: 0, speakT: 0, calc: null, url: null,
+  init() {
+    this.el = el(`<div id="popbar" role="toolbar" aria-label="Selection actions (concept)"><div class="pb-bar"></div><div class="pb-card" aria-live="polite"><div class="pb-ci"></div></div></div>`);
+    stage.appendChild(this.el);
+    this.bar = $('.pb-bar', this.el); this.card = $('.pb-card', this.el); this.ci = $('.pb-ci', this.el);
+    this.el.addEventListener('mousedown', (e) => { if (!e.target.closest('input')) e.preventDefault(); }); /* keep the selection alive */
+    this.bar.addEventListener('click', (e) => { const c = e.target.closest('.pb-c'); if (c) this.act(c.dataset.a, c); });
+    this.ci.addEventListener('click', (e) => { const b = e.target.closest('[data-pa]'); if (b) this.cardAct(b.dataset.pa, b); });
+    if (window.ResizeObserver) new ResizeObserver(() => this.fitCard()).observe(this.ci);
+    stage.addEventListener('mouseup', (e) => { if (e.button === 0 && !this.el.contains(e.target)) setTimeout(() => this.fromSelection(), 0); });
+    /* a click on non-selectable chrome keeps the old selection alive; remember it so mouseup does not re-open the bar for it */
+    document.addEventListener('pointerdown', (e) => { if (this.el.contains(e.target)) return; this.pre = this.selKey(); if (this.isOpen) this.hide(); }, true);
+    stage.addEventListener('scroll', (e) => { if (this.isOpen && !this.el.contains(e.target) && !this.demo.on) this.hide(); }, true);
+    document.addEventListener('selectionchange', () => { if (!this.isOpen || this.kind || this.busy) return; const s = getSelection(); if (!s || s.isCollapsed) this.hide(); });
+    /* the wiki's source link is a real link */
+    stage.addEventListener('click', (e) => { const a = e.target.closest('.page a.lnk'); if (!a) return; const s = getSelection(); if (s && !s.isCollapsed) return; const u = a.textContent.replace(/^https?:\/\//, ''), h = u.split('/')[0]; openPage(pbPage(h, u.slice(h.length) || '/')); });
+  },
+  selKey() { const s = getSelection(); return s && s.rangeCount && !s.isCollapsed ? [s.anchorNode, s.anchorOffset, s.focusNode, s.focusOffset] : null; },
+  fromSelection() {
+    const k = this.selKey(), p = this.pre; this.pre = null;
+    if (k && p && k.every((v, i) => v === p[i])) return;
+    if (R.locked || Ask.isOpen || Hints.on || Draw.on || this.demo.on) return;
+    const s = getSelection(); if (!s || s.isCollapsed || !s.rangeCount) return;
+    const text = pbNorm(s.toString()); if (!text || text.length > 1500) return;
+    const rg = s.getRangeAt(0), c = rg.commonAncestorContainer, host = c.nodeType === 1 ? c : c.parentElement;
+    if (!host || !host.closest('#stage .win') || host.closest('input,textarea,.tb') || this.el.contains(host)) return;
+    this.show(text, rg);
+  },
+  selRect(rg) { const b = rg.getBoundingClientRect(), sr = stage.getBoundingClientRect(); return { x: (b.left - sr.left) / R.scale, y: (b.top - sr.top) / R.scale, w: b.width / R.scale, h: b.height / R.scale }; },
+  show(text, rg) {
+    clearTimeout(this.hideT); this.stopSpeak(); this.tok.dead = true;
+    this.text = text; this.range = rg.cloneRange(); this.rect = this.selRect(rg); this.kind = ''; this.busy = false; this.dn = false;
+    this.calc = pbCalc(text); this.url = pbURLIn(text);
+    const A = [['ask', SPARK.replace('<svg', '<svg class="spk"'), 'Ask Claude', 'Ask Claude about the selection']];
+    if (this.calc != null) A.push(['calc', ic('calc'), `<span class="nb">= ${pbFmt(this.calc)}</span>`, 'Copy the result']);
+    if (this.url) A.push(['link', ic('link'), 'Open link', this.url]);
+    A.push(['copy', ic('copy'), 'Copy', 'Copy (also lands in clipboard history)'], ['translate', ic('translate'), 'Translate', 'Translate on-device'], ['search', ic('search'), 'Search', 'Search the web in Zen'],
+      ['shelf', ic('shelf'), 'Shelf', 'Park it on the drop shelf'], ['case', ic('textcase'), CASE_LB[pbCaseNext(text)], 'Cycle UPPER · lower · Title'], ['speak', ic('speaker'), 'Speak', 'Read it aloud']);
+    const MAX = 6, over = A.length > MAX, vis = over ? MAX - 1 : A.length;
+    this.bar.className = 'pb-bar'; this.bar.style.width = '';
+    this.bar.innerHTML = A.map(([a, svg, lb, tt], i) => `${i === 1 ? '<span class="pb-sep"></span>' : ''}<button class="pb-c ${a}${i >= vis ? ' ov' : ''}" data-a="${a}" title="${esc(tt)}" style="--d:${(i >= vis ? i - vis : i) * 24}ms">${svg}<span class="lb">${lb}</span></button>`).join('')
+      + (over ? `<button class="pb-c more" data-a="more" title="More actions" aria-label="More actions" style="--d:${vis * 24}ms">${ic('more')}</button>` : '');
+    this.ci.innerHTML = ''; this.el.classList.remove('pbx', 'in', 'out'); this.el.style.setProperty('--ch', '0px');
+    this.el.classList.add('show'); this.isOpen = true;
+    this.place();
+    void this.el.offsetWidth; raf(() => { if (this.isOpen) this.el.classList.add('in'); });
+  },
+  place(h) {
+    const r = this.rect; if (!r) return;
+    const W = Math.max(this.bar.offsetWidth, this.kind ? 420 : 0), H = h || this.el.offsetHeight;
+    if (!this.dn && r.y - 12 - H < S.barH + 8) this.dn = true;
+    const cx = r.x + r.w / 2, x = clamp(cx, W / 2 + 8, SW - W / 2 - 8);
+    this.el.classList.toggle('dn', this.dn);
+    this.el.style.left = x.toFixed(1) + 'px';
+    this.el.style.top = (this.dn ? r.y + r.h + 12 : r.y - 12).toFixed(1) + 'px';
+    this.el.style.setProperty('--ax', clamp(cx - (x - W / 2), 14, W - 14).toFixed(1) + 'px');
+  },
+  fitCard() { if (!this.kind || !this.isOpen) return; const h = this.ci.offsetHeight; this.el.style.setProperty('--ch', h + 'px'); this.place(40 + 8 + h); },
+  openCard(kind, html) {
+    this.kind = kind; this.ci.innerHTML = html;
+    $$('.pb-c', this.bar).forEach((c) => c.classList.toggle('on', c.dataset.a === kind));
+    this.el.classList.add('pbx'); this.fitCard();
+  },
+  closeCard() { this.tok.dead = true; this.busy = false; this.kind = ''; this.el.classList.remove('pbx'); this.el.style.setProperty('--ch', '0px'); $$('.pb-c.on', this.bar).forEach((c) => c.classList.remove('on')); },
+  hide() {
+    if (!this.isOpen) return;
+    this.isOpen = false; this.tok.dead = true; this.busy = false; this.stopSpeak(); clearTimeout(this.hideT);
+    this.el.classList.add('out'); this.el.classList.remove('in');
+    this.hideT = setTimeout(() => { if (!this.isOpen) { this.el.classList.remove('show', 'out', 'pbx', 'dn'); this.kind = ''; this.ci.innerHTML = ''; } }, tf(240));
+  },
+  flash(c, label, keep) {
+    c.classList.add('ok'); c.innerHTML = `${ic('check')}<span class="lb">${esc(label)}</span>`;
+    if (!keep) { clearTimeout(this.hideT); this.hideT = setTimeout(() => this.hide(), tf(900)); }
+  },
+  act(a, c) {
+    if (a === 'more') { this.more(); return; }
+    if (a === 'ask') { this.ask(); return; }
+    if (a === 'translate') { if (this.kind === 'translate') this.closeCard(); else this.translate(); return; }
+    if (a === 'copy' || a === 'calc') { this.copy(c, a === 'calc' ? String(+this.calc.toFixed(6)) : this.text); return; }
+    if (a === 'case') { this.cycleCase(c); return; }
+    if (a === 'speak') { this.speak(c); return; }
+    if (a === 'search') { const q = this.text.slice(0, 80); this.flash(c, 'Opening Zen', true); setTimeout(() => { this.hide(); openPage(searchPage(q)); }, tf(420)); return; }
+    if (a === 'link') { const u = this.url.replace(/^https?:\/\//, ''), h = u.split('/')[0]; this.flash(c, 'Opening', true); setTimeout(() => { this.hide(); openPage(pbPage(h, u.slice(h.length) || '/')); HUD.show(`Opened ${h} in Zen`, 'globe'); }, tf(420)); return; }
+    if (a === 'shelf') {
+      const t = this.text;
+      Shelf.add([{ id: ++dshSeq, kind: 'text', name: `“${t.slice(0, 28)}${t.length > 28 ? '…' : ''}”`, text: t.slice(0, 600), t: Date.now() }], this.rect);
+      this.flash(c, 'Parked');
+    }
+  },
+  copy(c, val) {
+    R.clips = [val, ...R.clips.filter((x) => x !== val)].slice(0, 12);
+    try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(val).catch(() => {}); } catch (e) { /* no clipboard: history still has it */ }
+    this.flash(c, c.dataset.a === 'calc' ? `Copied ${pbFmt(this.calc)}` : 'Copied');
+  },
+  more() {
+    const b = this.bar; if (b.classList.contains('all')) return;
+    const w0 = b.offsetWidth; b.style.width = w0 + 'px'; b.classList.add('all');
+    b.style.width = 'auto'; const w1 = b.offsetWidth; b.style.width = w0 + 'px'; void b.offsetWidth;
+    b.style.width = w1 + 'px'; this.place();
+    setTimeout(() => { if (b.classList.contains('all')) b.style.width = ''; }, tf(460));
+  },
+  async ask() {
+    if (this.kind === 'ask') { this.closeCard(); return; }
+    const tok = this.tok = { dead: false }; this.busy = true;
+    const ans = pbAnswer(this.text), t0 = performance.now();
+    this.openCard('ask', `<div class="ak-h"><span class="ak-logo">${SPARK}</span><b>Claude</b><span class="ak-ctx">Selection · ${this.text.length} ch</span><span class="ak-t">0.0 s</span><button class="ak-x" data-pa="close" aria-label="Close">${ic('x')}</button></div>
+      <div class="ak-body"><div class="ak-think"><span><i></i><i></i><i></i></span><span class="ak-shim">Reading the selection…</span></div></div>
+      <div class="pb-acts"><button class="pb-b" data-pa="copyans">${ic('copy')}Copy answer</button><button class="pb-b" data-pa="agent">${ic('sparkle')}Send to agent</button></div>`);
+    const body = $('.ak-body', this.ci), tm = $('.ak-t', this.ci), tick = () => { if (tm) tm.textContent = ((performance.now() - t0) / 1000).toFixed(1) + ' s'; };
+    const iv = setInterval(tick, 100);
+    await nap(RM() ? 120 : 700);
+    if (tok.dead) { clearInterval(iv); return; }
+    body.innerHTML = ''; const caret = caretEl();
+    for (const para of ans) {
+      const p = body.appendChild(document.createElement('p'));
+      if (!(await streamText(p, para, tok, caret))) { clearInterval(iv); return; }
+    }
+    caret.remove(); clearInterval(iv); tick(); this.busy = false; this.answer = ans.join('\n\n').replace(/\*\*|`/g, '');
+  },
+  translate() {
+    this.tok.dead = true;
+    const out = pbTranslate(this.text);
+    const words = out.split(/(\s+)/).map((w, i) => (/^\s+$/.test(w) ? w : `<span class="pb-w" style="animation-delay:${Math.min(i * 14, 700)}ms">${esc(w)}</span>`)).join('');
+    this.trOut = out;
+    this.openCard('translate', `<div class="ak-h"><span class="pb-lang"><span>EN</span>${ic('arrowR')}<span class="to">ES</span></span><b style="margin-left:4px">Translate</b><span class="ak-ctx">on-device · Bergamot</span><button class="ak-x" data-pa="close" aria-label="Close">${ic('x')}</button></div>
+      <div class="pb-tr"><div class="src">${esc(this.text)}</div><div class="dst">${words}</div></div>
+      <div class="pb-acts"><button class="pb-b" data-pa="copytr">${ic('copy')}Copy</button><button class="pb-b pri" data-pa="replace">${ic('swap')}Replace selection</button></div>`);
+  },
+  cardAct(a, b) {
+    if (a === 'close') this.closeCard();
+    else if (a === 'copyans' || a === 'copytr') {
+      const v = a === 'copytr' ? this.trOut : (this.answer || ''); R.clips = [v, ...R.clips.filter((x) => x !== v)].slice(0, 12);
+      b.innerHTML = `${ic('check')}Copied`; HUD.show('Copied · also in clipboard history', 'clip');
+    } else if (a === 'agent') { HUD.show('Sent to Claude in tasks as a new task', 'sparkle'); this.hide(); }
+    else if (a === 'replace') { this.mapRange(() => this.trOut, true); HUD.show('Replaced with the Spanish text', 'translate'); this.hide(); }
+  },
+  /* rewrite the selected text in place, node by node (keeps code spans), then reselect it */
+  mapRange(fn, whole) {
+    const s = getSelection(), rg = this.range; if (!rg) return;
+    const rootN = rg.commonAncestorContainer.nodeType === 3 ? rg.commonAncestorContainer.parentNode : rg.commonAncestorContainer;
+    const parts = pbTextNodes(rootN).filter((n) => rg.intersectsNode(n)).map((n) => ({ n, a: n === rg.startContainer ? rg.startOffset : 0, b: n === rg.endContainer ? rg.endOffset : n.length })).filter((p) => p.b > p.a);
+    if (!parts.length) return;
+    let prev = parts[0].n.nodeValue[parts[0].a - 1] || ' ', first = true;
+    const marks = parts.map((p) => {
+      const v = p.n.nodeValue, piece = v.slice(p.a, p.b), nw = whole ? (first ? fn(piece) : '') : fn(piece, prev);
+      prev = piece[piece.length - 1] || prev; first = false;
+      p.n.nodeValue = v.slice(0, p.a) + nw + v.slice(p.b);
+      return { n: p.n, a: p.a, e: p.a + nw.length };
+    });
+    const r2 = document.createRange(); r2.setStart(marks[0].n, marks[0].a); const last = marks.filter((m) => m.e > m.a).pop() || marks[0]; r2.setEnd(last.n, last.e);
+    s.removeAllRanges(); s.addRange(r2); this.range = r2.cloneRange(); this.text = pbNorm(s.toString());
+  },
+  cycleCase(c) {
+    const nx = pbCaseNext(this.text);
+    this.mapRange(nx === 'upper' ? (p) => p.toUpperCase() : nx === 'lower' ? (p) => p.toLowerCase() : (p, prev) => pbTitle(p, prev));
+    $('.lb', c).textContent = CASE_LB[pbCaseNext(this.text)];
+    c.classList.remove('on'); void c.offsetWidth; c.classList.add('on'); setTimeout(() => c.classList.remove('on'), tf(380));
+  },
+  speak(c) {
+    if (this.speaking) { this.stopSpeak(); return; }
+    this.speaking = true; c.classList.add('on'); c.innerHTML = '<span class="pb-eq"><i></i><i></i><i></i><i></i></span><span class="lb">Stop</span>';
+    try { if (window.speechSynthesis && window.SpeechSynthesisUtterance) { const u = new SpeechSynthesisUtterance(this.text); u.rate = 1.04; u.onend = () => this.stopSpeak(); speechSynthesis.cancel(); speechSynthesis.speak(u); } } catch (e) { /* silent mock */ }
+    clearTimeout(this.speakT); this.speakT = setTimeout(() => this.stopSpeak(), Math.min(14000, 700 + this.text.split(/\s+/).length * 340));
+  },
+  stopSpeak() {
+    if (!this.speaking) return; this.speaking = false; clearTimeout(this.speakT);
+    try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) { /* ignore */ }
+    const c = $('.pb-c.speak', this.bar); if (c) { c.classList.remove('on'); c.innerHTML = `${ic('speaker')}<span class="lb">Speak</span>`; }
+  },
+  /* ---- demo: a fake cursor drags across wiki text, then uses the bar ---- */
+  demo: { on: false },
+  async wikiWin(tok) {
+    let w = R.wins.find((x) => x.app === 'zen' && !x.closing && /Hyprland Wiki/.test(x.title || ''));
+    if (!w) { openPage(PAGES.wiki); await nap(900); w = R.wins.filter((x) => x.app === 'zen' && !x.closing).pop(); }
+    if (!w || tok.dead) return null;
+    if (w.ws !== R.ws) { w.ws = R.ws; }
+    if (w.min) { w.min = false; w.el.classList.remove('min'); }
+    focusWin(w, { layout: true }); await nap(420);
+    return w;
+  },
+  async drag(node, from, to, tok, ms = 620) {
+    this.hide();
+    const nodes = pbTextNodes(node), full = nodes.map((n) => n.nodeValue).join('');
+    const a = Math.max(0, full.indexOf(from)); let b = to ? full.indexOf(to, a) : -1; b = b < 0 ? full.length : b + to.length;
+    const s = getSelection(), rg = document.createRange(), [n0, o0] = pbPoint(nodes, a); rg.setStart(n0, o0); rg.setEnd(n0, o0);
+    const at = (r) => { const rs = r.getClientRects(); let q = rs[rs.length - 1] || r.getBoundingClientRect(); if (!q.width && !q.height) q = node.getBoundingClientRect(); const sr = stage.getBoundingClientRect(); return { x: (q.right - sr.left) / R.scale, y: (q.top + q.height / 2 - sr.top) / R.scale }; };
+    const p0 = at(rg); p0.x -= 2;
+    if (!(await Shelf.curTo(p0, 520, tok))) return false;
+    if (!(await Shelf.press(tok))) return false;
+    s.removeAllRanges(); s.addRange(rg);
+    const stops = []; for (let i = a + 1; i <= b; i++) if (i === b || /\s/.test(full[i])) stops.push(i);
+    const per = tf(ms) / Math.max(1, stops.length);
+    for (const i of stops) {
+      if (tok.dead) return false;
+      const [n1, o1] = pbPoint(nodes, i); rg.setEnd(n1, o1); s.removeAllRanges(); s.addRange(rg);
+      Shelf.curAt(at(rg));
+      await new Promise((r) => setTimeout(r, per));
+    }
+    Shelf.release();
+    this.demo.on = false; this.show(pbNorm(s.toString()), rg); this.demo.on = true;
+    return true;
+  },
+  async tap(sel, tok) { const c = $(sel, this.el); if (!c) return false; if (!(await Shelf.curTo(Shelf.centre(c), 460, tok))) return false; if (!(await Shelf.press(tok))) return false; Shelf.release(); c.click(); return !tok.dead; },
+  async demoRun(tok) {
+    const w = await this.wikiWin(tok); if (!w) return;
+    const page = $('.page', w.el); page.scrollTop = 0; await nap(200);
+    Shelf.curAt({ x: 980, y: 520 }, true);
+    const p1 = $$('p', page).find((n) => /hot-reloaded/.test(n.textContent));
+    if (!p1 || !(await this.drag(p1, 'Everything below', null, tok))) return;
+    await nap(1100); if (tok.dead) return;
+    if (!(await this.tap('.pb-c.translate', tok))) return;
+    await nap(2600); if (tok.dead) return;
+    const td = $$('td', page).find((n) => /squircle/.test(n.textContent));
+    if (!td || !(await this.drag(td, 'adjusts', 'squircle', tok, 700))) return;
+    await nap(900); if (tok.dead) return;
+    if (!(await this.tap('.pb-c.more', tok))) return;
+    await nap(900); if (tok.dead) return;
+    if (!(await this.tap('.pb-c.case', tok))) return;
+    await nap(700); if (tok.dead) return;
+    if (!(await this.tap('.pb-c.case', tok))) return;
+    await nap(700); if (tok.dead) return;
+    if (!(await this.tap('.pb-c.case', tok))) return;
+    await nap(900); if (tok.dead) return;
+    this.hide(); page.scrollTo({ top: page.scrollHeight, behavior: RM() ? 'auto' : 'smooth' }); await nap(800); if (tok.dead) return;
+    const pm = $$('p', page).find((n) => /380 \* 144/.test(n.textContent));
+    if (!pm || !(await this.drag($('code', pm), '380', null, tok, 380))) return;
+    await nap(1100); if (tok.dead) return;
+    if (!(await this.tap('.pb-c.calc', tok))) return;
+    await nap(1200); if (tok.dead) return;
+    const lk = $('a.lnk', page);
+    if (lk && !(await this.drag(lk, 'https', null, tok, 500))) return;
+    await nap(1500); if (tok.dead) return;
+    if (!(await this.tap('.pb-c.ask', tok))) return;
+    await nap(300);
+  },
+  async demoPlay(tok) {
+    this.demo.on = true;
+    try { await this.demoRun(tok); } finally { this.demo.on = false; Shelf.cur.classList.remove('on', 'down'); }
+  },
+  async tryIt() {
+    const tok = Demo.start(); const w = await this.wikiWin(tok); if (!w) return;
+    const page = $('.page', w.el); page.scrollTop = 0;
+    const p1 = $$('p', page).find((n) => /hot-reloaded/.test(n.textContent)); if (!p1) return;
+    const nodes = pbTextNodes(p1), rg = document.createRange(); rg.setStart(nodes[0], 0); const l = nodes[nodes.length - 1]; rg.setEnd(l, l.length);
+    const s = getSelection(); s.removeAllRanges(); s.addRange(rg); this.show(pbNorm(s.toString()), rg);
+  },
+};
+
+/* ---------- 23i. DYNAMIC ISLAND (live activities in the bar centre) ---------- */
+/* One registry of live activities. The pill shows the most important one (agent needs you > recording > mic > timer
+   ending > download > agent working > shelf > music) and mini glyphs for the rest; hover expands a card with 1–3
+   actions, a click cycles. Real hooks: screen recording (R.recording), voice typing (mic), drop shelf (Shelf.add),
+   media keys (Media). Everything else is fed by the demo. */
+const islAge = (s) => `${Math.max(1, Math.floor((Date.now() - s.t0) / 6e4))}m`;
+const islRing = () => '<svg class="isl-ring" viewBox="0 0 16 16"><circle class="bg" cx="8" cy="8" r="6"/><circle class="fg" cx="8" cy="8" r="6" stroke-dasharray="37.7" data-o="p"/></svg>';
+const islLv = (n = 26) => `<div class="isl-lv">${Array.from({ length: n }, (_, i) => `<i style="--k:${(i * 7) % 11}"></i>`).join('')}</div>`;
+const ISL = {
+  agent: {
+    icon: 'sparkle', pri: (s) => (s.need ? 100 : s.done ? 58 : 50), mode: (s) => (s.need ? 'need' : s.done ? 'done' : 'work'),
+    c: (s) => (s.need ? `<span class="isl-ping"></span><span class="isl-t acc">Needs you</span><span class="isl-m">${esc(s.repo)} · approve</span>`
+      : s.done ? `<span class="isl-ok">${ic('check')}</span><span class="isl-t">Tests pass</span><span class="isl-m">${esc(s.repo)}</span>`
+        : `<span class="isl-spin"></span><span class="isl-t">${esc(s.title)}</span><span class="isl-m" data-v="age"></span><span class="isl-bar"><i data-w="p"></i></span>`),
+    v: (s) => ({ age: '· ' + islAge(s), p: s.p, clock: hms((Date.now() - s.t0) / 1000), step: s.step }),
+    x: (s) => s.need ? {
+      h: `<div class="isl-xh"><span class="isl-xi acc">${ic('sparkle')}</span><div><small>Claude Code · ${esc(s.repo)} · waiting on you</small><b>Approve this edit?</b></div><span class="isl-xr acc" data-v="clock"></span></div>
+        <div class="isl-xb"><div class="isl-q">Edit <code>src/hooks/useTasks.ts</code>: start the hook with <code>useState&lt;Task[]&gt;([])</code> so the first render gets an array.</div></div>`,
+      a: '<button class="isl-b pri" data-ia="approve">Approve</button><button class="isl-b" data-ia="jump">Jump to agent</button>' }
+      : s.done ? {
+        h: `<div class="isl-xh"><span class="isl-xi">${ic('check')}</span><div><small>Claude Code · ${esc(s.repo)} · finished</small><b>Tests pass · 12 passed</b></div><span class="isl-xr" data-v="clock"></span></div>
+          <div class="isl-xb">fix/tasklist-crash is ready to review · 2 files · <code>+3 −2</code></div>`,
+        a: '<button class="isl-b pri" data-ia="jump">Review diff</button><button class="isl-b" data-ia="dismiss">Dismiss</button>' }
+        : {
+          h: `<div class="isl-xh"><span class="isl-xi acc">${ic('sparkle')}</span><div><small>Claude Code · ${esc(s.repo)} · fix/tasklist-crash</small><b>${esc(s.title)}</b></div><span class="isl-xr" data-v="clock"></span></div>
+            <div class="isl-xb"><div class="isl-pr"><i data-w="p"></i></div><div class="mono"><i>●</i> <b data-v="step"></b></div></div>`,
+          a: '<button class="isl-b pri" data-ia="jump">Jump to agent</button><button class="isl-b" data-ia="pause">Pause</button>' },
+  },
+  rec: {
+    icon: 'record', pri: () => 90,
+    c: () => '<span class="isl-rec"></span><span class="isl-t tnum" data-v="t"></span><span class="isl-m">Rec</span>',
+    v: (s) => ({ t: mmss((Date.now() - s.t0) / 1000) }),
+    x: () => ({
+      h: `<div class="isl-xh"><span class="isl-xi rec">${ic('record')}</span><div><small>Screen recording · wf-recorder</small><b>Full screen · 1536 × 864</b></div><span class="isl-xr tnum" data-v="t"></span></div>
+        <div class="isl-xb">${islLv()}</div>`,
+      a: '<button class="isl-b pri" data-ia="stop">Stop recording</button><button class="isl-b" data-ia="discard">Discard</button>' }),
+  },
+  mic: {
+    icon: 'mic', pri: () => 80,
+    c: (s) => `<span class="isl-mic"></span>${ic('mic')}<span class="isl-t">Mic</span><span class="isl-m">${esc(s.app || 'Voice typing')}</span>`,
+    x: (s) => ({
+      h: `<div class="isl-xh"><span class="isl-xi">${ic('mic')}</span><div><small>Microphone in use</small><b>${esc(s.app || 'Voice typing')} · Whisper (local)</b></div></div>
+        <div class="isl-xb">${islLv(34)}</div>`,
+      a: '<button class="isl-b pri" data-ia="micstop">Stop using mic</button>' }),
+  },
+  timer: {
+    icon: 'clock', pri: (s) => (s.done ? 95 : s.end - Date.now() < 30e3 ? 72 : 45), mode: (s) => (s.done ? 'done' : 'run'),
+    c: (s) => (s.done ? `<span class="isl-ping"></span><span class="isl-t acc">Timer done</span><span class="isl-m">${esc(s.label)}</span>` : `${islRing()}<span class="isl-t tnum" data-v="left"></span>`),
+    v: (s) => { const left = Math.max(0, s.end - Date.now()); return { left: mmss(Math.ceil(left / 1000)), p: (left / s.dur) * 100 }; },
+    x: (s) => ({
+      h: `<div class="isl-xh"><span class="isl-xi">${ic('clock')}</span><div><small>Timer · ${esc(s.label)}</small><b>${s.done ? 'Time is up' : `${Math.round(s.dur / 6e4)} minute timer`}</b></div><span class="isl-big tnum" data-v="left"></span></div>
+        <div class="isl-xb"><div class="isl-pr" style="margin-top:4px"><i data-w="p"></i></div></div>`,
+      a: s.done ? '<button class="isl-b pri" data-ia="tdone">Done</button><button class="isl-b" data-ia="plus">+1 min</button>' : '<button class="isl-b" data-ia="plus">+1 min</button><button class="isl-b" data-ia="cancel">Cancel</button>' }),
+  },
+  download: {
+    icon: 'download', pri: (s) => (s.p >= 100 ? 56 : 60), mode: (s) => (s.p >= 100 ? 'done' : 'run'),
+    c: (s) => (s.p >= 100 ? `<span class="isl-ok">${ic('check')}</span><span class="isl-t">Downloaded</span><span class="isl-m">${esc(s.name)}</span>` : `${ic('download')}<span class="isl-t">${esc(s.name)}</span>${islRing()}<span class="isl-m" data-v="pc"></span>`),
+    v: (s) => ({ p: Math.min(100, s.p), pc: Math.floor(Math.min(100, s.p)) + '%', got: (s.size * Math.min(100, s.p) / 100).toFixed(1), eta: s.p >= 100 ? 'done' : `${Math.max(1, Math.ceil((100 - s.p) / (s.rate * 2)))} s left` }),
+    x: (s) => ({
+      h: `<div class="isl-xh"><span class="isl-xi">${ic('download')}</span><div><small>Zen · Downloads</small><b>${esc(s.name)}</b></div><span class="isl-xr acc tnum" data-v="pc"></span></div>
+        <div class="isl-xb"><div class="isl-pr"><i data-w="p"></i></div><div class="mono"><span data-v="got"></span> of ${s.size} MB · 8.4 MB/s · <span data-v="eta"></span></div></div>`,
+      a: `<button class="isl-b pri" data-ia="files">Show in Files</button>${s.p >= 100 ? '' : '<button class="isl-b" data-ia="dlcancel">Cancel</button>'}` }),
+  },
+  shelf: {
+    icon: 'shelf', pri: () => 40,
+    c: (s) => `${ic('shelf')}<span class="isl-t">${s.n} item${s.n > 1 ? 's' : ''} parked</span>`,
+    x: (s) => ({
+      h: `<div class="isl-xh"><span class="isl-xi">${ic('shelf')}</span><div><small>Drop shelf · right edge</small><b>${s.n} item${s.n > 1 ? 's' : ''} parked</b></div></div>
+        <div class="isl-xb"><div class="mono">${(s.names || []).map(esc).join(' · ')}</div></div>`,
+      a: '<button class="isl-b pri" data-ia="shelfopen">Open shelf</button><button class="isl-b" data-ia="dismiss">Dismiss</button>' }),
+  },
+  music: {
+    icon: 'note', pri: () => 30, mode: () => (Media.playing ? 'play' : 'pause'),
+    c: () => `<span class="isl-art"></span><span class="isl-t" data-v="title"></span><span class="isl-eq${Media.playing ? '' : ' paused'}"><i></i><i></i><i></i><i></i></span>`,
+    v: () => ({ title: Media.title, artist: `${Media.title} — ${Media.artist}`, p: (Media.pos / Media.dur) * 100, cur: mmss(Media.pos), dur: mmss(Media.dur) }),
+    x: () => ({
+      h: `<div class="isl-xh"><span class="isl-xi"><span class="isl-art"></span></span><div><small>Spotify · now playing</small><b data-v="artist"></b></div><span class="isl-eq${Media.playing ? '' : ' paused'}"><i></i><i></i><i></i><i></i></span></div>
+        <div class="isl-xb"><div class="isl-pr"><i data-w="p"></i></div><div class="isl-tm"><span data-v="cur"></span><span data-v="dur"></span></div></div>`,
+      a: `<button class="isl-b ico" data-media="prev" aria-label="Previous">${ic('prev')}</button><button class="isl-b ico pri" data-media="toggle" aria-label="Play or pause">${ic(Media.playing ? 'pause' : 'play')}</button><button class="isl-b ico" data-media="next" aria-label="Next">${ic('next')}</button>` }),
+  },
+};
+const Island = {
+  el: null, c: null, x: null, live: {}, cur: null, shown: null, layer: null, sig: '', sigX: '', pin: null, pinT: 0, isOpen: false, hovT: 0, outT: 0,
+  init() {
+    this.el = el('<div id="island" role="status" aria-live="polite" aria-label="Live activities (concept)"><div class="isl-c"></div><div class="isl-x"></div></div>');
+    stage.appendChild(this.el); this.c = $('.isl-c', this.el); this.x = $('.isl-x', this.el);
+    this.el.addEventListener('mouseenter', () => { clearTimeout(this.outT); clearTimeout(this.hovT); this.hovT = setTimeout(() => this.open(), tf(260)); });
+    this.el.addEventListener('mouseleave', () => { clearTimeout(this.hovT); clearTimeout(this.outT); this.outT = setTimeout(() => this.close(), tf(420)); });
+    this.el.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-ia]'); if (b) { this.act(b.dataset.ia); return; }
+      const t = e.target.closest('[data-ik]'); if (t) { this.show(t.dataset.ik); return; }
+      if (e.target.closest('[data-media]')) { setTimeout(() => { this.sigX = ''; this.render(); }, 30); return; }
+      if (!this.isOpen) { clearTimeout(this.hovT); if (this.kinds().length > 1) this.cycle(); else this.open(); }
+    });
+    this.el.addEventListener('animationend', (e) => { if (e.animationName === 'islBump') this.el.classList.remove('bump'); });
+    setInterval(() => this.tick(), 500);
+  },
+  kinds() { return Object.keys(this.live).sort((a, b) => ISL[b].pri(this.live[b]) - ISL[a].pri(this.live[a])); },
+  add(k, s = {}) { this.live[k] = Object.assign({ t0: Date.now() }, this.live[k] || {}, s); this.render(); },
+  set(k, patch) { if (!this.live[k]) return; Object.assign(this.live[k], patch); this.render(); },
+  remove(k) { if (!this.live[k]) return; delete this.live[k]; if (this.pin === k) this.pin = null; this.render(); },
+  show(k) { if (!this.live[k]) return; this.pin = k; this.pinT = Date.now() + 9000; this.sigX = ''; this.render(); },
+  cycle() { const ks = this.kinds(); if (ks.length < 2) return; this.show(ks[(ks.indexOf(this.cur) + 1) % ks.length]); },
+  open() { if (this.isOpen || !this.kinds().length) return; this.isOpen = true; this.sigX = ''; this.render(); this.el.classList.add('open'); },
+  close() { if (!this.isOpen) return; this.isOpen = false; this.el.classList.remove('open'); this.render(); },
+  bind(root, v) {
+    if (!v) return;
+    $$('[data-v]', root).forEach((n) => { const k = n.dataset.v; if (v[k] != null && n.textContent !== String(v[k])) n.textContent = v[k]; });
+    $$('[data-w]', root).forEach((n) => { const k = n.dataset.w; if (v[k] != null) n.style.width = clamp(v[k], 0, 100).toFixed(1) + '%'; });
+    $$('[data-o]', root).forEach((n) => { const k = n.dataset.o; if (v[k] != null) n.style.strokeDashoffset = (37.7 * (1 - clamp(v[k], 0, 100) / 100)).toFixed(2); });
+  },
+  render() {
+    const ks = this.kinds();
+    if (!ks.length) { this.el.classList.remove('live', 'need', 'open'); this.isOpen = false; this.shown = null; this.sig = ''; return; }
+    let k = this.pin && this.live[this.pin] && Date.now() < this.pinT ? this.pin : ks[0];
+    if (k !== ks[0] && ISL[ks[0]].pri(this.live[ks[0]]) >= 95 && ks[0] !== this.pin) k = ks[0];
+    this.cur = k;
+    const s = this.live[k], K = ISL[k], mode = K.mode ? K.mode(s) : '', others = ks.filter((x) => x !== k);
+    const sig = `${k}:${mode}:${others.map((x) => x + (ISL[x].pri(this.live[x]) >= 95 ? '!' : '')).join(',')}`;
+    if (sig !== this.sig) {
+      const html = K.c(s) + (others.length ? `<span class="isl-o">${others.map((x) => `<i class="${ISL[x].pri(this.live[x]) >= 95 ? 'hot' : ''}" data-ik="${x}" title="${x}">${ic(ISL[x].icon)}</i>`).join('')}</span>` : '');
+      if (this.shown !== k || !this.layer) {
+        const old = this.layer; if (old) { old.classList.add('leave'); setTimeout(() => old.remove(), tf(320)); }
+        const L = el(`<div class="isl-l enter">${html}</div>`); this.c.appendChild(L); this.layer = L;
+        void L.offsetWidth; raf(() => L.classList.remove('enter'));
+        if (this.shown && !this.isOpen) { this.el.classList.remove('bump'); void this.el.offsetWidth; this.el.classList.add('bump'); }
+        this.shown = k;
+      } else this.layer.innerHTML = html;
+      this.sig = sig;
+    }
+    const v = K.v ? K.v(s) : null;
+    this.bind(this.layer, v);
+    this.el.style.setProperty('--iw', Math.ceil(this.layer.offsetWidth) + 'px');
+    if (this.isOpen) {
+      const sx = `${sig}|${ks.join(',')}`;
+      if (sx !== this.sigX) {
+        const X = K.x(s), tabs = ks.length > 1 ? `<div class="isl-xt">${ks.map((x) => `<button class="isl-tab${x === k ? ' on' : ''}${ISL[x].pri(this.live[x]) >= 95 ? ' hot' : ''}" data-ik="${x}" aria-label="${x}" title="${x}">${ic(ISL[x].icon)}</button>`).join('')}</div>` : '';
+        this.x.innerHTML = `${X.h}<div class="isl-xa">${X.a}${tabs}</div>`; this.sigX = sx;
+      }
+      this.bind(this.x, v);
+      this.el.style.setProperty('--xh', Math.ceil(this.x.offsetHeight) + 'px');
+    }
+    this.el.classList.add('live');
+    this.el.classList.toggle('need', k === 'agent' && !!s.need);
+  },
+  tick() {
+    const now = Date.now(), L = this.live;
+    if (R.recording && !L.rec) this.add('rec', { t0: R.recStart, real: true });
+    if (!R.recording && L.rec && L.rec.real) this.remove('rec');
+    const vOn = Voice.st && Voice.st !== 'idle';
+    if (vOn && !L.mic) this.add('mic', { app: 'Voice typing', src: 'voice' });
+    if (!vOn && L.mic && L.mic.src === 'voice') this.remove('mic');
+    if (L.timer) { const t = L.timer; if (!t.done && now >= t.end) { t.done = true; t.doneAt = now; this.sigX = ''; HUD.show(`${t.label} timer is done`, 'clock'); } if (t.done && now - t.doneAt > 9000) this.remove('timer'); }
+    if (L.download) { const d = L.download; if (d.p < 100) { d.p = Math.min(100, d.p + d.rate); if (d.p >= 100) { d.doneAt = now; this.sigX = ''; } } else if (now - d.doneAt > 3500) this.remove('download'); }
+    if (L.agent && !L.agent.need && !L.agent.done) L.agent.p = Math.min(94, L.agent.p + 0.5);
+    if (L.agent && L.agent.done && now - L.agent.doneAt > 7000 && !this.isOpen) this.remove('agent');
+    if (L.shelf && now - L.shelf.t0 > 6500 && !(this.isOpen && this.cur === 'shelf')) this.remove('shelf');
+    if (Object.keys(this.live).length) this.render();
+  },
+  act(id) {
+    const L = this.live;
+    if (id === 'jump') { this.close(); Agents.open(); }
+    else if (id === 'pause') HUD.show('Paused the agent in tasks', 'pause');
+    else if (id === 'approve') { this.set('agent', { need: false, p: 72, step: 'Edit(src/hooks/useTasks.ts) · running tests' }); this.sigX = ''; this.render(); setTimeout(() => { if (this.live.agent && !this.live.agent.need) { this.set('agent', { done: true, doneAt: Date.now(), p: 100 }); this.sigX = ''; this.render(); } }, tf(2200)); }
+    else if (id === 'dismiss') { this.remove(this.cur); }
+    else if (id === 'stop') { if (L.rec && L.rec.real && R.recording) Shot.stopRec(); else { this.remove('rec'); HUD.show('Recording saved to ~/Videos', 'record'); } this.remove('rec'); }
+    else if (id === 'discard') { if (R.recording) { R.recording = false; MenuBar.update(); } this.remove('rec'); HUD.show('Recording discarded', 'trash'); }
+    else if (id === 'micstop') { if (L.mic && L.mic.src === 'voice') Voice.cancel(); this.remove('mic'); }
+    else if (id === 'plus') { if (L.timer) { const t = L.timer; t.end = Math.max(t.end, Date.now()) + 6e4; t.dur += 6e4; t.done = false; this.sigX = ''; } }
+    else if (id === 'cancel' || id === 'tdone') this.remove('timer');
+    else if (id === 'files') { this.close(); openFolder('Downloads'); }
+    else if (id === 'dlcancel') { this.remove('download'); HUD.show('Download cancelled', 'x'); }
+    else if (id === 'shelfopen') { this.close(); if (Shelf.st !== 'open') Shelf.toggle(); }
+    this.render();
+  },
+  seed() {
+    if (!this.live.agent) this.add('agent', { repo: 'tasks', title: 'Fixing tests', t0: Date.now() - 118e3, p: 38, step: 'Bash(pnpm vitest run TaskList)' });
+    if (!this.live.music) this.add('music', {});
+    if (!this.live.download) this.add('download', { name: 'SF-Pro.dmg', size: 96.4, p: 40, rate: 1.6 });
+  },
+  async demo(tok) {
+    Object.keys(this.live).forEach((k) => { if (!(k === 'rec' && this.live.rec.real)) delete this.live[k]; });
+    this.pin = null; this.close(); this.render();
+    const step = async (ms) => { await nap(ms); return !tok.dead; };
+    this.add('agent', { repo: 'tasks', title: 'Fixing tests', t0: Date.now() - 118e3, p: 34, step: 'Bash(pnpm vitest run TaskList)' }); if (!(await step(2300))) return;
+    if (!Media.playing) Media.act('toggle'); this.add('music', {}); if (!(await step(1900))) return;
+    this.add('download', { name: 'SF-Pro.dmg', size: 96.4, p: 6, rate: 3.2 }); if (!(await step(2400))) return;
+    this.open(); if (!(await step(2400))) return; this.close(); if (!(await step(900))) return;
+    if (!R.recording) Shot.startRec(); this.tick(); if (!(await step(2600))) return;
+    this.set('agent', { need: true }); if (!(await step(2000))) return;
+    this.open(); if (!(await step(2800))) return;
+    this.act('approve'); if (!(await step(1600))) return; this.close(); if (!(await step(1300))) return;
+    if (R.recording) Shot.stopRec(); else this.remove('rec'); if (!(await step(1400))) return;
+    this.add('shelf', { n: 2, names: ['invoice-oct.pdf', '“Focus without a border…”'] }); this.show('shelf'); if (!(await step(2200))) return;
+    this.add('timer', { end: Date.now() + 300e3, dur: 300e3, label: 'Tea' }); this.show('timer'); if (!(await step(1800))) return;
+    this.pin = null; this.add('mic', { app: 'Slack huddle' }); if (!(await step(2300))) return; this.remove('mic'); if (!(await step(900))) return;
+    this.cycle(); if (!(await step(1400))) return; this.cycle(); if (!(await step(1400))) return;
+    this.pin = null; this.render();
+  },
+};
+/* real hook: anything parked on the drop shelf shows up as a live activity for a few seconds */
+{
+  const add0 = Shelf.add.bind(Shelf);
+  Shelf.add = (items, from) => { add0(items, from); if (Island.el) Island.add('shelf', { t0: Date.now(), n: Shelf.items.length, names: Shelf.items.slice(0, 3).map((it) => it.name) }); };
+}
+
+/* ---------- 23j. CLICK ANYTHING (Homerow-style hint mode) ---------- */
+/* Super+Shift+F (mock: Alt+Shift+F). Every visible clickable element gets a two-letter home-row keycap; typing filters,
+   a full match flashes and clicks it (pointer + mouse + click events, so every existing handler runs). Esc cancels. */
+const HK_KEYS = 'asdfjkl;';
+const HK_LABELS = (() => { const o = [], d = []; for (const a of HK_KEYS) for (const b of HK_KEYS) (a === b ? d : o).push(a + b); return o.concat(d); })();
+const HK_SEL = 'button,a,[role=button],input:not([type=hidden]):not([type=range]),textarea,.dt,.ztab,.btab,.slc,.etab,.etree > div,.oside > div,.trk,.mi:not(.dis),[data-i],[data-act],[data-panel],[data-pop],[data-media],.ib,.wsd,.dsh-tab,.tsearch,#island.live:not(.open)';
+function hkClick(n) {
+  if (!n.isConnected) return;
+  if (n.matches('input,textarea')) { n.focus(); return; }
+  const r = n.getBoundingClientRect(), o = { bubbles: true, cancelable: true, composed: true, view: window, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0 };
+  const pe = (t, b) => { try { n.dispatchEvent(new PointerEvent(t, Object.assign({ pointerId: 1, isPrimary: true, pointerType: 'mouse', buttons: b }, o))); } catch (e) { /* old engine */ } };
+  pe('pointerdown', 1); n.dispatchEvent(new MouseEvent('mousedown', Object.assign({ buttons: 1 }, o)));
+  pe('pointerup', 0); n.dispatchEvent(new MouseEvent('mouseup', o)); n.dispatchEvent(new MouseEvent('click', o));
+}
+const Hints = {
+  el: null, pill: null, on: false, items: [], buf: '', t: 0,
+  init() {
+    this.el = el(`<div id="hints" aria-hidden="true"><div class="hk-pill"><i></i><b>Click anything</b><span class="hk-buf"></span><span>Type a label</span><span class="n"></span><kbd>esc</kbd></div></div>`);
+    stage.appendChild(this.el); this.pill = $('.hk-pill', this.el);
+  },
+  collect() {
+    const sr = stage.getBoundingClientRect(), out = [];
+    $$(HK_SEL, stage).forEach((n) => {
+      if (n.closest('#hints') || n.disabled) return;
+      const r = n.getBoundingClientRect(); if (r.width < 6 || r.height < 6) return;
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      if (cx < sr.left + 1 || cy < sr.top + 1 || cx > sr.right - 1 || cy > sr.bottom - 1) return;
+      const hit = document.elementFromPoint(cx, cy); if (!hit || !(hit === n || n.contains(hit))) return;
+      out.push({ n, r: { x: (r.left - sr.left) / R.scale, y: (r.top - sr.top) / R.scale, w: r.width / R.scale, h: r.height / R.scale } });
+    });
+    const keep = out.filter((a) => !out.some((b) => b !== a && a.n.contains(b.n)));
+    keep.sort((a, b) => (Math.round(a.r.y / 12) - Math.round(b.r.y / 12)) || (a.r.x - b.r.x));
+    return keep.slice(0, HK_LABELS.length);
+  },
+  open() {
+    if (this.on || R.locked) return;
+    PopBar.hide(); clearTimeout(this.t);
+    const ae = document.activeElement; if (ae && stage.contains(ae) && ae.blur) ae.blur();
+    $$('.hk', this.el).forEach((n) => n.remove());
+    this.items = this.collect().map((it, i) => Object.assign(it, { k: HK_LABELS[i] }));
+    this.buf = '';
+    this.items.forEach((it) => {
+      const r = it.r, x = r.w <= 76 ? r.x + r.w / 2 : r.x + Math.min(24, r.w / 2), y = r.h <= 44 ? r.y + r.h / 2 : r.y + 16;
+      const d = Math.min(200, Math.hypot(x - SW / 2, y - SH / 2) * 0.2);
+      it.el = el(`<span class="hk" style="left:${clamp(x, 15, SW - 15).toFixed(1)}px;top:${clamp(y, 11, SH - 11).toFixed(1)}px;--d:${d.toFixed(0)}ms">${[...it.k].map((c) => `<b>${c.toUpperCase()}</b>`).join('')}</span>`);
+      this.el.appendChild(it.el);
+    });
+    $('.n', this.pill).textContent = `${pad(this.items.length)} targets`;
+    this.on = true; this.el.classList.remove('out'); this.el.classList.add('on'); this.sync();
+    void this.el.offsetWidth; raf(() => { if (this.on) this.el.classList.add('in'); });
+  },
+  close() {
+    if (!this.on) return; this.on = false;
+    this.el.classList.add('out'); this.el.classList.remove('in');
+    this.t = setTimeout(() => { if (!this.on) { this.el.classList.remove('on', 'out'); $$('.hk', this.el).forEach((n) => n.remove()); } }, tf(280));
+  },
+  toggle() { if (this.on) this.close(); else this.open(); },
+  sync() {
+    $('.hk-buf', this.pill).textContent = this.buf.toUpperCase();
+    this.items.forEach((it) => {
+      const m = it.k.startsWith(this.buf);
+      it.el.classList.toggle('miss', !m); it.el.classList.toggle('match', m && !!this.buf);
+      [...it.el.children].forEach((b, i) => b.classList.toggle('typed', m && i < this.buf.length));
+    });
+  },
+  nope() { this.pill.classList.remove('shake'); void this.pill.offsetWidth; this.pill.classList.add('shake'); },
+  press(k) {
+    const nb = this.buf + k, m = this.items.filter((it) => it.k.startsWith(nb));
+    if (!m.length) { this.nope(); return; }
+    this.buf = nb; this.sync();
+    const ex = m.find((it) => it.k === nb); if (ex) this.fire(ex);
+  },
+  fire(it) {
+    it.el.classList.add('hit');
+    const ring = el(`<div class="hk-ring" style="left:${(it.r.x - 3).toFixed(1)}px;top:${(it.r.y - 3).toFixed(1)}px;width:${(it.r.w + 6).toFixed(1)}px;height:${(it.r.h + 6).toFixed(1)}px;z-index:7049"></div>`);
+    stage.appendChild(ring); setTimeout(() => ring.remove(), tf(700));
+    setTimeout(() => { this.close(); hkClick(it.n); }, tf(180));
+  },
+  key(e) {
+    if (!this.on) return false;
+    if (['Shift', 'Alt', 'Control', 'Meta', 'CapsLock'].includes(e.key)) return true;
+    e.preventDefault(); e.stopPropagation();
+    if (e.key === 'Escape') { this.close(); return true; }
+    if (e.key === 'Backspace') { this.buf = this.buf.slice(0, -1); this.sync(); return true; }
+    const k = e.key.toLowerCase();
+    if (k.length === 1 && HK_KEYS.includes(k)) this.press(k); else this.nope();
+    return true;
+  },
+  /* demo: label everything, then "type" the Downloads tile's label so its stack fans out */
+  async demo(tok) {
+    if (this.on) this.close();
+    await nap(300); if (tok.dead) return;
+    this.open(); await nap(1600); if (tok.dead || !this.on) return;
+    const t = this.items.find((it) => it.n.matches('.dt[data-app="downloads"]')) || this.items[0]; if (!t) return;
+    for (const c of t.k) { await nap(520); if (tok.dead || !this.on) return; this.press(c); }
+    await nap(2600); if (tok.dead) return;
+    if (DockFan.on) DockFan.close();
+  },
+};
+
+/* ---------- 23k. SMALL TOUCHES: shake to find · hot corners (+ draw on screen, show desktop) · dock stack fan ---------- */
+/* shake to find the cursor: >= 4 fast horizontal reversals inside 700 ms blooms a big pointer at the tip */
+const FindCur = {
+  el: null, hist: [], on: false, offT: 0,
+  init() {
+    this.el = el('<div id="findcur" aria-hidden="true"><div class="fc-r"></div><div class="fc-r"></div><div class="fc-a"><svg viewBox="0 0 22 26"><path d="M2 1.5v19.2l4.9-4.6 3.1 7.4 3.4-1.5-3.1-7.2h6.8z" fill="#fff" stroke="#000" stroke-width="1.1" stroke-linejoin="round"/></svg></div></div>');
+    stage.appendChild(this.el);
+    stage.addEventListener('pointermove', (e) => { if (!e.pointerType || e.pointerType === 'mouse') this.feed(pt(e)); }, { passive: true });
+  },
+  feed(p, now = performance.now()) {
+    const h = this.hist; h.push({ x: p.x, y: p.y, t: now }); while (h.length && now - h[0].t > 700) h.shift();
+    if (this.on) this.move(p);
+    let rev = 0, dist = 0, dir = 0, run = 0;
+    for (let i = 1; i < h.length; i++) {
+      const dx = h[i].x - h[i - 1].x; dist += Math.abs(dx); if (Math.abs(dx) < 1) continue;
+      const d = Math.sign(dx); if (dir && d !== dir) { if (run > 24) rev++; run = 0; } dir = d; run += Math.abs(dx);
+    }
+    if (rev >= 4 && dist > 650) this.bloom(p);
+  },
+  bloom(p) {
+    clearTimeout(this.offT);
+    if (!this.on) { this.on = true; this.move(p); this.el.classList.remove('ping'); void this.el.offsetWidth; this.el.classList.add('on', 'ping'); }
+    this.offT = setTimeout(() => { this.on = false; this.el.classList.remove('on'); }, tf(650));
+  },
+  move(p) { this.el.style.transform = `translate(${p.x.toFixed(1)}px,${p.y.toFixed(1)}px)`; },
+  async demo(tok) {
+    const c0 = { x: 760, y: 470 }; Shelf.curAt(c0, true); await nap(600); if (tok.dead) return;
+    let last = c0; const t0 = performance.now(), dur = 1500;
+    await new Promise((res) => {
+      const f = (now) => {
+        if (tok.dead) { res(); return; }
+        const u = Math.min(1, (now - t0) / dur), amp = 120 * Math.min(1, u * 4) * (u > 0.85 ? (1 - u) / 0.15 : 1);
+        last = { x: c0.x + Math.sin(u * Math.PI * 2 * 6.5) * amp, y: c0.y + Math.sin(u * Math.PI * 2 * 3.2) * 12 };
+        Shelf.curAt(last, !this.on); this.feed(last, now);
+        if (u < 1) raf(f); else res();
+      };
+      raf(f);
+    });
+    await nap(900); if (tok.dead) return; Shelf.curAt(last, true); await nap(600); Shelf.cur.classList.remove('on');
+  },
+};
+/* hot corners: one 4 px zone per corner, a glow + label when the pointer arrives, the action after a 140 ms dwell */
+const HC_ACT = { mission: ['Mission Control', 'grid'], draw: ['Draw on screen', 'pen'], desktop: ['Show desktop', 'desktop'], lock: ['Lock screen', 'lock'], off: ['Off', 'x'] };
+const HC_ORDER = ['mission', 'draw', 'desktop', 'lock', 'off'];
+const HC_KEYS = { tl: 'hcTL', tr: 'hcTR', bl: 'hcBL', br: 'hcBR' };
+const HotCorners = {
+  z: {}, g: {}, t: 0,
+  init() {
+    Object.keys(HC_KEYS).forEach((c) => {
+      const z = c === 'tl' ? $('#hotcorner') : stage.appendChild(el(`<div class="hc ${c}"></div>`));
+      const g = stage.appendChild(el(`<div class="hcg ${c}" aria-hidden="true"><span></span></div>`));
+      this.z[c] = z; this.g[c] = g; this.label(c);
+      z.addEventListener('mouseenter', () => this.enter(c));
+      z.addEventListener('mouseleave', () => this.leave(c));
+    });
+  },
+  label(c) { const a = HC_ACT[S[HC_KEYS[c]]] ? S[HC_KEYS[c]] : 'off', [n, i] = HC_ACT[a]; const g = this.g[c]; $('span', g).innerHTML = `${ic(i)}${esc(n)}`; g.classList.toggle('off', a === 'off'); return a; },
+  enter(c) {
+    clearTimeout(this.t); clearTimeout(this.g[c]._t);
+    if (R.locked || Shot.isOpen || Launcher.isOpen || Ask.isOpen || Hints.on || Login.isOpen) return;
+    const a = this.label(c); this.g[c].classList.add('on');
+    if (a !== 'off') this.t = setTimeout(() => this.fire(c, a), 140);
+  },
+  leave(c) { clearTimeout(this.t); const g = this.g[c]; clearTimeout(g._t); g._t = setTimeout(() => g.classList.remove('on'), tf(380)); },
+  fire(c, a) {
+    const g = this.g[c]; g.classList.remove('fire'); void g.offsetWidth; g.classList.add('fire');
+    if (a === 'mission') Overview.toggle(); else if (a === 'draw') Draw.toggle(); else if (a === 'desktop') Peek.toggle(); else if (a === 'lock') Lock.show();
+  },
+  preview(c, ms = 1200) { this.label(c); const g = this.g[c]; g.classList.add('on'); clearTimeout(g._t); g._t = setTimeout(() => g.classList.remove('on'), tf(ms)); },
+  twHTML() {
+    return `<div class="tw-s"><h3>Hot corners</h3><div class="hc-map"><div class="scr"></div>${Object.keys(HC_KEYS).map((c) => `<button class="hc-k ${c}" data-hc="${HC_KEYS[c]}"></button>`).join('')}</div>
+      <div class="tw-n">Click a corner to cycle: Mission Control · Draw on screen · Show desktop · Lock · Off. Hyprland has no hot corners; the shell puts a 4 px PanelWindow in each corner with a HoverHandler (140 ms dwell).</div></div>`;
+  },
+  syncTw(rootEl) { $$('[data-hc]', rootEl).forEach((b) => { const a = HC_ACT[S[b.dataset.hc]] ? S[b.dataset.hc] : 'off', [n, i] = HC_ACT[a]; b.innerHTML = `${ic(i)}<span>${esc(n)}</span>`; b.classList.toggle('off', a === 'off'); }); },
+  cycle(k) {
+    const a = HC_ACT[S[k]] ? S[k] : 'off', nx = HC_ORDER[(HC_ORDER.indexOf(a) + 1) % HC_ORDER.length];
+    setS({ [k]: nx });
+    const b = $(`[data-hc="${k}"]`, Tweaks.el); if (b) { b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash'); }
+    this.preview(Object.keys(HC_KEYS).find((x) => HC_KEYS[x] === k));
+  },
+  async demo(tok) {
+    const pts = { tl: { x: 2, y: 2 }, tr: { x: SW - 2, y: 2 }, br: { x: SW - 2, y: SH - 2 }, bl: { x: 2, y: SH - 2 } };
+    if (!Shelf.cur.classList.contains('on')) Shelf.curAt({ x: SW / 2, y: SH / 2 }, true);
+    for (const c of ['tl', 'tr', 'br', 'bl']) {
+      if (!(await Shelf.curTo(pts[c], 620, tok, 0.08))) return;
+      this.preview(c, 1000); await nap(760); if (tok.dead) return;
+    }
+    if (!(await Shelf.curTo({ x: SW / 2 + 80, y: SH / 2 - 40 }, 520, tok))) return;
+  },
+};
+/* draw on screen (hot-corner action): accent ink over everything below the menus, Esc / Done to leave */
+const Draw = {
+  el: null, cv: null, x: null, on: false, strokes: [], col: 'accent', k: 1,
+  init() {
+    this.el = el(`<div id="draw" aria-label="Draw on screen (concept)"><canvas></canvas><div class="dr-bar"><b><i></i>Draw</b>
+      ${[['accent', 'var(--accent)'], ['white', '#fff'], ['yellow', 'var(--yellow)'], ['teal', 'var(--teal)']].map(([k, c]) => `<button class="dr-sw" data-dc="${k}" style="--c:${c}" aria-label="${k} ink"><i></i></button>`).join('')}
+      <span class="dr-sep"></span><button class="dr-b" data-da="undo">${ic('undo')}Undo</button><button class="dr-b" data-da="clear">${ic('trash')}Clear</button><button class="dr-b" data-da="done">Done <kbd>esc</kbd></button></div></div>`);
+    stage.appendChild(this.el); this.cv = $('canvas', this.el); this.x = this.cv.getContext('2d');
+    this.el.addEventListener('pointerdown', (e) => this.down(e));
+    const bar = $('.dr-bar', this.el);
+    bar.addEventListener('pointerdown', (e) => e.stopPropagation());
+    bar.addEventListener('click', (e) => {
+      const sw = e.target.closest('[data-dc]'); if (sw) { this.col = sw.dataset.dc; this.syncSw(); return; }
+      const b = e.target.closest('[data-da]'); if (!b) return;
+      if (b.dataset.da === 'undo') { this.strokes.pop(); this.redraw(); } else if (b.dataset.da === 'clear') { this.strokes = []; this.redraw(); } else this.close();
+    });
+  },
+  syncSw() { $$('.dr-sw', this.el).forEach((b) => b.classList.toggle('on', b.dataset.dc === this.col)); },
+  color() {
+    if (this.col === 'white') return '#ffffff';
+    const v = getComputedStyle(root).getPropertyValue({ accent: '--accent', yellow: '--yellow', teal: '--teal' }[this.col] || '--accent').trim();
+    return v || '#FF3B1F';
+  },
+  open() {
+    if (this.on) return; this.on = true; Menu.close(); PopBar.hide();
+    this.k = clamp((window.devicePixelRatio || 1) * R.scale, 1, 2); this.cv.width = Math.round(SW * this.k); this.cv.height = Math.round(SH * this.k);
+    this.redraw(); this.syncSw(); this.el.classList.add('on'); raf(() => raf(() => { if (this.on) this.el.classList.add('in'); }));
+  },
+  close() { if (!this.on) return; this.on = false; this.el.classList.remove('in'); setTimeout(() => { if (!this.on) { this.el.classList.remove('on'); this.strokes = []; this.redraw(); } }, tf(240)); },
+  toggle() { if (this.on) this.close(); else this.open(); },
+  down(e) {
+    if (e.button !== 0) return; e.preventDefault();
+    try { this.el.setPointerCapture(e.pointerId); } catch (er) { /* synthetic */ }
+    const s = { c: this.color(), pts: [pt(e)] }; this.strokes.push(s);
+    const mv = (ev) => { s.pts.push(pt(ev)); this.redraw(); };
+    const up = () => { this.el.removeEventListener('pointermove', mv); this.el.removeEventListener('pointerup', up); this.el.removeEventListener('pointercancel', up); };
+    this.el.addEventListener('pointermove', mv); this.el.addEventListener('pointerup', up); this.el.addEventListener('pointercancel', up);
+    this.redraw();
+  },
+  redraw() {
+    const x = this.x, k = this.k; x.setTransform(k, 0, 0, k, 0, 0); x.clearRect(0, 0, SW, SH); x.lineCap = 'round'; x.lineJoin = 'round';
+    for (const s of this.strokes) {
+      const p = s.pts; if (!p.length) continue;
+      x.beginPath(); x.moveTo(p[0].x, p[0].y);
+      if (p.length < 3) x.lineTo(p[p.length - 1].x + 0.01, p[p.length - 1].y);
+      for (let i = 1; i < p.length - 1; i++) x.quadraticCurveTo(p[i].x, p[i].y, (p[i].x + p[i + 1].x) / 2, (p[i].y + p[i + 1].y) / 2);
+      x.strokeStyle = s.c; x.shadowColor = s.c; x.shadowBlur = 16; x.lineWidth = 4.5; x.globalAlpha = 0.95; x.stroke();
+      x.shadowBlur = 0; x.globalAlpha = 0.9; x.lineWidth = 1.4; x.strokeStyle = 'rgba(255,255,255,.75)'; x.stroke(); x.globalAlpha = 1;
+    }
+  },
+  async scribble(pts, tok, ms) {
+    const s = { c: this.color(), pts: [pts[0]] }; this.strokes.push(s);
+    const per = tf(ms) / pts.length;
+    for (let i = 1; i < pts.length; i++) { if (tok.dead) return false; s.pts.push(pts[i]); Shelf.curAt(pts[i]); this.redraw(); await new Promise((r) => setTimeout(r, per)); }
+    return true;
+  },
+  async demo(tok) {
+    this.open(); await nap(500); if (tok.dead) return;
+    const cx = 980, cy = 330, ring = [];
+    for (let i = 0; i <= 64; i++) { const a = -Math.PI * 0.9 + (i / 64) * Math.PI * 2.15; ring.push({ x: cx + Math.cos(a) * (170 + i * 0.5), y: cy + Math.sin(a) * (62 + i * 0.15) }); }
+    if (!(await Shelf.curTo(ring[0], 420, tok))) return;
+    if (!(await this.scribble(ring, tok, 900))) return;
+    const arrow = []; for (let i = 0; i <= 24; i++) arrow.push({ x: 700 + i * 5.2, y: 520 - i * 4.4 - Math.sin(i / 24 * Math.PI) * 18 });
+    if (!(await Shelf.curTo(arrow[0], 380, tok))) return;
+    if (!(await this.scribble(arrow, tok, 380))) return;
+    const head = [{ x: 812, y: 432 }, { x: 826, y: 413 }, { x: 832, y: 437 }];
+    if (!(await this.scribble(head, tok, 160))) return;
+    await nap(1700); if (tok.dead) return; this.close();
+  },
+};
+/* show desktop (hot-corner action): windows zoom away; any click or Esc brings them back */
+const Peek = {
+  on: false, chip: null,
+  init() {
+    this.chip = stage.appendChild(el(`<div class="pk-chip" aria-hidden="true">${ic('desktop')}<span>Showing desktop · click anywhere or</span><kbd>esc</kbd></div>`));
+    stage.addEventListener('pointerdown', (e) => { if (this.on && !e.target.closest('.hc,#hotcorner')) this.close(); }, true);
+  },
+  open() { if (this.on || R.overview) return; this.on = true; Menu.close(); PopBar.hide(); stage.classList.add('peek'); },
+  close() { if (!this.on) return; this.on = false; stage.classList.remove('peek'); },
+  toggle() { if (this.on) this.close(); else this.open(); },
+};
+/* dock stack fan: Downloads arcs its files up out of the tile (macOS "Fan"), newest at the bottom */
+const DockFan = {
+  el: null, on: false, app: null, t: 0,
+  init() {
+    this.el = stage.appendChild(el('<div id="dfan" aria-label="Downloads stack (concept)"></div>'));
+    this.el.addEventListener('click', (e) => { const it = e.target.closest('.df-it'); if (it) this.pick(+it.dataset.i); });
+    document.addEventListener('pointerdown', (e) => { if (this.on && !e.target.closest('.df-it') && !e.target.closest(`.dt[data-app="${this.app}"]`)) this.close(); }, true);
+  },
+  items() { return (FS.Downloads.items || []).map(([n, t]) => ({ n, t })); },
+  toggle(app) { if (this.on) this.close(); else this.open(app); },
+  open(app = 'downloads') {
+    const t = Dock.tiles.find((x) => x.app === app); if (!t || !S.dockShow) { openFolder('Downloads'); return; }
+    clearTimeout(this.t); this.on = true; this.app = app; Menu.close(); Dock.tip.classList.remove('show'); Dock.hover = null;
+    const r = rectOf(t.el), x0 = r.x + r.w / 2, y0 = r.y + r.h * 0.42, its = this.items();
+    this.el.classList.remove('closing', 'open');
+    this.el.innerHTML = [...its, { top: true }].map((it, i) => {
+      const y = y0 - 74 - i * 56, x = x0 + i * 3 + i * i * 1.25, rot = i * 1.3;
+      const img = !it.top && DSH_IMG[it.n];
+      const icon = it.top ? `<span>${ic('arrowR', 'style="transform:rotate(-45deg)"')}</span>` : img ? `<div class="th" style="background-image:url(${wall(img)})"></div>` : it.t === 'dir' ? folderSvg(46) : fileSvg(dshExt(it.n) || 'bin', 46);
+      return `<div class="df-it${it.top ? ' top' : ''}" data-i="${it.top ? -1 : i}" style="--x0:${x0.toFixed(1)}px;--y0:${y0.toFixed(1)}px;--x:${x.toFixed(1)}px;--y:${y.toFixed(1)}px;--r:${rot.toFixed(1)}deg;--d:${i * 28}ms"><div class="df-l">${esc(it.top ? 'Open in Files' : it.n)}</div><div class="df-ic">${icon}</div></div>`;
+    }).join('');
+    t.el.classList.add('fanned');
+    void this.el.offsetWidth; raf(() => { if (this.on) this.el.classList.add('open'); });
+  },
+  close() {
+    if (!this.on) return; this.on = false;
+    const its = $$('.df-it', this.el), n = its.length; its.forEach((e, i) => e.style.setProperty('--d', (n - 1 - i) * 16 + 'ms'));
+    this.el.classList.add('closing'); this.el.classList.remove('open'); $$('.dt.fanned').forEach((x) => x.classList.remove('fanned'));
+    clearTimeout(this.t); this.t = setTimeout(() => { if (!this.on) { this.el.innerHTML = ''; this.el.classList.remove('closing'); } }, tf(560));
+  },
+  pick(i) {
+    const its = this.items(); this.close();
+    if (i < 0) { openFolder('Downloads'); return; }
+    const it = its[i]; if (it) HUD.show(`Opened ${it.n}`, /\.(png|jpe?g)$/i.test(it.n) ? 'image' : 'doc');
+  },
+  async demo(tok) {
+    const t = Dock.tiles.find((x) => x.app === 'downloads'); if (!t || !S.dockShow) return;
+    if (!(await Shelf.curTo(Shelf.centre(t.el), 640, tok))) return;
+    if (!(await Shelf.press(tok))) return; Shelf.release(); this.open('downloads');
+    await nap(1000); if (tok.dead) return;
+    const top = $('.df-it:nth-child(3)', this.el); if (top) { if (!(await Shelf.curTo(Shelf.centre(top), 480, tok))) return; }
+    await nap(1600); if (tok.dead) return; this.close();
+  },
+};
+const Touches = {
+  async demo(tok) {
+    try {
+      await FindCur.demo(tok); if (tok.dead) return; await nap(300);
+      await HotCorners.demo(tok); if (tok.dead) return;
+      await Draw.demo(tok); if (tok.dead) return; await nap(400);
+      Peek.open(); await nap(1800); Peek.close(); if (tok.dead) return; await nap(700);
+      await DockFan.demo(tok);
+    } finally { Shelf.cur.classList.remove('on', 'down'); }
+  },
+};
+
+/* ---------- 23l. wiring: concepts menu rows, demos, cheat sheet, launcher, keys ---------- */
+CONCEPTS.push(
+  { id: 'popbar', name: 'Selection bar', pitch: 'Select text in any window: Ask, Translate, Search, Copy, Shelf, Case, Speak, plus Open link and Calc when they apply.', keys: ['select'], alias: 'mock: Alt+Shift+P plays it', extra: ['try', 'Select for me'] },
+  { id: 'island', name: 'Dynamic Island', pitch: 'The bar’s empty centre morphs between live activities: agents, recording, music, timers, downloads, the shelf, the mic.', keys: ['hover'], alias: 'mock: Alt+Shift+I plays it · click cycles', extra: ['try', 'Seed + expand'] },
+  { id: 'hints', name: 'Click anything', pitch: 'Home-row keycaps on every clickable thing on screen; type two letters to click it, Esc to cancel.', keys: ['Super', ';'], alias: 'mock: Alt+Shift+F', extra: ['try', 'Show labels'] },
+  { id: 'touches', name: 'Small touches', pitch: 'Shake the mouse to find the pointer, a different action in every hot corner, and a Downloads stack that fans out of the dock.', keys: ['shake'], alias: 'mock: Alt+Shift+T · Tweaks › Hot corners', extra: ['try', 'Fan Downloads'] },
+);
+const CPT_PLAY = {
+  popbar: (tok) => PopBar.demoPlay(tok), island: (tok) => Island.demo(tok), hints: (tok) => Hints.demo(tok), touches: (tok) => Touches.demo(tok),
+  shake: (tok) => FindCur.demo(tok).then(() => Shelf.cur.classList.remove('on')), corners: (tok) => HotCorners.demo(tok).then(() => Shelf.cur.classList.remove('on')),
+  draw: (tok) => Draw.demo(tok).then(() => Shelf.cur.classList.remove('on')), fan: (tok) => DockFan.demo(tok).then(() => Shelf.cur.classList.remove('on')),
+};
+const CPT_TRY = {
+  popbar: () => PopBar.tryIt(), island: () => { Island.seed(); Island.open(); }, hints: () => Hints.open(), touches: () => DockFan.open('downloads'),
+  draw: () => Draw.open(), desktop: () => Peek.open(),
+};
+const Extras = {
+  reset() { PopBar.hide(); Hints.close(); DockFan.close(); Draw.close(); Peek.close(); },
+  /* called from Concepts.key (23f) before the other chords; true = handled */
+  key(e, typing, sup) {
+    if (Hints.key(e)) return true;
+    if (e.key === 'Escape') {
+      if (Draw.on) { e.preventDefault(); Draw.close(); return true; }
+      if (PopBar.isOpen) { e.preventDefault(); if (PopBar.kind) PopBar.closeCard(); else PopBar.hide(); return true; }
+      if (DockFan.on) { e.preventDefault(); DockFan.close(); return true; }
+      if (Peek.on) { e.preventDefault(); Peek.close(); return true; }
+      if (Island.isOpen) { e.preventDefault(); Island.close(); return true; }
+    }
+    if (sup && e.shiftKey && !e.ctrlKey) {
+      const k = { KeyF: 'hints', KeyP: 'popbar', KeyI: 'island', KeyT: 'touches' }[e.code];
+      if (k) { e.preventDefault(); altUsed = true; if (k === 'hints') { Demo.stop(); Hints.toggle(); } else Concepts.play(k); return true; }
+    }
+    return false;
+  },
+};
+CHEATS.splice(CHEATS.length - 1, 0, ['Concepts · touches', [
+  [['select', 'text'], 'Selection action bar', 'any window · Alt+Shift+P demo'], [['Super', ';'], 'Click anything (hints)', 'Alt+Shift+F · Esc cancels'],
+  [['hover', 'bar centre'], 'Dynamic Island · click cycles', 'Alt+Shift+I demo'], [['shake', 'mouse'], 'Find the cursor', 'wiggle fast'],
+  [['corner'], 'Hot corners (per corner)', 'Tweaks › Hot corners'], [['click', 'Downloads'], 'Dock stack fan', 'Alt+Shift+T demo'],
+]]);
+SYS.push(
+  ['Click Anything (hints)', 'keyboard', 'concept · Super+;', 'hints homerow click keyboard labels vimium', () => setTimeout(() => Hints.open(), 260)],
+  ['Selection Bar (demo)', 'clip', 'concept · select any text', 'popclip selection copy translate', () => Concepts.play('popbar')],
+  ['Dynamic Island (demo)', 'sparkle', 'concept · bar centre', 'island live activity dynamic', () => Concepts.play('island')],
+  ['Draw on Screen', 'pen', 'concept · hot corner action', 'draw annotate pen ink', () => Draw.open()],
+  ['Show Desktop', 'desktop', 'concept · hot corner action', 'desktop peek hide windows', () => Peek.open()],
+);
+ACTS.hints = () => Hints.open();
+
 /* ==========================================================================
    22. FIT STAGE + BOOT
    ========================================================================== */
@@ -6297,6 +7595,7 @@ window.addEventListener('resize', fit);
 function boot() {
   applyTokens();
   MenuBar.build(); LegacyBar.build(); CC.init(); NC.init(); Tweaks.build(); Concepts.build(); Agents.init(); Shelf.init();
+  PopBar.init(); Island.init(); Hints.init(); FindCur.init(); HotCorners.init(); Draw.init(); Peek.init(); DockFan.init();
   fit();
   spawn('slack', { ws: 1, x: 656, y: 330, w: 760, h: 432, instant: true, noFocus: true });
   spawn('zen', { ws: 1, x: 486, y: 50, w: 960, h: 600, instant: true, noFocus: true });
@@ -6347,7 +7646,7 @@ const NoxDemo = {
     if (R.sleeping) Power.wake();
     if (Shelf.demoOn) Shelf.demoEnd(); if (Shelf.drag) Shelf.cancel(); Shelf.handsOff(); Shelf.pin = false; Shelf.hover = false; Shelf.sync();
     Ask.close(); Voice.cancel(); Agents.close(true); Launcher.close(); Menu.close(); Panels.close(); Switcher.close();
-    if (R.overview) Overview.close(); Cheats.close(); if (Shot.isOpen) Shot.close(); Tweaks.close(); Concepts.close();
+    if (R.overview) Overview.close(); Extras.reset(); Island.close(); Cheats.close(); if (Shot.isOpen) Shot.close(); Tweaks.close(); Concepts.close();
     if (Login.isOpen) Login.close(true);
     if (Lock.el.classList.contains('open')) { Lock.el.classList.remove('open', 'leave', 'enter'); Lock.el.innerHTML = ''; R.locked = false; }
     const ae = document.activeElement; if (ae && ae !== document.body && ae.blur) ae.blur();
@@ -6408,6 +7707,16 @@ NoxDemo.map = {
   tweaks() { Tweaks.open(); },
   overview() { Overview.open(); },
   concepts() { Concepts.open(); },
+  popbar() { Concepts.play('popbar'); },
+  selection() { Concepts.play('popbar'); },
+  island() { Concepts.play('island'); },
+  hints() { Concepts.play('hints'); },
+  touches() { Concepts.play('touches'); },
+  draw() { Concepts.play('draw'); },
+  corners() { Concepts.play('corners'); },
+  shake() { Concepts.play('shake'); },
+  fan() { Concepts.play('fan'); },
+  desktop() { Peek.open(); },
 };
 window.addEventListener('message', (e) => {
   const d = e.data; if (!d || typeof d !== 'object' || d.nox !== 'demo') return;

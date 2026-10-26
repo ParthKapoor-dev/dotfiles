@@ -54,6 +54,17 @@ export function initTry() {
   });
 
   start.addEventListener("click", boot);
+  // "Play it in the desktop" links anywhere on the page: <a href="#try" data-try="island">
+  document.addEventListener("click", (e) => {
+    const a = (e.target as HTMLElement).closest<HTMLElement>("[data-try]");
+    if (!a) return;
+    const name = a.dataset.try!;
+    const b = buttons.find((x) => x.dataset.demo === name);
+    buttons.forEach((x) => x.classList.toggle("on", x === b));
+    if (!frame) { boot(); queued = name; }
+    else if (!ready) queued = name;
+    else send(name);
+  });
   for (const b of buttons) {
     b.addEventListener("click", () => {
       const name = b.dataset.demo!;

@@ -14,6 +14,12 @@ import { initTheme } from "./demos/theme";
 import { initFiles } from "./demos/files";
 import { initTerminal } from "./demos/terminal";
 import { initKeys } from "./demos/keys";
+import { initSelbar } from "./demos/selbar";
+import { initIsland } from "./demos/island";
+import { initHints } from "./demos/hints";
+import { initCorners, initFolder, initShake } from "./demos/touches";
+import { initDraw } from "./demos/draw";
+import { initMission } from "./demos/mission";
 import { initTry } from "./try";
 
 document.documentElement.classList.add("js");
@@ -126,6 +132,9 @@ const DEMOS: [string, (el: HTMLElement) => void][] = [
   ["#demo-ask", initAsk], ["#demo-voice", initVoice], ["#demo-agents", initAgents], ["#usage-live", initUsage],
   ["#demo-launcher", initLauncher], ["#demo-shelf", initShelf], ["#demo-phone", initPhone], ["#demo-theme", initTheme],
   ["#demo-files", initFiles], ["#demo-term", initTerminal], ["#demo-keys", initKeys],
+  ["#demo-selbar", initSelbar], ["#demo-island", initIsland], ["#demo-hints", initHints],
+  ["#demo-corners", initCorners], ["#demo-folder", initFolder], ["#demo-shake", initShake],
+  ["#demo-draw", initDraw], ["#demo-mission", initMission],
 ];
 for (const [sel, fn] of DEMOS) {
   const el = $(sel);
@@ -133,7 +142,7 @@ for (const [sel, fn] of DEMOS) {
   whenNear(el, () => {
     fn(el);
     // inner scrollers keep their wheel events
-    el.querySelectorAll(".tm-out, .ask-body, .th-json").forEach((n) => n.setAttribute("data-lenis-prevent", ""));
+    el.querySelectorAll(".tm-out, .ask-body, .th-json, .sb-cb").forEach((n) => n.setAttribute("data-lenis-prevent", ""));
     ScrollTrigger.refresh();
   }, "600px");
 }
