@@ -15,8 +15,8 @@ import qs.services
 // pill; drag it by its left end). Annotations are ordinary pixels on screen, so a shared screen or
 // a recording shows them.
 //   pointer   a glowing dot with a short comet tail instead of the cursor; hold the button to
-//             draw ink that stays a moment (draw.pointerSeconds, 2.5) and fades (Slack huddle style)
-//   pen / arrow / box / circle   with FADE on (default) they fade out slowly draw.fadeSeconds (4)
+//             draw ink that stays a moment (draw.pointerSeconds, 1.3) and fades (Slack huddle style)
+//   pen / arrow / box / circle   with FADE on (default) they fade out (draw.fadeOutSeconds, 1.2) draw.fadeSeconds (1.3)
 //             after the last stroke: drawing again restarts the wait for all of them (and brings
 //             back any that were already fading); FADE off = they stay. Shift = straight line /
 //             square / circle
@@ -54,9 +54,10 @@ Scope {
     property int colorIx: 0
     readonly property color ink: colorAt(colorIx)
     property bool fade: opts.fade ?? true
-    readonly property int fadeMs: Math.round((opts.fadeSeconds ?? 4) * 1000)
-    readonly property int pointerMs: Math.round((opts.pointerSeconds ?? 2.5) * 1000)
-    readonly property int fadeOutMs: Math.round((opts.fadeOutSeconds ?? 1.6) * 1000)
+    // last stroke -> gone: fadeSeconds on screen + fadeOutSeconds fading (2.5 s in all)
+    readonly property int fadeMs: Math.round((opts.fadeSeconds ?? 1.3) * 1000)
+    readonly property int pointerMs: Math.round((opts.pointerSeconds ?? 1.3) * 1000)
+    readonly property int fadeOutMs: Math.round((opts.fadeOutSeconds ?? 1.2) * 1000)
     property string screenName: ""
     property bool capturing: false     // toolbox hidden for a screenshot
     readonly property bool hand: tool === "hand"
@@ -274,10 +275,7 @@ Scope {
                         anchors.fill: parent
                         readonly property var paths: root.pathStore[sid] ?? []
                         property bool leaving: false
-                        // a stroke "lands": a touch thicker, then settles (and a glow that breathes in)
-                        property real land: 1
-                        Component.onCompleted: { landAnim.start(); if (fadeAfter > 0) fadeTimer.start(); }
-                        NumberAnimation { id: landAnim; target: st; property: "land"; from: 1.35; to: 1; duration: 260; easing.type: Easing.OutCubic }
+                        Component.onCompleted: if (fadeAfter > 0) fadeTimer.start()
                         // a slow fade (draw.fadeOutSeconds, 1.6) once the wait is over
                         // (not while a stroke is being drawn: the wait starts again when it lands)
                         Timer { id: fadeTimer; interval: st.fadeAfter; onTriggered: if (live.drawing) restart(); else st.leave(root.fadeOutMs, false) }
@@ -302,7 +300,7 @@ Scope {
                                 fadeTimer.restart();
                             }
                         }
-                        DrawStroke { paths: st.paths; color: st.col; lineWidth: st.w * st.land; alpha: st.alpha; glow: st.glow }
+                        DrawStroke { paths: st.paths; color: st.col; lineWidth: st.w; alpha: st.alpha; glow: st.glow }
                     }
                 }
 

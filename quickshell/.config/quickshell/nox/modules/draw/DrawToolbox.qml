@@ -281,7 +281,7 @@ Item {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                readonly property string h: "Fade pens after " + Math.round(root.ctl.fadeMs / 1000) + " s · F"
+                readonly property string h: "Pens fade out in " + ((root.ctl.fadeMs + root.ctl.fadeOutMs) / 1000).toFixed(1) + " s · F"
                 onContainsMouseChanged: root.tip = containsMouse ? h : (root.tip === h ? "" : root.tip)
                 onClicked: root.ctl.fade = !root.ctl.fade
             }
