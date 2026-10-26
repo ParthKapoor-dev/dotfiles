@@ -18,7 +18,11 @@ import qs.services
 //                                   regroup to one desktop. Hovering a thumbnail shows that desktop's
 //                                   windows below (it stays shown until another one is hovered)
 // Click a window = focus it (its desktop comes along); click a desktop = switch; drag a window onto
-// a desktop = move it there (the strip slides down during a drag in the windows view too).
+// a desktop = move it there (a drag in the windows view brings the desktops view in); fling a window
+// up (a quick flick, not over a desktop) or middle-click it = close it.
+// Previews are live on every desktop: while Mission Control is open the other desktops' windows get
+// Hyprland's render_unfocused (drawn at misc:render_unfocused_fps, 15) and go back on close
+// (shell.json overview.liveAll, default true).
 // The drop shelf opens alongside (shell.json overview.shelf, default true) and closes with it.
 // Keys (stay in Mission Control unless noted):
 //   Space  switch view                                     Esc  close
@@ -56,6 +60,7 @@ Scope {
             Hyprland.refreshToplevels(); Hyprland.refreshWorkspaces();
             hideTimer.stop(); sel = -1; hoverWs = -1;
             layerOn.restart();
+            wakeHidden();
             capture = true; shown = true;
             readyWait.elapsed = 0; readyWait.restart();
         } else {
@@ -75,7 +80,38 @@ Scope {
             if (elapsed >= 48 && (root.readyCheck() || elapsed >= 160)) { stop(); root.target = 1; root.p = 1; }
         }
     }
-    Timer { id: hideTimer; interval: Theme.durWorkspace + 20; onTriggered: { if (!root.open) { root.shown = false; root.capture = false; Panels.overviewLayered = false; } } }
+    Timer { id: hideTimer; interval: Theme.durWorkspace + 20; onTriggered: { if (!root.open) { root.shown = false; root.capture = false; Panels.overviewLayered = false; root.sleepHidden(); } } }
+    // live previews of the other desktops: windows that aren't on a shown workspace keep drawing
+    // (render_unfocused) while Mission Control is open; put back ("unset" = the rules' value) after
+    readonly property bool liveAll: (opts.liveAll ?? true) && (opts.live ?? true)
+    property var woken: []
+    function wakeHidden() {
+        if (!liveAll) return;
+        const shown = {};
+        for (const m of Hyprland.monitors.values) if (m.activeWorkspace) shown[m.activeWorkspace.id] = true;
+        const list = Hyprland.toplevels.values
+            .filter(t => (t.workspace?.id ?? 0) > 0 && !shown[t.workspace.id] && !(t.lastIpcObject?.hidden ?? false))
+            .map(t => t.address);
+        for (const a of list) if (woken.indexOf(a) === -1) Hypr.setProp(a, "render_unfocused", "1");
+        woken = woken.concat(list.filter(a => woken.indexOf(a) === -1));
+    }
+    Component.onDestruction: sleepHidden()     // a shell restart mid-overview leaves nothing on
+    function sleepHidden() {
+        const alive = {};
+        for (const t of Hyprland.toplevels.values) alive[t.address] = true;
+        for (const a of woken) if (alive[a]) Hypr.setProp(a, "render_unfocused", "unset");
+        woken = [];
+    }
+    // windows flung away: hidden until Hyprland drops them (or back after 1.5 s if the app
+    // didn't close, e.g. it asks to save)
+    property var closing: ({})
+    function flung(address) {
+        const c = Object.assign({}, closing); c[address] = true; closing = c;
+        Hypr.closeWindow(address);
+        Qt.callLater(Hyprland.refreshToplevels);
+        unflingTimer.restart();
+    }
+    Timer { id: unflingTimer; interval: 1500; onTriggered: { root.closing = ({}); Hyprland.refreshToplevels(); } }
     // the shelf and the dock move above Mission Control a moment after it maps (Panels.overviewLayered)
     Timer { id: layerOn; interval: 60; onTriggered: if (root.open) Panels.overviewLayered = true }
     // the dock stays up in Mission Control (shell.json overview.dock, default true)
@@ -309,9 +345,9 @@ Scope {
                     opacity: 0.55 * root.p
                     text: Theme.labelsMono
                         ? (root.desks ? "SPACE WINDOWS   ←→ DESKTOPS   ↑↓ WINDOWS   ⇧←→ MOVE WINDOW   ⇧1-9 SEND   DEL CLOSE   ↵ OPEN   ESC"
-                                      : "SPACE DESKTOPS   ARROWS SELECT   ⇧←→ MOVE WINDOW   ⇧1-9 SEND   DEL CLOSE   ↵ OPEN   ESC")
+                                      : "SPACE DESKTOPS   ARROWS SELECT   DRAG MOVE   FLING UP CLOSE   ⇧1-9 SEND   DEL CLOSE   ↵ OPEN   ESC")
                         : (root.desks ? "Space Windows    ←→ Desktops    ↑↓ Windows    ⇧←→ Move window    ⇧1–9 Send    Del Close    ↵ Open    Esc"
-                                      : "Space Desktops    Arrows Select    ⇧←→ Move window    ⇧1–9 Send    Del Close    ↵ Open    Esc")
+                                      : "Space Desktops    Arrows Select    Drag Move    Fling up Close    ⇧1–9 Send    Del Close    ↵ Open    Esc")
                     color: Theme.label
                     font.family: Theme.labelsMono ? Theme.fontLabel : Theme.fontUi
                     font.pixelSize: Theme.labelsMono ? 10 : 11.5
@@ -588,7 +624,7 @@ Scope {
                             z: hot ? 2 : 1
                             // the picked-up window stays (invisible) so its MouseArea keeps the grab
                             readonly property bool picked: dragProxy.active && dragProxy.target === cell
-                            opacity: picked ? 0 : (home ? 1 : root.p) * fade
+                            opacity: picked || root.closing[modelData.address] ? 0 : (home ? 1 : root.p) * fade
                             visible: opacity > 0.01 || picked
 
                             // hover: tilt towards the pointer (3D, Qt's perspective rotation) and lift
@@ -630,7 +666,7 @@ Scope {
                                     // frozen while closing: the refocused window repaints then, and copying
                                     // those frames would compete with the transition. Other desktops'
                                     // windows aren't drawn, so their copy is one frame
-                                    live: (root.opts.live ?? true) && root.open && cell.home
+                                    live: (root.opts.live ?? true) && root.open && (cell.home || root.liveAll)
                                 }
                                 // hover / selection ring (mock: inset 3px accent, constant on screen)
                                 Rectangle {
@@ -678,16 +714,20 @@ Scope {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 enabled: root.open && (cell.fade > 0.5 || cell.picked)
+                                acceptedButtons: Qt.LeftButton | Qt.MiddleButton
                                 property point pressAt
                                 onPressed: m => pressAt = Qt.point(m.x, m.y)
                                 onPositionChanged: m => {
-                                    if (!pressed) return;
+                                    if (!pressed || !(pressedButtons & Qt.LeftButton)) return;
                                     if (!dragProxy.active && Math.hypot(m.x - pressAt.x, m.y - pressAt.y) > 8) dragProxy.start(cell, mapToItem(stage, m.x, m.y));
                                     if (dragProxy.active) dragProxy.moveTo(mapToItem(stage, m.x, m.y));
                                 }
-                                onReleased: m => { if (dragProxy.active) dragProxy.finish(); }
-                                onCanceled: if (dragProxy.active) dragProxy.finish()
-                                onClicked: if (!dragProxy.wasDrag) win.focus(cell.modelData)
+                                onReleased: m => { if (dragProxy.active) dragProxy.finish(true); }
+                                onCanceled: if (dragProxy.active) dragProxy.finish(false)
+                                onClicked: m => {
+                                    if (m.button === Qt.MiddleButton) root.flung(cell.modelData.address);
+                                    else if (!dragProxy.wasDrag) win.focus(cell.modelData);
+                                }
                             }
                         }
                     }
@@ -719,8 +759,26 @@ Scope {
                     height: target ? root.lerp(ph, target.height, k) : ph
                     Behavior on k { NumberAnimation { duration: Theme.durSheet; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveSheet } }
                     property point at: Qt.point(0, 0)
-                    x: at.x - width / 2; y: at.y - height / 2
-                    opacity: 0.92
+                    x: at.x - width / 2; y: at.y - height / 2 + flyY
+                    property real flyY: 0
+                    property real flyFade: 1
+                    property bool flinging: false
+                    opacity: 0.92 * flyFade
+                    // a fling: up and away, fading, then the window is closed
+                    ParallelAnimation {
+                        id: flyAnim
+                        NumberAnimation { target: dragProxy; property: "flyY"; to: -(dragProxy.at.y + dragProxy.height); duration: 240; easing.type: Easing.InCubic }
+                        NumberAnimation { target: dragProxy; property: "flyFade"; to: 0; duration: 240; easing.type: Easing.InQuad }
+                        onFinished: {
+                            const a = dragProxy.target?.modelData?.address;
+                            dragProxy.flinging = false; dragProxy.active = false; dragProxy.target = null;
+                            dragProxy.flyY = 0; dragProxy.flyFade = 1;
+                            if (a) root.flung(a);
+                            Qt.callLater(() => { dragProxy.wasDrag = false; });
+                        }
+                    }
+                    // recent pointer positions, for the fling speed
+                    property var samples: []
                     Rectangle {
                         anchors.fill: parent
                         radius: 6
@@ -731,17 +789,34 @@ Scope {
                     }
                     ScreencopyView { anchors.fill: parent; anchors.margins: 2; captureSource: dragProxy.active && dragProxy.target ? dragProxy.target.modelData.wayland : null; live: false }
                     // picking a window up brings the desktops view in (the strip comes down), still holding it
+                    // (after a short hold, so a quick fling doesn't pull the strip down first)
                     function start(c, p) {
                         target = c; k = 1; at = p; active = true; wasDrag = true;
                         k = 0;
-                        if (!root.desks) Panels.overviewMode = "desktops";
+                        samples = [{ x: p.x, y: p.y, t: Date.now() }];
+                        if (!root.desks) toDesks.restart();
                     }
+                    Timer { id: toDesks; interval: 200; onTriggered: if (dragProxy.active && !dragProxy.flinging && !root.desks) Panels.overviewMode = "desktops" }
                     function moveTo(p) {
+                        if (flinging) return;
                         at = p;
+                        const now = Date.now();
+                        samples = samples.filter(q => now - q.t < 110).concat([{ x: p.x, y: p.y, t: now }]);
                         overWs = -1;
                         for (let i = 0; i < thumbs.count; i++) { const t = thumbs.itemAt(i); if (t && t.contains(p)) { overWs = t.ws; break; } }
                     }
-                    function finish() {
+                    // released moving up fast (> 1.1 px/ms, mostly upwards) and not over a desktop = fling
+                    function finish(released) {
+                        if (flinging) return;
+                        toDesks.stop();
+                        const a = samples[0], b = samples[samples.length - 1];
+                        const dt = b && a ? b.t - a.t : 0;
+                        const vy = dt > 15 ? (b.y - a.y) / dt : 0, vx = dt > 15 ? (b.x - a.x) / dt : 0;
+                        if (released && target && overWs <= 0 && vy < -1.1 && -vy > Math.abs(vx) * 1.2) {
+                            flinging = true;
+                            flyAnim.start();
+                            return;
+                        }
                         if (overWs > 0 && target) Hypr.moveToWorkspace(target.modelData.address, overWs);
                         active = false; overWs = -1; target = null;
                         Qt.callLater(() => { dragProxy.wasDrag = false; Hyprland.refreshToplevels(); });

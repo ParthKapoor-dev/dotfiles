@@ -32,6 +32,11 @@ Singleton {
     function closeWindow(address) {
         dispatch("closewindow address:" + addr(address), "hl.dsp.window.close({ window = " + str("address:" + addr(address)) + " })");
     }
+    // a window property (setprop); value "unset" = back to what the window rules say
+    function setProp(address, prop, value) {
+        dispatch("setprop address:" + addr(address) + " " + prop + " " + value,
+                 "hl.dsp.window.set_prop({ window = " + str("address:" + addr(address)) + ", prop = " + str(prop) + ", value = " + str(value) + " })");
+    }
     function exit() { dispatch("exit", "hl.dsp.exit()"); }
     // active-window actions (menu bar Window menu)
     function toggleFloat() { dispatch("togglefloating", "hl.dsp.window.float({ action = \"toggle\" })"); }

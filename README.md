@@ -76,7 +76,7 @@ a specific machine (monitors, battery, mic, GPU) is detected and kept in git-ign
   one list; search and install from the repos, the AUR and Flathub; pending updates, clean up
   (orphans, caches), AppImage install from ~/Downloads. Changes run in a terminal that asks first.
 - Control Center (connectivity, sound, display, media, performance, notifications), notification
-  center with DND, OSDs, dock, overview (Super+Tab: every window spread out, 3D hover tilt; Super+Shift+Tab: desktop by desktop, hover a desktop to see its windows; the drop shelf opens alongside), Alt+Tab switcher, session
+  center with DND, OSDs, dock, overview (Super+Tab: every window spread out, 3D hover tilt; Super+Shift+Tab: desktop by desktop, hover a desktop to see its windows; live previews on every desktop; fling a window up to close it; the drop shelf and dock stay alongside), Alt+Tab switcher, session
   menu, polkit agent, keyboard cheatsheet (Super+/), desktop clock and commit-activity widgets.
 - Runtime layout cycling (dwindle, master, scrolling, monocle) and saved window sessions
   (`nox workspaces save` / `restore`).
