@@ -32,6 +32,7 @@ import qs.modules.shelf
 import qs.modules.selbar
 import qs.modules.hotcorners
 import qs.modules.cursorfind
+import qs.modules.hints
 
 ShellRoot {
     LazyLoader { active: Config.loaded && Config.moduleEnabled("bar"); component: Bar {} }
@@ -58,6 +59,9 @@ ShellRoot {
     LazyLoader { active: Config.loaded && Config.moduleEnabled("voice"); component: VoiceTyping {} }
     // draw on the screen: pointer, pens, shapes, spotlight (Super+A, IPC target draw, `nox draw`)
     LazyLoader { active: Config.loaded && Config.moduleEnabled("draw"); component: Draw {} }
+    // click anything: letter labels on windows, bar, dock and the focused app's controls
+    // (Super+;, `nox hints`, IPC target hints; shell.json "hints")
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("hints"); component: Hints {} }
     // coding agents at a glance (Ctrl+Super+M, `nox agents`, IPC target agents)
     LazyLoader { active: Config.loaded && Config.moduleEnabled("agents"); component: AgentsView {} }
     LazyLoader { active: Config.loaded && Config.moduleEnabled("session"); component: Session {} }

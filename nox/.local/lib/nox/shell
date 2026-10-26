@@ -129,9 +129,10 @@ cmd_start() {
     local owner; owner=$(notif_owner)
     [ -z "$owner" ] || say "warning: $NOTIF is owned by pid $owner ($(cat /proc/"$owner"/comm 2>/dev/null)); the shell's notification server will not register"
     # started from inside an agent session (Claude Code, Orca), the shell would hand that session's
-    # env to everything it launches (a Claude opened from it then thinks it is a child session): drop it
+    # env to everything it launches (a Claude opened from it then thinks it is a child session; Orca's
+    # NO_AT_BRIDGE=1 would hide every GTK 3 app from hint mode's accessibility walk): drop it
     local v; local -a clean=(env)
-    for v in $(compgen -e); do case $v in CLAUDE*|ORCA_*|NOX_ASK) clean+=(-u "$v") ;; esac; done
+    for v in $(compgen -e); do case $v in CLAUDE*|ORCA_*|NOX_ASK|NO_AT_BRIDGE) clean+=(-u "$v") ;; esac; done
     # huge pages only where asked for (lib/nox/thp-advised: ~130 MB less RSS under THP "always")
     local thp="${BASH_SOURCE[0]%/*}/thp-advised"
     [ -x "$thp" ] && command -v python3 >/dev/null 2>&1 && clean+=("$thp")

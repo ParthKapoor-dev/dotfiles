@@ -1,0 +1,510 @@
+#!/usr/bin/env python3
+"""nox hints - the in-app half of hint mode (Super+;, the shell's modules/hints): the focused
+window's clickable elements over AT-SPI, and clicking one of them.
+
+  scan [--address 0x..] [--max 300] [--budget 250]
+                         JSON on stdout: the window's showing, visible, actionable elements
+                         (buttons, links, tabs, menu items, check boxes, text fields) with their
+                         rectangles in Hyprland layout coordinates (logical px, all monitors)
+  act <bus> <path> [press|focus]
+                         click it (AT-SPI DoAction) or put the caret in it (GrabFocus)
+  bench [--address 0x..] [--runs 3]
+                         counts per role and walk timings only (never names or text)
+  toggle | open | close  the overlay (qs -c nox ipc call hints ...)
+
+Runs only when hint mode asks: no daemon, no event listener, nothing registered on the bus. It
+talks to the accessibility bus straight over D-Bus (Gio) and walks the tree a level at a time with
+every call of a level in flight at once, so a level costs one round trip, not one per element.
+The walk only enters what is showing and on screen, and stops at --max elements or --budget ms
+(it then reports "truncated").
+
+Coordinates: elements report window-relative extents (Wayland has no global ones); the client's
+position and size come from hyprctl. The window's own frame extents give the scale between the
+two (Firefox reports device pixels, GTK logical ones) and any client-side shadow around it.
+
+Coverage: GTK 4 and GTK 3 apps work as they are (GTK 3 started with NO_AT_BRIDGE=1 has no tree).
+Firefox / Zen and Chromium / Electron only build a tree while accessibility is switched on
+(org.a11y.Status IsEnabled, GNOME_ACCESSIBILITY=1, --force-renderer-accessibility), Qt apps need
+QT_ACCESSIBILITY=1, terminals and GPUI (Zed) expose nothing useful. Without a tree `reason` says
+why and the overlay keeps its window hints with a "no elements" chip.
+"""
+import argparse
+import json
+import os
+import subprocess
+import sys
+import time
+
+import gi
+
+gi.require_version("Atspi", "2.0")
+from gi.repository import Atspi, Gio, GLib  # noqa: E402  (Atspi: enums only, never initialised)
+
+S = Atspi.StateType
+R = Atspi.Role
+ACC = "org.a11y.atspi.Accessible"
+COMP = "org.a11y.atspi.Component"
+ACTION = "org.a11y.atspi.Action"
+REGISTRY = ("org.a11y.atspi.Registry", "/org/a11y/atspi/accessible/root")
+COORD_WINDOW = 1
+PROPS = "org.freedesktop.DBus.Properties"
+COUNT = GLib.Variant("(ss)", (ACC, "ChildCount"))
+
+
+def roles(*names):
+    # by name, so a role this Atspi doesn't know yet is skipped instead of failing
+    return {int(getattr(R, n)) for n in names if hasattr(R, n)}
+
+
+# clicked with DoAction; the walk doesn't go inside them (a button's label, a link's image)
+PRESS = roles("PUSH_BUTTON", "PUSH_BUTTON_MENU", "TOGGLE_BUTTON", "CHECK_BOX", "RADIO_BUTTON", "SWITCH",
+              "LINK", "MENU_ITEM", "CHECK_MENU_ITEM", "RADIO_MENU_ITEM", "MENU", "COMBO_BOX", "ICON")
+# clicked too (or selected in their parent), but they hold other controls (a tab's close button)
+TABS = roles("PAGE_TAB")
+# rows / cells: targets only when they have an action of their own
+PRESS_OPEN = roles("LIST_ITEM", "TREE_ITEM", "TABLE_CELL", "TABLE_ROW", "TREE_TABLE_CELL")
+# text fields: GrabFocus puts the caret there
+FIELD = roles("ENTRY", "PASSWORD_TEXT", "SPIN_BUTTON", "EDITBAR")
+# text-ish roles that are a field only while editable (contenteditable, GtkTextView)
+TEXTY = roles("TEXT", "PARAGRAPH", "SECTION", "DOCUMENT_TEXT", "TERMINAL")
+# scroll panes: what's inside shows only within them
+CLIPS = roles("SCROLL_PANE", "VIEWPORT")
+# never a target themselves (but walked into)
+SKIP = roles("FRAME", "WINDOW", "DIALOG", "APPLICATION", "FILLER", "PANEL", "SCROLL_PANE", "VIEWPORT",
+             "DOCUMENT_WEB", "DOCUMENT_FRAME", "INTERNAL_FRAME", "LABEL", "STATIC", "IMAGE", "SEPARATOR",
+             "LAYERED_PANE", "ROOT_PANE", "SPLIT_PANE", "TOOL_BAR", "MENU_BAR", "STATUS_BAR", "PAGE_TAB_LIST",
+             "LIST", "LIST_BOX", "TREE", "TABLE", "TREE_TABLE", "GROUPING", "FORM", "HEADING", "SCROLL_BAR")
+STATE_BITS = {n: int(getattr(S, n)) for n in ("SHOWING", "VISIBLE", "ENABLED", "SENSITIVE", "EDITABLE",
+                                              "FOCUSABLE", "ACTIVE", "DEFUNCT", "MANAGES_DESCENDANTS")}
+# DoAction picks the first of these the element has, else its first action
+BIG = 96             # children past this: a long list, walked from its first on-screen child
+LONG_TAKE = 160      # children taken from a long list from there
+CHUNK = 128          # nodes per batch: bounds what an app still has to answer once the budget is up
+PAST_RUN = 24        # siblings in a row past the window's far edge: the rest of that list is too
+ACTION_ORDER = ("click", "press", "activate", "jump", "toggle", "open", "select", "expand or contract", "switch")
+
+
+def has(st, name):
+    bit = STATE_BITS[name]
+    w = st[bit // 32] if len(st) > bit // 32 else 0
+    return bool((w >> (bit % 32)) & 1)
+
+
+def role_name(r):
+    try:
+        return Atspi.role_get_name(Atspi.Role(r)) or str(r)
+    except (ValueError, TypeError):
+        return str(r)
+
+
+def out(obj):
+    json.dump(obj, sys.stdout, ensure_ascii=False, separators=(",", ":"))
+    sys.stdout.write("\n")
+    sys.stdout.flush()
+
+
+def hyprctl(*args):
+    try:
+        p = subprocess.run(["hyprctl", "-j", *args], capture_output=True, text=True, timeout=2)
+        return json.loads(p.stdout or "null")
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return None
+
+
+def client(address):
+    """the Hyprland client to walk: the focused one, or the one at --address"""
+    if not address:
+        c = hyprctl("activewindow")
+        return c if c and c.get("address") else None
+    want = address if address.startswith("0x") else "0x" + address
+    for c in hyprctl("clients") or []:
+        if c.get("address") == want:
+            return c
+    return None
+
+
+class Bus:
+    """the AT-SPI bus, with batched (pipelined) method calls"""
+
+    def __init__(self):
+        sess = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        # no auto-start: if nothing has started the accessibility bus there is no tree to read,
+        # and hint mode must not leave a bus launcher + registry running behind it
+        addr = sess.call_sync("org.a11y.Bus", "/org/a11y/bus", "org.a11y.Bus", "GetAddress", None,
+                              GLib.VariantType("(s)"), Gio.DBusCallFlags.NO_AUTO_START, 1000, None).unpack()[0]
+        self.c = Gio.DBusConnection.new_for_address_sync(
+            addr, Gio.DBusConnectionFlags.AUTHENTICATION_CLIENT | Gio.DBusConnectionFlags.MESSAGE_BUS_CONNECTION,
+            None, None)
+        self.ctx = GLib.MainContext.default()
+        self.calls = 0
+
+    def many(self, calls, deadline):
+        """[(bus, path, iface, method, args)] -> [unpacked reply or None], all sent before any
+        reply is read; replies still missing at the deadline are None"""
+        res = [None] * len(calls)
+        left = [len(calls)]
+
+        def done(conn, r, i):
+            try:
+                res[i] = conn.call_finish(r).unpack()
+            except GLib.Error:
+                pass
+            left[0] -= 1
+
+        ms = max(40, int((deadline - time.monotonic()) * 1000) + 40)
+        for i, (bus, path, iface, method, args) in enumerate(calls):
+            self.c.call(bus, path, iface, method, args, None, Gio.DBusCallFlags.NO_AUTO_START, ms, None, done, i)
+        self.calls += len(calls)
+        # the call timeouts bound this loop even if an app never answers
+        while left[0] > 0:
+            self.ctx.iteration(True)
+        return res
+
+    def one(self, bus, path, iface, method, args=None, timeout=1500):
+        return self.c.call_sync(bus, path, iface, method, args, None, Gio.DBusCallFlags.NO_AUTO_START, timeout, None).unpack()
+
+
+def find_app(bus, cl, deadline):
+    """(bus name, root path) of the client's application: same pid, else same name as its class"""
+    apps = bus.many([(*REGISTRY, ACC, "GetChildren", None)], deadline)[0]
+    apps = apps[0] if apps else []
+    if not apps:
+        return None
+    pids = bus.many([("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
+                      "GetConnectionUnixProcessID", GLib.Variant("(s)", (b,))) for b, _ in apps], deadline)
+    for (b, p), pid in zip(apps, pids):
+        if pid and pid[0] == cl.get("pid"):
+            return b, p
+    # sandboxed apps (Flatpak) reach the bus through a proxy with another pid: match the name
+    want = {(cl.get("class") or "").lower(), (cl.get("initialClass") or "").lower()} - {""}
+    names = bus.many([(b, p, "org.freedesktop.DBus.Properties", "Get", GLib.Variant("(ss)", (ACC, "Name")))
+                      for b, p in apps], deadline)
+    for (b, p), n in zip(apps, names):
+        if n and str(n[0]).lower() in want:
+            return b, p
+    return None
+
+
+def pick_frame(bus, cl, b, root, deadline):
+    """the app's top-level accessible for this client: the one named like the window title, else
+    the active one, else the one closest in size (an app with several windows has one per window)"""
+    kids = bus.many([(b, root, ACC, "GetChildren", None)], deadline)[0]
+    kids = kids[0] if kids else []
+    if not kids:
+        return None
+    calls = []
+    for kb, kp in kids:
+        calls += [(kb, kp, ACC, "GetState", None), (kb, kp, COMP, "GetExtents", GLib.Variant("(u)", (COORD_WINDOW,))),
+                  (kb, kp, "org.freedesktop.DBus.Properties", "Get", GLib.Variant("(ss)", (ACC, "Name")))]
+    rs = bus.many(calls, deadline)
+    cands = []
+    title = cl.get("title") or ""
+    cw, ch = cl["size"]
+    for i, (kb, kp) in enumerate(kids):
+        st = rs[i * 3][0] if rs[i * 3] else [0, 0]
+        ext = tuple(rs[i * 3 + 1][0]) if rs[i * 3 + 1] else None
+        name = str(rs[i * 3 + 2][0]) if rs[i * 3 + 2] else ""
+        if not has(st, "SHOWING") and not has(st, "ACTIVE"):
+            continue
+        size = abs((ext[2] if ext else 0) - cw) + abs((ext[3] if ext else 0) - ch)
+        cands.append((0 if title and name == title else 1, 0 if has(st, "ACTIVE") else 1, size, (kb, kp), ext))
+    if not cands:
+        return None
+    cands.sort(key=lambda c: c[:3])
+    return cands[0][3], cands[0][4]
+
+
+def mapper(cl, fext):
+    """window extents -> layout coordinates: scale from the frame's width against the client's
+    (device vs logical px), and the frame's own offset / client-side shadow taken off"""
+    cx, cy = cl["at"]
+    cw, ch = cl["size"]
+    fx, fy, fw, fh = fext if fext and fext[2] > 0 and fext[3] > 0 else (0, 0, cw, ch)
+    k = cw / fw
+    # within 12% it's a CSD shadow (or rounding), not a scale: no scaling, the shadow centred
+    if abs(k - 1) < 0.12:
+        k = 1.0
+        ox, oy = fx + (fw - cw) / 2, fy + (fh - ch) / 2
+    else:
+        ox, oy = fx, fy
+
+    def m(e):
+        return (cx + (e[0] - ox) * k, cy + (e[1] - oy) * k, e[2] * k, e[3] * k)
+    return m, k
+
+
+def long_list(bus, b, p, count, m, win, deadline):
+    """the children of a long list that can be on screen: bisect for the first one not above /
+    left of the window (lists are laid out in order), then take them in order from there"""
+    wext = GLib.Variant("(u)", (COORD_WINDOW,))
+
+    def child(i):
+        r = bus.many([(b, p, ACC, "GetChildAtIndex", GLib.Variant("(i)", (i,)))], deadline)[0]
+        return r[0] if r else None
+
+    def before(c):
+        e = bus.many([(*c, COMP, "GetExtents", wext)], deadline)[0]
+        if not e or e[0][2] <= 0 or e[0][3] <= 0:
+            return False
+        r = m(e[0])
+        return r[1] + r[3] <= win[1] or r[0] + r[2] <= win[0]
+
+    lo, hi = 0, count - 1
+    while lo < hi and time.monotonic() < deadline:
+        mid = (lo + hi) // 2
+        c = child(mid)
+        if c and before(c):
+            lo = mid + 1
+        else:
+            hi = mid
+    # the walk drops the off-screen ones and cuts the list after PAST_RUN of them
+    idx = range(max(0, lo - 1), min(count, lo + LONG_TAKE))
+    rs = bus.many([(b, p, ACC, "GetChildAtIndex", GLib.Variant("(i)", (i,))) for i in idx], deadline)
+    return [r[0] for r in rs if r]
+
+
+def walk(bus, b, frame, fext, cl, max_elems, deadline, visit_cap=4000):
+    """breadth-first over what's showing and on screen; returns (elements, visited, truncated).
+    Each level goes in two passes, CHUNK nodes per batch: state + extents for every node, then
+    role, interfaces and children only for the ones that are showing and on screen. A long list
+    stops once PAST_RUN siblings in a row lie past the window's far edge."""
+    m, _ = mapper(cl, fext)
+    cx, cy = cl["at"]
+    cw, ch = cl["size"]
+    win = (cx, cy, cx + cw, cy + ch)
+    wext = GLib.Variant("(u)", (COORD_WINDOW,))
+    level = [(frame[0], frame[1], -1, win)]
+    cands = []                       # (node index, kind, role, rect, weak, clip)
+    has_desc = set()                 # weak candidates with a candidate below them
+    parent = []                      # per kept node: its parent's index
+    where = []                       # per kept node: (bus, path)
+    visited = 0
+    truncated = False
+    root = True
+    while level and not truncated:
+        nxt = []
+        cut, run, seen_on = set(), {}, set()     # per parent: list cut off / past-the-end run / one was on screen
+        i = 0
+        while i < len(level):
+            if time.monotonic() >= deadline or visited >= visit_cap:
+                truncated = True
+                break
+            chunk = [n for n in level[i:i + CHUNK] if n[2] not in cut]
+            i += CHUNK
+            if not chunk:
+                continue
+            rs = bus.many([c for nb, np_, _, _ in chunk for c in ((nb, np_, ACC, "GetState", None),
+                                                               (nb, np_, COMP, "GetExtents", wext))], deadline)
+            visited += len(chunk)
+            alive = []
+            for j, (nb, np_, par, clip) in enumerate(chunk):
+                st = rs[2 * j][0] if rs[2 * j] else [0, 0]
+                ext = tuple(rs[2 * j + 1][0]) if rs[2 * j + 1] else None
+                if not root and (not has(st, "SHOWING") or not has(st, "VISIBLE") or has(st, "DEFUNCT")):
+                    continue
+                r = m(ext) if ext and ext[2] > 0 and ext[3] > 0 else None
+                # off screen (scrolled away, another tab's page) or outside the scroll pane it's
+                # in: nothing under it shows either
+                if r and (r[0] >= clip[2] or r[1] >= clip[3] or r[0] + r[2] <= clip[0] or r[1] + r[3] <= clip[1]):
+                    if par in seen_on and (r[1] >= clip[3] or r[0] >= clip[2]):
+                        run[par] = run.get(par, 0) + 1
+                        if run[par] >= PAST_RUN:
+                            cut.add(par)
+                    continue
+                if r:
+                    seen_on.add(par)
+                    run[par] = 0
+                alive.append((nb, np_, par, st, r, clip))
+            if not alive:
+                continue
+            rs = bus.many([c for nb, np_, _, _, _, _ in alive for c in ((nb, np_, ACC, "GetRole", None),
+                                                                     (nb, np_, ACC, "GetInterfaces", None),
+                                                                     (nb, np_, PROPS, "Get", COUNT))], deadline)
+            opened = []
+            for j, (nb, np_, par, st, r, clip) in enumerate(alive):
+                role = rs[3 * j][0] if rs[3 * j] else 0
+                ifs = set(rs[3 * j + 1][0]) if rs[3 * j + 1] else set()
+                count = int(rs[3 * j + 2][0]) if rs[3 * j + 2] else 0
+                idx = len(where)
+                where.append((nb, np_))
+                parent.append(par)
+                usable = has(st, "ENABLED") or has(st, "SENSITIVE")
+                kind = None
+                weak = False
+                if role in FIELD or (role in TEXTY and has(st, "EDITABLE") and has(st, "FOCUSABLE")):
+                    kind = "field"
+                elif role in PRESS or role in TABS or (role in PRESS_OPEN and ACTION in ifs):
+                    kind = "press"
+                elif ACTION in ifs and role not in SKIP and role not in TEXTY:
+                    # a clickable generic element (a web div with a click handler): kept only when
+                    # it has an action (GTK 4 puts an empty Action on everything) and nothing
+                    # clickable sits inside it
+                    kind, weak = "press", True
+                if kind and usable and r and not root and r[2] >= 4 and r[3] >= 4:
+                    cands.append((idx, kind, role, r, weak, clip))
+                    a = par
+                    while a >= 0:
+                        has_desc.add(a)
+                        a = parent[a]
+                leaf = kind is not None and (role in PRESS or role in FIELD)
+                if count > 0 and not leaf and not has(st, "MANAGES_DESCENDANTS"):
+                    # a scroll pane clips what's inside it
+                    if role in CLIPS and r:
+                        clip = (max(clip[0], r[0]), max(clip[1], r[1]), min(clip[2], r[0] + r[2]), min(clip[3], r[1] + r[3]))
+                    opened.append((nb, np_, idx, count, clip))
+            # children: one GetChildren for ordinary containers; a long list (GTK 4 makes an
+            # accessible for every child it's asked about) only from its first on-screen child on
+            small = [o for o in opened if o[3] <= BIG]
+            rs = bus.many([(nb, np_, ACC, "GetChildren", None) for nb, np_, _, _, _ in small], deadline) if small else []
+            for (nb, np_, idx, _, clip), kids in zip(small, rs):
+                nxt += [(kb, kp, idx, clip) for kb, kp in (kids[0] if kids else [])]
+            for nb, np_, idx, count, clip in opened:
+                if count > BIG and time.monotonic() < deadline:
+                    nxt += [(kb, kp, idx, clip) for kb, kp in long_list(bus, nb, np_, count, m, clip, deadline)]
+        root = False
+        if sum(1 for c in cands if not c[4]) >= max_elems:
+            truncated = truncated or bool(nxt)
+            break
+        level = nxt
+    weak = [c for c in cands if c[4] and c[0] not in has_desc and c[3][2] * c[3][3] <= cw * ch * 0.5]
+    nact = bus.many([(*where[c[0]], "org.freedesktop.DBus.Properties", "Get", GLib.Variant("(ss)", (ACTION, "NActions")))
+                     for c in weak], deadline + 0.05) if weak else []
+    keep = {c[0] for c, n in zip(weak, nact) if n and int(n[0]) > 0}
+    els = []
+    seen = set()
+    for idx, kind, role, r, is_weak, clip in cands:
+        if is_weak and idx not in keep:
+            continue
+        # clipped: a half-scrolled element gets its label on the part that shows
+        x0, y0 = max(r[0], clip[0]), max(r[1], clip[1])
+        x1, y1 = min(r[0] + r[2], clip[2]), min(r[1] + r[3], clip[3])
+        if x1 - x0 < 4 or y1 - y0 < 4:
+            continue
+        key = (round(x0), round(y0), round(x1), round(y1))
+        if key in seen:
+            continue
+        seen.add(key)
+        els.append({"kind": kind, "role": role_name(role), "x": round(x0), "y": round(y0),
+                    "w": round(x1 - x0), "h": round(y1 - y0), "bus": where[idx][0], "path": where[idx][1]})
+        if len(els) >= max_elems:
+            truncated = True
+            break
+    return els, visited, truncated
+
+
+def scan(address, max_elems, budget_ms):
+    t0 = time.monotonic()
+    cl = client(address)
+    res = {"ok": False, "elements": [], "count": 0, "truncated": False}
+    if not cl:
+        return dict(res, reason="no-window")
+    res.update(address=cl["address"], window=[*cl["at"], *cl["size"]], **{"class": cl.get("class", "")})
+    try:
+        bus = Bus()
+    except GLib.Error:
+        return dict(res, reason="no-bus")
+    # the budget is for the walk; finding the app and its window gets a little on top
+    deadline = time.monotonic() + budget_ms / 1000 + 0.08
+    app = find_app(bus, cl, deadline)
+    if not app:
+        return dict(res, reason="no-tree", ms=round((time.monotonic() - t0) * 1000))
+    fr = pick_frame(bus, cl, *app, deadline)
+    if not fr:
+        return dict(res, reason="no-tree", ms=round((time.monotonic() - t0) * 1000))
+    frame, fext = fr
+    _, k = mapper(cl, fext)
+    walk_deadline = min(deadline, time.monotonic() + budget_ms / 1000)
+    els, visited, truncated = walk(bus, app[0], frame, fext, cl, max_elems, walk_deadline)
+    return dict(res, ok=True, reason="" if els else "empty", elements=els, count=len(els), truncated=truncated,
+                visited=visited, scale=round(k, 3), calls=bus.calls, ms=round((time.monotonic() - t0) * 1000))
+
+
+def act(bus_name, path, how):
+    """press: its preferred action, else select it in its parent (tabs, rows), else focus it;
+    focus: GrabFocus. Nothing worked -> ok false + fallback "pointer" (the overlay then puts the
+    pointer on it: GTK 4 has no GrabFocus and no action on check boxes)"""
+    try:
+        bus = Bus()
+    except GLib.Error:
+        return {"ok": False, "reason": "no-bus"}
+
+    def call(iface, method, args=None):
+        try:
+            return bus.one(bus_name, path, iface, method, args)
+        except GLib.Error as e:
+            if "UnknownObject" in str(e) or "ServiceUnknown" in str(e) or ("UnknownMethod" in str(e) and iface == ACC):
+                raise LookupError from e
+            return None
+
+    try:
+        if how == "press":
+            acts = call(ACTION, "GetActions")
+            names = [a[0].lower() for a in acts[0]] if acts else []
+            if names:
+                i = next((names.index(n) for n in ACTION_ORDER if n in names), 0)
+                r = call(ACTION, "DoAction", GLib.Variant("(i)", (i,)))
+                if r and r[0]:
+                    return {"ok": True, "action": names[i]}
+            par = call("org.freedesktop.DBus.Properties", "Get", GLib.Variant("(ss)", (ACC, "Parent")))
+            ix = call(ACC, "GetIndexInParent")
+            if par and ix and ix[0] >= 0:
+                pb, pp = par[0]
+                try:
+                    if "org.a11y.atspi.Selection" in bus.one(pb, pp, ACC, "GetInterfaces")[0] \
+                            and bus.one(pb, pp, "org.a11y.atspi.Selection", "SelectChild", GLib.Variant("(i)", (ix[0],)))[0]:
+                        return {"ok": True, "action": "select"}
+                except GLib.Error:
+                    pass
+        r = call(COMP, "GrabFocus")
+        if r and r[0]:
+            return {"ok": True, "action": "focus"}
+        if how == "press" and call(ACC, "GetRole") is None:
+            raise LookupError
+        return {"ok": False, "reason": "no-action", "fallback": "pointer"}
+    except LookupError:
+        return {"ok": False, "reason": "gone"}
+
+
+def main():
+    ap = argparse.ArgumentParser(prog="nox hints", description="AT-SPI elements of the focused window for hint mode (Super+;)")
+    sub = ap.add_subparsers(dest="cmd")
+    for name in ("scan", "bench"):
+        p = sub.add_parser(name)
+        p.add_argument("--address", default="", help="Hyprland client address (default: the focused window)")
+        p.add_argument("--max", type=int, default=300, help="element cap (300)")
+        p.add_argument("--budget", type=int, default=250, help="walk time budget in ms (250)")
+        if name == "bench":
+            p.add_argument("--runs", type=int, default=3)
+    p = sub.add_parser("act")
+    p.add_argument("bus")
+    p.add_argument("path")
+    p.add_argument("how", nargs="?", default="press", choices=("press", "focus"))
+    for name in ("toggle", "open", "close", "status"):
+        sub.add_parser(name)
+    a = ap.parse_args()
+
+    if a.cmd in ("toggle", "open", "close", "status"):
+        os.execvp("qs", ["qs", "-c", "nox", "ipc", "call", "hints", a.cmd])
+    if a.cmd == "act":
+        r = act(a.bus, a.path, a.how)
+        out(r)
+        return 0 if r.get("ok") else 1
+    if a.cmd == "scan":
+        out(scan(a.address, a.max, a.budget))
+        return 0
+    if a.cmd == "bench":
+        for run in range(a.runs):
+            r = scan(a.address, a.max, a.budget)
+            per = {}
+            for e in r["elements"]:
+                per[e["role"]] = per.get(e["role"], 0) + 1
+            out({"run": run + 1, "class": r.get("class"), "reason": r.get("reason"), "count": r["count"],
+                 "visited": r.get("visited"), "calls": r.get("calls"), "truncated": r["truncated"],
+                 "scale": r.get("scale"), "ms": r.get("ms"), "roles": per})
+        return 0
+    ap.print_help()
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())
