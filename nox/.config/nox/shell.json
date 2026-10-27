@@ -3,13 +3,13 @@
   "modules": {
     "bar": true, "dock": true, "controlCenter": true, "launcher": true, "osd": true, "notifications": true,
     "wallpaper": true, "corners": true, "overview": true, "session": true, "polkit": true, "clipboard": true, "cheatsheet": true,
-    "switcher": true, "notes": true, "agents": true, "shot": true, "ask": true, "voice": true, "shelf": true, "draw": true, "selbar": true, "hotCorners": true, "hints": true
+    "switcher": true, "notes": true, "agents": true, "shot": true, "ask": true, "voice": true, "shelf": true, "draw": true, "selbar": false, "hotCorners": true, "hints": true
   },
   "terminal": ["ghostty"],
   "bar": {
     "screens": [],
     "left": ["logo", "appName", "menus", "workspaces", "layout"],
-    "center": ["island"],
+    "center": [],
     "right": ["usage", "agents", "recording", "dnd", "tray", "hubstaff", "stats", "phone", "network", "bluetooth", "battery", "controlCenter", "clock"]
   },
   "widgets": {
