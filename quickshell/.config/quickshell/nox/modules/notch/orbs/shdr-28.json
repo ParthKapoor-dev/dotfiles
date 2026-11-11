@@ -1,0 +1,222 @@
+{
+ "key": "shdr-28",
+ "label": "SHDR-28",
+ "note": "nested binary grids shuttering on a tumbling bit-sphere",
+ "credit": "Shader by XorDev (https://x.com/XorDev), ported for Orbkit with the author's permission; non-commercial use only, with attribution to XorDev",
+ "license": "XorDev-NC",
+ "params": [
+  {
+   "key": "speed",
+   "default": 0.5,
+   "integrate": true
+  },
+  {
+   "key": "spin",
+   "default": 0.15,
+   "integrate": true
+  },
+  {
+   "key": "tilt",
+   "default": 0.5,
+   "integrate": false
+  },
+  {
+   "key": "radius",
+   "default": 0.9,
+   "integrate": false
+  },
+  {
+   "key": "gridScale",
+   "default": 2,
+   "integrate": false
+  },
+  {
+   "key": "levels",
+   "default": 12,
+   "integrate": false
+  },
+  {
+   "key": "lineW",
+   "default": 2,
+   "integrate": false
+  },
+  {
+   "key": "shutter",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "gain",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "body",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "rim",
+   "default": 0.6,
+   "integrate": false
+  },
+  {
+   "key": "rimPow",
+   "default": 3,
+   "integrate": false
+  },
+  {
+   "key": "contrast",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "edge",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "edgeFade",
+   "default": 0.98,
+   "integrate": false
+  }
+ ],
+ "colors": [
+  {
+   "key": "lineA",
+   "default": [
+    1.0,
+    0.352941,
+    0.301961
+   ]
+  },
+  {
+   "key": "lineB",
+   "default": [
+    0.34902,
+    0.847059,
+    1.0
+   ]
+  },
+  {
+   "key": "base",
+   "default": [
+    0.062745,
+    0.082353,
+    0.156863
+   ]
+  },
+  {
+   "key": "rim",
+   "default": [
+    0.737255,
+    0.847059,
+    1.0
+   ]
+  }
+ ],
+ "statePresets": {
+  "idle": {
+   "speed": 1,
+   "spin": 0.1,
+   "levels": 10,
+   "lineW": 2.5,
+   "shutter": 1.02,
+   "gain": 1,
+   "body": 0.9,
+   "rim": 0.6,
+   "rimPow": 5.2,
+   "contrast": 1.2
+  },
+  "thinking": {
+   "speed": 2.4,
+   "spin": 0.81,
+   "lineW": 2.9,
+   "shutter": 0.94,
+   "gain": 1.2,
+   "body": 0.85,
+   "rim": 0.7
+  },
+  "speaking": {
+   "speed": 3,
+   "spin": 1.1,
+   "gridScale": 10.3,
+   "levels": 17,
+   "shutter": 1.2,
+   "gain": 0.95,
+   "body": 0.27,
+   "rim": 1.53,
+   "rimPow": 10,
+   "contrast": 1.45
+  }
+ },
+ "stateColors": {
+  "idle": {
+   "lineA": [
+    1.0,
+    0.066667,
+    0.0
+   ],
+   "lineB": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "base": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rim": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  "thinking": {
+   "lineA": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "lineB": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "base": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rim": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  "speaking": {
+   "lineA": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "lineB": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "base": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rim": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  }
+ },
+ "shader": "shdr-28.frag.qsb"
+}

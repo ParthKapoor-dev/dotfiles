@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""nox agents: Mission Control for coding-agent sessions (Claude Code, Orca, expai).
+"""nox agents: the agent notch's backend for coding-agent sessions (Claude Code, Orca, expai, Codex).
 
-usage: nox agents [toggle|open|close|grid]  the bar panel (Ctrl+Super+M; IPC target agents);
-                                            grid = the full-screen Mission Control
+usage: nox agents [toggle|open|close]      the agent notch in the bar (Super+O / Ctrl+Super+M;
+                                            IPC target notch); nox agents view <agents|replay|laps|receipts>
        nox agents list [--json]             sessions from the status hook (no prompt text)
        nox agents usage                     JSON for the shell: context tokens, context %, cost,
                                             session titles + recent assistant lines, today's totals
@@ -76,7 +76,7 @@ import json, os, sys, glob, time, subprocess, datetime
 
 RUN = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}", "nox", "agents")
 CACHE = os.path.join(RUN, ".usage.json")
-QS = ["qs", "-c", "nox", "ipc", "call", "agents"]
+QS = ["qs", "-c", "nox", "ipc", "call", "notch"]
 
 # $ / million tokens: input, output, cache read (longest matching model-id prefix wins)
 PRICES = {
@@ -1080,8 +1080,10 @@ def main(argv):
         sys.path.insert(0, LIB)
         import agent_data
         return agent_data.main(cmd, argv[1:], start=start)
-    if cmd in ("toggle", "open", "close", "grid"):
+    if cmd in ("toggle", "open", "close"):
         os.execvp(QS[0], QS + [cmd])
+    if cmd in ("grid", "view"):
+        os.execvp(QS[0], QS + ["view", argv[1] if cmd == "view" and len(argv) > 1 else "agents"])
     if cmd == "usage":
         usage()
         return 0

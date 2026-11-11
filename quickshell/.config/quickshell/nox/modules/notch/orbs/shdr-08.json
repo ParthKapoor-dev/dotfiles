@@ -1,0 +1,245 @@
+{
+ "key": "shdr-08",
+ "label": "SHDR-08",
+ "note": "mother-of-pearl contour bands, each layer its own hue",
+ "credit": "Shader by XorDev (https://x.com/XorDev), ported for Orbkit with the author's permission; non-commercial use only, with attribution to XorDev",
+ "license": "XorDev-NC",
+ "params": [
+  {
+   "key": "speed",
+   "default": 0.35,
+   "integrate": true
+  },
+  {
+   "key": "flow",
+   "default": 0.25,
+   "integrate": true
+  },
+  {
+   "key": "swirl",
+   "default": 0.06,
+   "integrate": true
+  },
+  {
+   "key": "radius",
+   "default": 0.9,
+   "integrate": false
+  },
+  {
+   "key": "scale",
+   "default": 5.5,
+   "integrate": false
+  },
+  {
+   "key": "bulge",
+   "default": 0.3,
+   "integrate": false
+  },
+  {
+   "key": "warp",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "beat",
+   "default": 0,
+   "integrate": false
+  },
+  {
+   "key": "thick",
+   "default": 0.2,
+   "integrate": false
+  },
+  {
+   "key": "split",
+   "default": 0.1,
+   "integrate": false
+  },
+  {
+   "key": "iris",
+   "default": 0.7,
+   "integrate": false
+  },
+  {
+   "key": "irisScale",
+   "default": 0.315,
+   "integrate": false
+  },
+  {
+   "key": "view",
+   "default": 1.34,
+   "integrate": false
+  },
+  {
+   "key": "floor",
+   "default": 0.8,
+   "integrate": false
+  },
+  {
+   "key": "gain",
+   "default": 1.1,
+   "integrate": false
+  },
+  {
+   "key": "contrast",
+   "default": 1.15,
+   "integrate": false
+  },
+  {
+   "key": "light",
+   "default": 0.75,
+   "integrate": false
+  },
+  {
+   "key": "rim",
+   "default": 0.5,
+   "integrate": false
+  }
+ ],
+ "colors": [
+  {
+   "key": "deep",
+   "default": [
+    0.05098,
+    0.078431,
+    0.188235
+   ]
+  },
+  {
+   "key": "low",
+   "default": [
+    0.184314,
+    0.721569,
+    0.776471
+   ]
+  },
+  {
+   "key": "crest",
+   "default": [
+    1.0,
+    0.945098,
+    0.870588
+   ]
+  },
+  {
+   "key": "sheen",
+   "default": [
+    0.74902,
+    0.894118,
+    1.0
+   ]
+  }
+ ],
+ "statePresets": {
+  "idle": {
+   "speed": 0.37,
+   "flow": 0.24,
+   "swirl": 0.06,
+   "bulge": 0.8,
+   "warp": 0.96,
+   "thick": 0.54,
+   "split": 0.1,
+   "iris": 1.02,
+   "floor": 0.57,
+   "gain": 2.45,
+   "contrast": 1.65,
+   "rim": 0.495
+  },
+  "thinking": {
+   "speed": 1.61,
+   "flow": 0.06,
+   "swirl": 0.015,
+   "warp": 1.56,
+   "thick": 0.54,
+   "split": 0.3,
+   "iris": 1.89,
+   "irisScale": 0.26,
+   "view": 1.21,
+   "floor": 0.77,
+   "gain": 0.85,
+   "contrast": 1.65,
+   "rim": 0.495
+  },
+  "speaking": {
+   "speed": 2,
+   "flow": 2.49,
+   "swirl": 0.18,
+   "warp": 1.84,
+   "beat": 1,
+   "thick": 0.27,
+   "split": 0.3,
+   "iris": 0.45,
+   "gain": 1.75,
+   "contrast": 0.78
+  }
+ },
+ "stateColors": {
+  "idle": {
+   "deep": [
+    0.05098,
+    0.078431,
+    0.188235
+   ],
+   "low": [
+    0.184314,
+    0.721569,
+    0.776471
+   ],
+   "crest": [
+    1.0,
+    0.945098,
+    0.870588
+   ],
+   "sheen": [
+    0.74902,
+    0.894118,
+    1.0
+   ]
+  },
+  "thinking": {
+   "deep": [
+    0.039216,
+    0.058824,
+    0.172549
+   ],
+   "low": [
+    0.435294,
+    0.486275,
+    1.0
+   ],
+   "crest": [
+    0.87451,
+    0.909804,
+    1.0
+   ],
+   "sheen": [
+    0.623529,
+    0.815686,
+    1.0
+   ]
+  },
+  "speaking": {
+   "deep": [
+    0.164706,
+    0.058824,
+    0.133333
+   ],
+   "low": [
+    1.0,
+    0.478431,
+    0.301961
+   ],
+   "crest": [
+    1.0,
+    0.941176,
+    0.788235
+   ],
+   "sheen": [
+    1.0,
+    0.788235,
+    0.658824
+   ]
+  }
+ },
+ "shader": "shdr-08.frag.qsb"
+}

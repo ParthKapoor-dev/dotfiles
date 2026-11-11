@@ -1,0 +1,178 @@
+{
+ "key": "shdr-18",
+ "label": "SHDR-18",
+ "note": "a crystal folded out of one eighth of space, tumbling",
+ "credit": "Shader by XorDev (https://x.com/XorDev), ported for Orbkit with the author's permission; non-commercial use only, with attribution to XorDev",
+ "license": "XorDev-NC",
+ "params": [
+  {
+   "key": "wander",
+   "default": 0.5,
+   "integrate": true
+  },
+  {
+   "key": "camDist",
+   "default": 4,
+   "integrate": false
+  },
+  {
+   "key": "focal",
+   "default": 1.5,
+   "integrate": false
+  },
+  {
+   "key": "fold",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "crease",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "freq",
+   "default": 5,
+   "integrate": false
+  },
+  {
+   "key": "stepScale",
+   "default": 0.3,
+   "integrate": false
+  },
+  {
+   "key": "hue",
+   "default": 1.5,
+   "integrate": false
+  },
+  {
+   "key": "spread",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "envRadius",
+   "default": 2.1,
+   "integrate": false
+  },
+  {
+   "key": "envCore",
+   "default": 0.9,
+   "integrate": false
+  },
+  {
+   "key": "fill",
+   "default": 0.02,
+   "integrate": false
+  },
+  {
+   "key": "stepClamp",
+   "default": 40,
+   "integrate": false
+  },
+  {
+   "key": "scatter",
+   "default": 0.004,
+   "integrate": false
+  },
+  {
+   "key": "exposure",
+   "default": 18,
+   "integrate": false
+  },
+  {
+   "key": "contrast",
+   "default": 1.2,
+   "integrate": false
+  },
+  {
+   "key": "saturation",
+   "default": 1.25,
+   "integrate": false
+  },
+  {
+   "key": "alphaGain",
+   "default": 2,
+   "integrate": false
+  },
+  {
+   "key": "edge",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "edgeFade",
+   "default": 0.98,
+   "integrate": false
+  }
+ ],
+ "colors": [
+  {
+   "key": "tint",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  }
+ ],
+ "statePresets": {
+  "idle": {
+   "wander": 0.5,
+   "fold": 1,
+   "crease": 1,
+   "freq": 5,
+   "exposure": 18,
+   "scatter": 0.004,
+   "alphaGain": 2
+  },
+  "thinking": {
+   "wander": 1.08,
+   "focal": 2.7,
+   "fold": 0.91,
+   "crease": 1,
+   "freq": 4.1,
+   "stepClamp": 1200,
+   "scatter": 0.02,
+   "exposure": 26,
+   "alphaGain": 2
+  },
+  "speaking": {
+   "wander": 0.7,
+   "fold": 1,
+   "crease": 1,
+   "freq": 6.05,
+   "stepScale": 0.51,
+   "hue": 2,
+   "envCore": 0.49,
+   "exposure": 8,
+   "scatter": 0.002,
+   "saturation": 2,
+   "alphaGain": 2.7
+  }
+ },
+ "stateColors": {
+  "idle": {
+   "tint": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  "thinking": {
+   "tint": [
+    0.615686,
+    0.721569,
+    1.0
+   ]
+  },
+  "speaking": {
+   "tint": [
+    1.0,
+    0.768627,
+    0.572549
+   ]
+  }
+ },
+ "shader": "shdr-18.frag.qsb"
+}

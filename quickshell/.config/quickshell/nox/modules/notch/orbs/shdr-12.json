@@ -1,0 +1,180 @@
+{
+ "key": "shdr-12",
+ "label": "SHDR-12",
+ "note": "a ball of glossy toy bricks, studs up \u2014 it rebuilds itself while it thinks",
+ "credit": "Orbkit (MIT, (c) 2026 zzzzshawn)",
+ "license": "MIT",
+ "params": [
+  {
+   "key": "spin",
+   "default": 0.25,
+   "integrate": true
+  },
+  {
+   "key": "tilt",
+   "default": 0.55,
+   "integrate": false
+  },
+  {
+   "key": "rebuild",
+   "default": 0.4,
+   "integrate": true
+  },
+  {
+   "key": "gap",
+   "default": 0.07,
+   "integrate": false
+  },
+  {
+   "key": "studs",
+   "default": 18,
+   "integrate": false
+  },
+  {
+   "key": "radius",
+   "default": 0.95,
+   "integrate": false
+  },
+  {
+   "key": "patch",
+   "default": 0.35,
+   "integrate": false
+  },
+  {
+   "key": "stud",
+   "default": 0.85,
+   "integrate": false
+  },
+  {
+   "key": "seam",
+   "default": 0.6,
+   "integrate": false
+  },
+  {
+   "key": "gloss",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "light",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "gain",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "contrast",
+   "default": 1,
+   "integrate": false
+  }
+ ],
+ "colors": [
+  {
+   "key": "brickA",
+   "default": [
+    0.768627,
+    0.156863,
+    0.109804
+   ]
+  },
+  {
+   "key": "brickB",
+   "default": [
+    0.94902,
+    0.803922,
+    0.215686
+   ]
+  },
+  {
+   "key": "brickC",
+   "default": [
+    0.117647,
+    0.352941,
+    0.658824
+   ]
+  },
+  {
+   "key": "brickD",
+   "default": [
+    0.0,
+    0.521569,
+    0.168627
+   ]
+  },
+  {
+   "key": "brickE",
+   "default": [
+    0.956863,
+    0.956863,
+    0.956863
+   ]
+  }
+ ],
+ "statePresets": {
+  "idle": {
+   "spin": 0.25,
+   "rebuild": 0.4,
+   "gap": 0.07,
+   "gloss": 1,
+   "gain": 1,
+   "light": 1
+  },
+  "thinking": {
+   "spin": 0.03,
+   "tilt": 0.9,
+   "rebuild": 9,
+   "gap": 0.55,
+   "stud": 1,
+   "seam": 0.95,
+   "gloss": 0.55,
+   "gain": 1.05,
+   "light": 1.15,
+   "contrast": 1.05
+  },
+  "speaking": {
+   "spin": 1.6,
+   "tilt": 0.42,
+   "rebuild": 0.5,
+   "gap": 0,
+   "stud": 0.6,
+   "seam": 0.3,
+   "gloss": 2.4,
+   "gain": 1.25,
+   "light": 1.35,
+   "contrast": 0.95
+  }
+ },
+ "stateColors": {
+  "speaking": {
+   "brickA": [
+    1.0,
+    0.231373,
+    0.419608
+   ],
+   "brickB": [
+    1.0,
+    0.788235,
+    0.235294
+   ],
+   "brickC": [
+    0.129412,
+    0.831373,
+    0.992157
+   ],
+   "brickD": [
+    0.478431,
+    0.960784,
+    0.627451
+   ],
+   "brickE": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  }
+ },
+ "shader": "shdr-12.frag.qsb"
+}

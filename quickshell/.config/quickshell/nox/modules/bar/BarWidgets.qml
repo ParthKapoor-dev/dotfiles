@@ -23,7 +23,6 @@ Singleton {
         "bluetooth": "BluetoothStatus.qml",
         "phone": "PhoneStatus.qml",
         "usage": "UsageStatus.qml",
-        "agents": "AgentsStatus.qml",
         "hubstaff": "HubstaffStatus.qml",
         "volume": "Volume.qml",
         "battery": "Battery.qml",
@@ -31,7 +30,8 @@ Singleton {
         "search": "Search.qml",
         "controlCenter": "ControlCenterButton.qml",
         "clock": "Clock.qml",
-        "island": "Island.qml"
+        "island": "Island.qml",
+        "notch": "NotchPill.qml"
     })
     function url(id) {
         const f = registry[id];

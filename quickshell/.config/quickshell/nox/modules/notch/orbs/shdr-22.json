@@ -1,0 +1,185 @@
+{
+ "key": "shdr-22",
+ "label": "SHDR-22",
+ "note": "field lines swirling around the ball about a wandering axis",
+ "credit": "Shader by XorDev (https://x.com/XorDev), ported for Orbkit with the author's permission; non-commercial use only, with attribution to XorDev",
+ "license": "XorDev-NC",
+ "params": [
+  {
+   "key": "speed",
+   "default": 0.5,
+   "integrate": true
+  },
+  {
+   "key": "wander",
+   "default": 0.12,
+   "integrate": true
+  },
+  {
+   "key": "camDist",
+   "default": 7,
+   "integrate": false
+  },
+  {
+   "key": "focal",
+   "default": 2.25,
+   "integrate": false
+  },
+  {
+   "key": "hug",
+   "default": 0.8,
+   "integrate": false
+  },
+  {
+   "key": "turb",
+   "default": 0.6,
+   "integrate": false
+  },
+  {
+   "key": "stepScale",
+   "default": 0.07,
+   "integrate": false
+  },
+  {
+   "key": "hueStep",
+   "default": 0.12,
+   "integrate": false
+  },
+  {
+   "key": "hueDepth",
+   "default": 1.4,
+   "integrate": false
+  },
+  {
+   "key": "glow",
+   "default": 1.4,
+   "integrate": false
+  },
+  {
+   "key": "glowFew",
+   "default": 0.12,
+   "integrate": false
+  },
+  {
+   "key": "envRadius",
+   "default": 2.6,
+   "integrate": false
+  },
+  {
+   "key": "envCore",
+   "default": 0.88,
+   "integrate": false
+  },
+  {
+   "key": "fill",
+   "default": 0.15,
+   "integrate": false
+  },
+  {
+   "key": "stepClamp",
+   "default": 800,
+   "integrate": false
+  },
+  {
+   "key": "scatter",
+   "default": 0.01,
+   "integrate": false
+  },
+  {
+   "key": "exposure",
+   "default": 260,
+   "integrate": false
+  },
+  {
+   "key": "contrast",
+   "default": 1.3,
+   "integrate": false
+  },
+  {
+   "key": "saturation",
+   "default": 1.15,
+   "integrate": false
+  },
+  {
+   "key": "alphaGain",
+   "default": 2,
+   "integrate": false
+  },
+  {
+   "key": "edge",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "edgeFade",
+   "default": 0.98,
+   "integrate": false
+  }
+ ],
+ "colors": [
+  {
+   "key": "tint",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  }
+ ],
+ "statePresets": {
+  "idle": {
+   "speed": 0.4,
+   "wander": 0.1,
+   "turb": 0.55,
+   "glow": 1.3,
+   "glowFew": 0.12,
+   "exposure": 260,
+   "scatter": 0.01,
+   "alphaGain": 2
+  },
+  "thinking": {
+   "speed": 1.2,
+   "wander": 0.6,
+   "turb": 0.7,
+   "glow": 1.7,
+   "glowFew": 0.07,
+   "exposure": 230,
+   "scatter": 0.0095,
+   "alphaGain": 2.1
+  },
+  "speaking": {
+   "speed": 2.2,
+   "wander": 0.3,
+   "turb": 0.85,
+   "glow": 2.4,
+   "glowFew": 0.22,
+   "exposure": 170,
+   "scatter": 0.0075,
+   "alphaGain": 2.5
+  }
+ },
+ "stateColors": {
+  "idle": {
+   "tint": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  "thinking": {
+   "tint": [
+    0.764706,
+    0.823529,
+    1.0
+   ]
+  },
+  "speaking": {
+   "tint": [
+    1.0,
+    0.85098,
+    0.768627
+   ]
+  }
+ },
+ "shader": "shdr-22.frag.qsb"
+}

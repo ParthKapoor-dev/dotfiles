@@ -56,7 +56,7 @@ Item {
         && (Hyprland.activeToplevel?.lastIpcObject.fullscreen ?? 2) === 2
 
     readonly property bool useVoice: wants("mic") && Config.moduleEnabled("voice")
-    readonly property bool useAgents: wants("agent") && Config.moduleEnabled("agents")
+    readonly property bool useAgents: wants("agent") && Config.moduleEnabled("notch")
     readonly property bool useShelf: wants("shelf") && Config.moduleEnabled("shelf")
 
     readonly property real pillH: Math.max(20, Theme.barHeight - 6)

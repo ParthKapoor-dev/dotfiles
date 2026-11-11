@@ -1,0 +1,152 @@
+{
+ "key": "shdr-20",
+ "label": "SHDR-20",
+ "note": "a water film rushing down the ball, fountain-style",
+ "credit": "Shader by XorDev (https://x.com/XorDev), ported for Orbkit with the author's permission; non-commercial use only, with attribution to XorDev",
+ "license": "XorDev-NC",
+ "params": [
+  {
+   "key": "speed",
+   "default": 0.5,
+   "integrate": true
+  },
+  {
+   "key": "flow",
+   "default": 3,
+   "integrate": true
+  },
+  {
+   "key": "camDist",
+   "default": 7,
+   "integrate": false
+  },
+  {
+   "key": "focal",
+   "default": 2.25,
+   "integrate": false
+  },
+  {
+   "key": "tilt",
+   "default": 0.15,
+   "integrate": false
+  },
+  {
+   "key": "stretch",
+   "default": 0.3,
+   "integrate": false
+  },
+  {
+   "key": "foam",
+   "default": 0.3,
+   "integrate": false
+  },
+  {
+   "key": "wall",
+   "default": 3,
+   "integrate": false
+  },
+  {
+   "key": "stepScale",
+   "default": 0.2,
+   "integrate": false
+  },
+  {
+   "key": "hueScale",
+   "default": 0.85,
+   "integrate": false
+  },
+  {
+   "key": "envRadius",
+   "default": 2.6,
+   "integrate": false
+  },
+  {
+   "key": "envCore",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "fill",
+   "default": 0.4,
+   "integrate": false
+  },
+  {
+   "key": "stepClamp",
+   "default": 20,
+   "integrate": false
+  },
+  {
+   "key": "scatter",
+   "default": 0.01,
+   "integrate": false
+  },
+  {
+   "key": "exposure",
+   "default": 22,
+   "integrate": false
+  },
+  {
+   "key": "contrast",
+   "default": 1.15,
+   "integrate": false
+  },
+  {
+   "key": "saturation",
+   "default": 1.55,
+   "integrate": false
+  },
+  {
+   "key": "alphaGain",
+   "default": 2,
+   "integrate": false
+  },
+  {
+   "key": "edge",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "edgeFade",
+   "default": 0.98,
+   "integrate": false
+  }
+ ],
+ "colors": [
+  {
+   "key": "tint",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  }
+ ],
+ "statePresets": {
+  "idle": {
+   "speed": 0.5,
+   "flow": 3,
+   "foam": 0.3,
+   "exposure": 22,
+   "scatter": 0.01,
+   "alphaGain": 2
+  },
+  "thinking": {
+   "speed": 0.6,
+   "flow": 3.3,
+   "foam": 0.33,
+   "exposure": 21,
+   "scatter": 0.0095,
+   "alphaGain": 2.1
+  },
+  "speaking": {
+   "speed": 1,
+   "flow": 5.5,
+   "foam": 0.45,
+   "exposure": 16,
+   "scatter": 0.0075,
+   "alphaGain": 2.5
+  }
+ },
+ "stateColors": {},
+ "shader": "shdr-20.frag.qsb"
+}

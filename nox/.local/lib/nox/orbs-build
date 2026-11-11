@@ -1,0 +1,360 @@
+#!/usr/bin/env python3
+"""orbs-build: port the Orbkit WebGL shader orbs to Qt Quick ShaderEffect shaders.
+
+    orbs-build [ORBKIT_CLONE] [OUT_DIR] [--only shdr-11,shdr-21] [--qsb PATH]
+
+Reads orbs/core/orbkit-core.tsx (shared GLSL prelude) and orbs/orbs/shdr-NN.tsx
+(fragment shader + OrbVariant data) from an Orbkit clone
+(https://github.com/zzzzshawn/orbkit). The clone is only READ as text: nothing
+in it is executed. For each orb it writes into OUT_DIR:
+
+    shdr-NN.frag      Vulkan-style GLSL 440 (the source qsb compiles)
+    shdr-NN.frag.qsb  SPIR-V + GLSL 100es/120/150 + HLSL + MSL, for Qt RHI
+    shdr-NN.json      params / colors / statePresets / stateColors / credit
+
+Rerunnable. Exits non-zero, listing the orbs that failed.
+Licensing: see CREDITS.md next to the output (XorDev ports: non-commercial).
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.realpath(__file__))
+DEFAULT_SRC = os.path.expanduser("~/.cache/nox/orbkit")
+DEFAULT_OUT = os.path.normpath(os.path.join(
+    HERE, "../../../../quickshell/.config/quickshell/nox/modules/notch/orbs"))
+QSB = "/usr/lib/qt6/bin/qsb"
+QSB_TARGETS = ["--glsl", "100 es,120,150", "--hlsl", "50", "--msl", "12"]
+QSB_FALLBACK = ["--glsl", "120,150", "--hlsl", "50", "--msl", "12"]
+
+MIT_ORBS = {11, 12, 13, 14, 16, 17, 21, 23, 24, 27, 29, 30, 32, 33}
+
+
+# --------------------------------------------------------------------------
+# A tiny reader for the JS/TS literals the orb files use: objects, arrays,
+# strings, template literals without ${}, numbers, booleans, identifiers that
+# name another top-level `const`, and object spread. Nothing is evaluated.
+# --------------------------------------------------------------------------
+class JsReader:
+    def __init__(self, text):
+        self.s = text
+        self.consts = {}
+
+    def ws(self, i):
+        s = self.s
+        while i < len(s):
+            if s[i].isspace():
+                i += 1
+            elif s.startswith("//", i):
+                j = s.find("\n", i)
+                i = len(s) if j < 0 else j + 1
+            elif s.startswith("/*", i):
+                j = s.find("*/", i + 2)
+                if j < 0:
+                    raise ValueError("unterminated comment")
+                i = j + 2
+            else:
+                break
+        return i
+
+    def const(self, name):
+        if name in self.consts:
+            return self.consts[name]
+        m = re.search(r"^(?:export\s+)?const\s+%s\s*(?::\s*[\w<>\[\], |]+)?=\s*" % re.escape(name),
+                      self.s, re.M)
+        if not m:
+            raise ValueError("cannot resolve identifier %r" % name)
+        val, _ = self.value(m.end())
+        self.consts[name] = val
+        return val
+
+    def value(self, i):
+        s = self.s
+        i = self.ws(i)
+        c = s[i]
+        if c == "{":
+            return self.obj(i + 1)
+        if c == "[":
+            return self.arr(i + 1)
+        if c in "\"'":
+            j = i + 1
+            out = []
+            while s[j] != c:
+                if s[j] == "\\":
+                    out.append(s[j + 1])
+                    j += 2
+                else:
+                    out.append(s[j])
+                    j += 1
+            return "".join(out), self.tail(j + 1)
+        if c == "`":
+            j = s.index("`", i + 1)
+            body = s[i + 1:j]
+            if "${" in body:
+                raise ValueError("template literal with interpolation")
+            return body, self.tail(j + 1)
+        m = re.compile(r"-?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?").match(s, i)
+        if m:
+            txt = m.group(0)
+            v = float(txt)
+            if v == int(v) and "." not in txt and "e" not in txt.lower():
+                v = int(v)
+            return v, self.tail(m.end())
+        m = re.compile(r"[A-Za-z_$][\w$]*").match(s, i)
+        if m:
+            name = m.group(0)
+            if name in ("true", "false", "null", "undefined"):
+                return {"true": True, "false": False}.get(name), self.tail(m.end())
+            return self.const(name), self.tail(m.end())
+        raise ValueError("unexpected %r at %d" % (s[i:i + 30], i))
+
+    def tail(self, i):
+        # swallow `as const` / `satisfies X`
+        j = self.ws(i)
+        m = re.compile(r"(?:as|satisfies)\s+[\w.<>\[\]]+").match(self.s, j)
+        return m.end() if m else i
+
+    def obj(self, i):
+        s = self.s
+        out = {}
+        while True:
+            i = self.ws(i)
+            if s[i] == "}":
+                return out, self.tail(i + 1)
+            if s.startswith("...", i):
+                v, i = self.value(i + 3)
+                out.update(v)
+            else:
+                m = re.compile(r"\"([^\"]*)\"|'([^']*)'|([A-Za-z_$][\w$]*)").match(s, i)
+                if not m:
+                    raise ValueError("bad key at %r" % s[i:i + 30])
+                key = m.group(1) or m.group(2) or m.group(3)
+                i = self.ws(m.end())
+                if s[i] == ":":
+                    v, i = self.value(i + 1)
+                else:  # shorthand
+                    v = self.const(key)
+                out[key] = v
+            i = self.ws(i)
+            if s[i] == ",":
+                i += 1
+
+    def arr(self, i):
+        s = self.s
+        out = []
+        while True:
+            i = self.ws(i)
+            if s[i] == "]":
+                return out, self.tail(i + 1)
+            v, i = self.value(i)
+            out.append(v)
+            i = self.ws(i)
+            if s[i] == ",":
+                i += 1
+
+
+def hex_rgb(h):
+    h = h.strip().lstrip("#")
+    if len(h) == 3:
+        h = "".join(c * 2 for c in h)
+    try:
+        n = int(h, 16)
+    except ValueError:
+        return [1.0, 1.0, 1.0]
+    if len(h) != 6:
+        return [1.0, 1.0, 1.0]
+    return [round(((n >> 16) & 255) / 255, 6), round(((n >> 8) & 255) / 255, 6), round((n & 255) / 255, 6)]
+
+
+# --------------------------------------------------------------------------
+# GLSL ES 1.0 -> GLSL 440
+# --------------------------------------------------------------------------
+# Words GLSL 4.40 reserves (or makes keywords) that ES 1.0 leaves free.
+RESERVED_440 = ["input", "output", "sample", "patch", "filter", "common", "partition",
+                "active", "smooth", "flat", "noperspective", "centroid", "buffer",
+                "shared", "resource", "subroutine", "precise", "coherent", "readonly",
+                "writeonly", "restrict", "volatile", "layout", "texture", "union",
+                "superp", "image", "uint", "double", "dvec2", "dvec3", "dvec4"]
+
+
+def es_to_440(src, where):
+    out = re.sub(r"^\s*precision\s+\w+\s+\w+\s*;\s*$", "", src, flags=re.M)
+    out = re.sub(r"\bshadow2D(Proj)?\b|\btexture2D(Proj|Lod)?\b|\btextureCube\b", "texture", out)
+    out = out.replace("gl_FragCoord.xy", "ORB_FC")
+    if re.search(r"\bgl_FragCoord\b", out):
+        out = re.sub(r"\bgl_FragCoord\b", "vec4(ORB_FC, 0.0, 1.0)", out)
+    out = re.sub(r"\bgl_FragColor\b", "orb_FragColor", out)
+    out = re.sub(r"\bgl_FragData\[0\]", "orb_FragColor", out)
+    if re.search(r"^\s*#extension", out, re.M):
+        out = re.sub(r"^\s*#extension.*$", "", out, flags=re.M)
+    # identifiers 440 reserves: rename (but not when used as a builtin call)
+    for w in RESERVED_440:
+        if w == "texture":
+            # local variable named texture (not a function call)
+            out = re.sub(r"\btexture\b(?!\s*\()", "orb_texture", out)
+            continue
+        out = re.sub(r"(?<![.\w])%s\b" % w, "orb_" + w, out)
+    return out
+
+
+def build_frag(prelude, variant, header):
+    params = variant.get("params", [])
+    colors = variant.get("colors", [])
+    members = ["    mat4 qt_Matrix;", "    float qt_Opacity;", "    vec2 uRes;",
+               "    float uTime;", "    float uAnim;", "    float uInput;", "    float uOutput;",
+               "    vec4 uTint;"]
+    # std140: vec3 aligns to 16 — the block is at a 16-byte boundary after uTint,
+    # so the vec3s go first and the floats pack in behind them.
+    members += ["    vec3 uC_%s;" % c["key"] for c in colors]
+    members += ["    float uP_%s;" % p["key"] for p in params]
+    body = variant["frag"]
+    if not re.search(r"\bvoid\s+main\s*\(\s*(void)?\s*\)", body):
+        raise ValueError("no main()")
+    body = re.sub(r"\bvoid\s+main\s*\(\s*(void)?\s*\)", "void orb_main()", body, count=1)
+    return "\n".join([
+        "#version 440",
+        header.rstrip(),
+        "// GENERATED by nox orbs-build from the Orbkit source; edit the generator, not this file.",
+        "",
+        "layout(location = 0) in vec2 qt_TexCoord0;",
+        "layout(location = 0) out vec4 fragColor;",
+        "",
+        "layout(std140, binding = 0) uniform buf {",
+        *members,
+        "};",
+        "",
+        "// WebGL's gl_FragCoord: pixel centres, origin bottom-left (y up).",
+        "#define ORB_FC (vec2(qt_TexCoord0.x, 1.0 - qt_TexCoord0.y) * uRes)",
+        "vec4 orb_FragColor = vec4(0.0);",
+        "",
+        "// ---- Orbkit prelude (orbkit-core.tsx ORB_GLSL_HELPERS) ----",
+        es_to_440(prelude, "prelude").strip(),
+        "",
+        "// ---- %s ----" % variant["key"],
+        es_to_440(body, variant["key"]).strip(),
+        "",
+        "void main() {",
+        "    orb_main();",
+        "    // The WebGL canvas stores premultiplied rgba in an 8-bit buffer.",
+        "    vec4 c = clamp(orb_FragColor, 0.0, 1.0);",
+        "    if (any(isnan(orb_FragColor))) c = vec4(0.0);",
+        "    // Optional recolour: keep each pixel's peak brightness, take tint's hue.",
+        "    if (uTint.a > 0.0) {",
+        "        float peak = max(c.r, max(c.g, c.b));",
+        "        c.rgb = mix(c.rgb, min(vec3(peak) * uTint.rgb, vec3(c.a)), uTint.a);",
+        "    }",
+        "    fragColor = c * qt_Opacity;",
+        "}",
+        "",
+    ])
+
+
+def credit_header(num, tsx):
+    if num in MIT_ORBS:
+        return ("/*\n * Orbkit (https://orbkit.zzzzshawn.cloud, https://github.com/zzzzshawn/orbkit)\n"
+                " * shdr-%02d, Copyright (c) 2026 zzzzshawn. MIT License; full text in CREDITS.md.\n"
+                " * Ported to Qt for nox.\n */" % num), "Orbkit (MIT, (c) 2026 zzzzshawn)", "MIT"
+    m = re.match(r"\s*(/\*.*?\*/)", tsx, re.S)
+    if not m or "XorDev" not in m.group(1):
+        raise ValueError("XorDev notice missing at top of file")
+    notice = m.group(1)
+    return (notice + "\n/* ported to Qt for nox (personal, non-commercial) */",
+            "Shader by XorDev (https://x.com/XorDev), ported for Orbkit with the author's permission; "
+            "non-commercial use only, with attribution to XorDev", "XorDev-NC")
+
+
+def extract_prelude(core):
+    m = re.search(r"export const ORB_GLSL_HELPERS = `(.*?)`", core, re.S)
+    if not m:
+        raise SystemExit("orbs-build: ORB_GLSL_HELPERS not found in orbkit-core.tsx")
+    lines = [l for l in m.group(1).splitlines() if not re.match(r"\s*uniform\s", l)]
+    return "\n".join(lines)
+
+
+def port(num, src, out, prelude, qsb):
+    path = os.path.join(src, "orbs", "orbs", "shdr-%02d.tsx" % num)
+    tsx = open(path, encoding="utf-8").read()
+    rd = JsReader(tsx)
+    m = re.search(r"^export const shdr\d+Orb\s*:\s*OrbVariant\s*=\s*", tsx, re.M)
+    if not m:
+        raise ValueError("OrbVariant export not found")
+    variant, _ = rd.value(m.end())
+    key = variant["key"]
+    header, credit, lic = credit_header(num, tsx)
+    frag = build_frag(prelude, variant, header)
+    fpath = os.path.join(out, key + ".frag")
+    with open(fpath, "w", encoding="utf-8") as f:
+        f.write(frag)
+    meta = {
+        "key": key,
+        "label": variant.get("label", key),
+        "note": variant.get("note", ""),
+        "credit": credit,
+        "license": lic,
+        "params": [{"key": p["key"], "default": p["default"], "integrate": bool(p.get("integrate"))}
+                   for p in variant.get("params", [])],
+        "colors": [{"key": c["key"], "default": hex_rgb(c["default"])} for c in variant.get("colors", [])],
+        "statePresets": variant.get("statePresets") or {},
+        "stateColors": {st: {k: hex_rgb(v) for k, v in cols.items()}
+                        for st, cols in (variant.get("stateColors") or {}).items()},
+        "shader": key + ".frag.qsb",
+    }
+    with open(os.path.join(out, key + ".json"), "w", encoding="utf-8") as f:
+        json.dump(meta, f, indent=1)
+        f.write("\n")
+    qpath = fpath + ".qsb"
+    r = subprocess.run([qsb, *QSB_TARGETS, "-o", qpath, fpath], capture_output=True, text=True)
+    if r.returncode != 0:
+        r2 = subprocess.run([qsb, *QSB_FALLBACK, "-o", qpath, fpath], capture_output=True, text=True)
+        if r2.returncode != 0:
+            raise ValueError("qsb failed:\n" + (r.stdout + r.stderr).strip()[-3000:])
+        print("  %s: no GLSL ES 100 variant (desktop GL/Vulkan only)" % key, file=sys.stderr)
+    return key
+
+
+def main(argv):
+    args = [a for a in argv if not a.startswith("--")]
+    only = None
+    qsb = QSB
+    for a in argv:
+        if a.startswith("--only="):
+            only = set(a.split("=", 1)[1].split(","))
+        if a.startswith("--qsb="):
+            qsb = a.split("=", 1)[1]
+        if a in ("-h", "--help"):
+            print(__doc__)
+            return 0
+    src = os.path.abspath(args[0]) if args else DEFAULT_SRC
+    out = os.path.abspath(args[1]) if len(args) > 1 else DEFAULT_OUT
+    core = os.path.join(src, "orbs", "core", "orbkit-core.tsx")
+    if not os.path.isfile(core):
+        print("orbs-build: no Orbkit clone at %s" % src, file=sys.stderr)
+        return 2
+    if not os.access(qsb, os.X_OK):
+        print("orbs-build: qsb not found at %s (qt6-shadertools)" % qsb, file=sys.stderr)
+        return 2
+    os.makedirs(out, exist_ok=True)
+    prelude = extract_prelude(open(core, encoding="utf-8").read())
+    failed = []
+    nums = sorted(int(m.group(1)) for f in os.listdir(os.path.join(src, "orbs", "orbs"))
+                  for m in [re.match(r"shdr-(\d+)\.tsx$", f)] if m)
+    for n in nums:
+        key = "shdr-%02d" % n
+        if only and key not in only:
+            continue
+        try:
+            port(n, src, out, prelude, qsb)
+            print("ok   " + key)
+        except Exception as e:  # noqa: BLE001 — report every orb, keep going
+            failed.append(key)
+            print("FAIL %s: %s" % (key, e), file=sys.stderr)
+    if failed:
+        print("orbs-build: %d failed: %s" % (len(failed), " ".join(failed)), file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

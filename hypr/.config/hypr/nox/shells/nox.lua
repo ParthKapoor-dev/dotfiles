@@ -34,7 +34,7 @@ P.IPC = {
     dock           = "dock toggle",             -- live
     wallpaper_set  = "wallpaper set",           -- planned (+ <path>; used by nox wallpaper)
     layout_changed = "layout changed",          -- planned (+ <name>; sent by nox/layouts.lua)
-    agents         = "agents toggle",           -- live (Mission Control for coding agents)
+    agents         = "notch toggle",            -- live (the agent notch, modules/notch)
     ask            = "ask toggle",              -- live (Circle to Ask, modules/ask)
 }
 
@@ -178,7 +178,7 @@ function P.binds(ctx)
         { "SUPER + Semicolon", G("hints"), desc = "Hint mode: click anything by its label" },
         { "CTRL + SUPER + S", X("nox notes toggle"), desc = "Show or hide Notes" },
         -- Super+Shift+M / Super+Alt+M are mute / mic mute (binds/system.lua)
-        { "CTRL + SUPER + M", X(ipc("agents")), desc = "Agent mission control" },
+        { "CTRL + SUPER + M", X(ipc("agents")), desc = "Agent notch (same as Super+O)" },
         -- agent notch (modules/notch): answer the oldest permission request from any window
         { "SUPER + Y", G("notch_allow"), desc = "Agent notch: allow the request" },
         { "SUPER + SHIFT + Y", G("notch_always"), desc = "Agent notch: always allow the request" },
@@ -265,14 +265,12 @@ function P.layer_rules(ctx)
         { match = { namespace = "^nox:notifications$" }, animation = "fade" },
         -- 0.5: lower values blur the soft card shadows (orange halo on Ember wallpaper)
         -- full-screen / static surfaces: no blur, no compositor animation (they animate themselves)
-        { match = { namespace = "^nox:(wallpaper|corners|hotcorners|overview|widgets|agents|ask|draw|hints)$" }, blur = false },
-        { match = { namespace = "^nox:(corners|hotcorners|overview|session|polkit|widgets|agents|ask|draw|hints)$" }, no_anim = true },
+        { match = { namespace = "^nox:(wallpaper|corners|hotcorners|overview|widgets|ask|draw|hints)$" }, blur = false },
+        { match = { namespace = "^nox:(corners|hotcorners|overview|session|polkit|widgets|ask|draw|hints)$" }, no_anim = true },
         -- drop shelf: slides itself; soft shadow + accent glow stay out of the blur
         { match = { namespace = "^nox:shelf$" }, no_anim = true, ignore_alpha = padded },
         -- selection bar: animates itself; its shadow stays out of the blur
         { match = { namespace = "^nox:selbar$" }, no_anim = true, ignore_alpha = padded },
-        -- agent notch: opaque black, animates itself; its halo / shadow stay out of the blur
-        { match = { namespace = "^nox:notch$" }, blur = false, no_anim = true },
     }
 end
 

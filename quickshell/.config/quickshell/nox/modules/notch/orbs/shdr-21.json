@@ -1,0 +1,173 @@
+{
+ "key": "shdr-21",
+ "label": "SHDR-21",
+ "note": "light diffusing through a cloud",
+ "credit": "Orbkit (MIT, (c) 2026 zzzzshawn)",
+ "license": "MIT",
+ "params": [
+  {
+   "key": "speed",
+   "default": 10,
+   "integrate": true
+  },
+  {
+   "key": "camDist",
+   "default": 4.4,
+   "integrate": false
+  },
+  {
+   "key": "focal",
+   "default": 1.8,
+   "integrate": false
+  },
+  {
+   "key": "radius",
+   "default": 2,
+   "integrate": false
+  },
+  {
+   "key": "scale",
+   "default": 0.8,
+   "integrate": false
+  },
+  {
+   "key": "churn",
+   "default": 0.3,
+   "integrate": false
+  },
+  {
+   "key": "threshold",
+   "default": 0.075,
+   "integrate": false
+  },
+  {
+   "key": "edgeSoft",
+   "default": 0.8,
+   "integrate": false
+  },
+  {
+   "key": "density",
+   "default": 3.2,
+   "integrate": false
+  },
+  {
+   "key": "absorb",
+   "default": 1.4,
+   "integrate": false
+  },
+  {
+   "key": "shadowAbsorb",
+   "default": 2.4,
+   "integrate": false
+  },
+  {
+   "key": "shadowLift",
+   "default": 0.55,
+   "integrate": false
+  },
+  {
+   "key": "aniso",
+   "default": 0.45,
+   "integrate": false
+  },
+  {
+   "key": "lightSpin",
+   "default": 0.12,
+   "integrate": false
+  },
+  {
+   "key": "power",
+   "default": 1.9,
+   "integrate": false
+  },
+  {
+   "key": "ambient",
+   "default": 0.12,
+   "integrate": false
+  },
+  {
+   "key": "exposure",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "alphaGain",
+   "default": 1.5,
+   "integrate": false
+  }
+ ],
+ "colors": [
+  {
+   "key": "light",
+   "default": [
+    1.0,
+    0.843137,
+    0.639216
+   ]
+  },
+  {
+   "key": "shadow",
+   "default": [
+    0.227451,
+    0.290196,
+    0.54902
+   ]
+  }
+ ],
+ "statePresets": {
+  "idle": {
+   "ambient": 0.12,
+   "power": 1.9,
+   "shadowLift": 0.55
+  },
+  "thinking": {
+   "ambient": 0.22,
+   "power": 2.15,
+   "shadowLift": 0.65
+  },
+  "speaking": {
+   "ambient": 0.46,
+   "power": 3.1,
+   "shadowLift": 0.95
+  }
+ },
+ "stateColors": {
+  "idle": {
+   "light": [
+    1.0,
+    0.843137,
+    0.639216
+   ],
+   "shadow": [
+    0.227451,
+    0.290196,
+    0.54902
+   ]
+  },
+  "thinking": {
+   "light": [
+    0.901961,
+    0.831373,
+    1.0
+   ],
+   "shadow": [
+    0.231373,
+    0.247059,
+    0.588235
+   ]
+  },
+  "speaking": {
+   "light": [
+    1.0,
+    0.690196,
+    0.4
+   ],
+   "shadow": [
+    0.478431,
+    0.184314,
+    0.431373
+   ]
+  }
+ },
+ "shader": "shdr-21.frag.qsb"
+}

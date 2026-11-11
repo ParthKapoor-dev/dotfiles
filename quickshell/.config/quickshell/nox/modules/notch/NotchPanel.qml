@@ -24,7 +24,8 @@ FocusScope {
     readonly property var cur: list[sel] ?? null
     signal close()
     implicitWidth: 640
-    implicitHeight: 42 + tabs.height + stack.height + 14
+    property real topPad: 42
+    implicitHeight: topPad + tabs.height + stack.height + 14
 
     onListChanged: if (!list.find(s => s.id === selId)) selId = list[0]?.id ?? ""
     function select(i) { if (list.length) selId = list[(i + list.length) % list.length].id; }
@@ -58,7 +59,7 @@ FocusScope {
     // tabs
     Item {
         id: tabs
-        y: 42
+        y: p.topPad
         width: parent.width
         height: 34
         Row {

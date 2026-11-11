@@ -1,0 +1,128 @@
+{
+ "key": "shdr-29",
+ "label": "SHDR-29",
+ "note": "an LED tile wall lighting up in flowing blobs, wrapped on the ball",
+ "credit": "Orbkit (MIT, (c) 2026 zzzzshawn)",
+ "license": "MIT",
+ "params": [
+  {
+   "key": "drift",
+   "default": 0.45,
+   "integrate": true
+  },
+  {
+   "key": "churn",
+   "default": 0.5,
+   "integrate": true
+  },
+  {
+   "key": "swirl",
+   "default": 1.2,
+   "integrate": false
+  },
+  {
+   "key": "shuffle",
+   "default": 0.6,
+   "integrate": true
+  },
+  {
+   "key": "pulse",
+   "default": 0,
+   "integrate": false
+  },
+  {
+   "key": "spin",
+   "default": 0.1,
+   "integrate": true
+  },
+  {
+   "key": "radius",
+   "default": 0.9,
+   "integrate": false
+  },
+  {
+   "key": "cells",
+   "default": 48,
+   "integrate": false
+  },
+  {
+   "key": "scale",
+   "default": 1.3,
+   "integrate": false
+  },
+  {
+   "key": "coverage",
+   "default": 0.52,
+   "integrate": false
+  },
+  {
+   "key": "confetti",
+   "default": 0.22,
+   "integrate": false
+  },
+  {
+   "key": "light",
+   "default": 0.6,
+   "integrate": false
+  },
+  {
+   "key": "gain",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "contrast",
+   "default": 1,
+   "integrate": false
+  }
+ ],
+ "colors": [
+  {
+   "key": "lit",
+   "default": [
+    1.0,
+    0.94902,
+    0.866667
+   ]
+  },
+  {
+   "key": "wall",
+   "default": [
+    0.086275,
+    0.086275,
+    0.086275
+   ]
+  }
+ ],
+ "statePresets": {
+  "idle": {
+   "drift": 0.45,
+   "churn": 0.5,
+   "shuffle": 0.6,
+   "pulse": 0,
+   "spin": 0.1,
+   "coverage": 0.52,
+   "gain": 1
+  },
+  "thinking": {
+   "drift": 0.1,
+   "churn": 1.9,
+   "shuffle": 5,
+   "pulse": 0,
+   "spin": 0.03,
+   "coverage": 0.42,
+   "gain": 0.95
+  },
+  "speaking": {
+   "drift": 0.5,
+   "churn": 0.9,
+   "shuffle": 1.2,
+   "pulse": 0.55,
+   "spin": 0.45,
+   "coverage": 0.44,
+   "gain": 1.15
+  }
+ },
+ "stateColors": {},
+ "shader": "shdr-29.frag.qsb"
+}

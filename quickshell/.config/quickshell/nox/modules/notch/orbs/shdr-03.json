@@ -1,0 +1,222 @@
+{
+ "key": "shdr-03",
+ "label": "SHDR-03",
+ "note": "a turbulent belt of light girdling the ball, contoured in rainbow",
+ "credit": "Shader by XorDev (https://x.com/XorDev), ported for Orbkit with the author's permission; non-commercial use only, with attribution to XorDev",
+ "license": "XorDev-NC",
+ "params": [
+  {
+   "key": "speed",
+   "default": 0.6,
+   "integrate": true
+  },
+  {
+   "key": "wander",
+   "default": 0.3,
+   "integrate": true
+  },
+  {
+   "key": "feedback",
+   "default": 1.5,
+   "integrate": false
+  },
+  {
+   "key": "camDist",
+   "default": 5,
+   "integrate": false
+  },
+  {
+   "key": "focal",
+   "default": 1.05,
+   "integrate": false
+  },
+  {
+   "key": "shellR",
+   "default": 3,
+   "integrate": false
+  },
+  {
+   "key": "shellW",
+   "default": 0.12,
+   "integrate": false
+  },
+  {
+   "key": "plane",
+   "default": 0.15,
+   "integrate": false
+  },
+  {
+   "key": "turb",
+   "default": 0.55,
+   "integrate": false
+  },
+  {
+   "key": "width",
+   "default": 0.004,
+   "integrate": false
+  },
+  {
+   "key": "pulse",
+   "default": 0,
+   "integrate": false
+  },
+  {
+   "key": "surge",
+   "default": 0,
+   "integrate": false
+  },
+  {
+   "key": "hue",
+   "default": 25,
+   "integrate": false
+  },
+  {
+   "key": "spread",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "envRadius",
+   "default": 3.3,
+   "integrate": false
+  },
+  {
+   "key": "envCore",
+   "default": 0.92,
+   "integrate": false
+  },
+  {
+   "key": "fill",
+   "default": 0.1,
+   "integrate": false
+  },
+  {
+   "key": "stepClamp",
+   "default": 1500,
+   "integrate": false
+  },
+  {
+   "key": "scatter",
+   "default": 0.0006,
+   "integrate": false
+  },
+  {
+   "key": "exposure",
+   "default": 1500,
+   "integrate": false
+  },
+  {
+   "key": "contrast",
+   "default": 1.2,
+   "integrate": false
+  },
+  {
+   "key": "saturation",
+   "default": 1.25,
+   "integrate": false
+  },
+  {
+   "key": "alphaGain",
+   "default": 2,
+   "integrate": false
+  },
+  {
+   "key": "edge",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "edgeFade",
+   "default": 0.98,
+   "integrate": false
+  }
+ ],
+ "colors": [
+  {
+   "key": "tint",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  }
+ ],
+ "statePresets": {
+  "idle": {
+   "speed": 0.6,
+   "wander": 0.3,
+   "feedback": 2,
+   "shellR": 2,
+   "shellW": 0.085,
+   "plane": 0.085,
+   "turb": 1.54,
+   "width": 0.001,
+   "hue": 39.8,
+   "spread": 0.94,
+   "envCore": 1.02,
+   "stepClamp": 1475,
+   "exposure": 1450,
+   "scatter": 0.0006,
+   "alphaGain": 2
+  },
+  "thinking": {
+   "speed": 2,
+   "wander": 1.1,
+   "feedback": 7.5,
+   "focal": 1.9,
+   "shellR": 1.9,
+   "shellW": 0.005,
+   "plane": 0.345,
+   "turb": 0.7,
+   "width": 0.048,
+   "pulse": 1,
+   "hue": 28.3,
+   "spread": 1.02,
+   "envRadius": 7.4,
+   "envCore": 0.84,
+   "exposure": 2300,
+   "scatter": 0,
+   "alphaGain": 2
+  },
+  "speaking": {
+   "speed": 0.9,
+   "wander": 0.84,
+   "feedback": 0.3,
+   "shellR": 1.8,
+   "shellW": 0.19,
+   "plane": 0.1,
+   "turb": 0.14,
+   "width": 0.018,
+   "surge": 1,
+   "spread": 1.04,
+   "envRadius": 3.4,
+   "exposure": 650,
+   "scatter": 0.0003,
+   "alphaGain": 2.7
+  }
+ },
+ "stateColors": {
+  "idle": {
+   "tint": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  "thinking": {
+   "tint": [
+    0.615686,
+    0.721569,
+    1.0
+   ]
+  },
+  "speaking": {
+   "tint": [
+    1.0,
+    0.768627,
+    0.572549
+   ]
+  }
+ },
+ "shader": "shdr-03.frag.qsb"
+}

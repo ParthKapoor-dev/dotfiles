@@ -1,0 +1,204 @@
+{
+ "key": "shdr-24",
+ "label": "SHDR-24",
+ "note": "a Minecraft Earth \u2014 a perfect voxel sphere whose seasons cycle it through lush, cherry-grove, ice, mesa and desert worlds",
+ "credit": "Orbkit (MIT, (c) 2026 zzzzshawn)",
+ "license": "MIT",
+ "params": [
+  {
+   "key": "spin",
+   "default": 0.22,
+   "integrate": true
+  },
+  {
+   "key": "tilt",
+   "default": 0.45,
+   "integrate": false
+  },
+  {
+   "key": "drift",
+   "default": 0.12,
+   "integrate": true
+  },
+  {
+   "key": "season",
+   "default": 0.3,
+   "integrate": true
+  },
+  {
+   "key": "shuffle",
+   "default": 0.8,
+   "integrate": true
+  },
+  {
+   "key": "radius",
+   "default": 1.15,
+   "integrate": false
+  },
+  {
+   "key": "blocks",
+   "default": 64,
+   "integrate": false
+  },
+  {
+   "key": "rough",
+   "default": 0.45,
+   "integrate": false
+  },
+  {
+   "key": "scale",
+   "default": 2.4,
+   "integrate": false
+  },
+  {
+   "key": "sea",
+   "default": 0.5,
+   "integrate": false
+  },
+  {
+   "key": "trees",
+   "default": 0.75,
+   "integrate": false
+  },
+  {
+   "key": "cave",
+   "default": 0.4,
+   "integrate": false
+  },
+  {
+   "key": "ore",
+   "default": 0.12,
+   "integrate": false
+  },
+  {
+   "key": "glow",
+   "default": 0.9,
+   "integrate": false
+  },
+  {
+   "key": "core",
+   "default": 0.5,
+   "integrate": false
+  },
+  {
+   "key": "texture",
+   "default": 0.6,
+   "integrate": false
+  },
+  {
+   "key": "light",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "gain",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "contrast",
+   "default": 1,
+   "integrate": false
+  }
+ ],
+ "colors": [
+  {
+   "key": "grass",
+   "default": [
+    0.415686,
+    0.745098,
+    0.188235
+   ]
+  },
+  {
+   "key": "dirt",
+   "default": [
+    0.435294,
+    0.290196,
+    0.184314
+   ]
+  },
+  {
+   "key": "stone",
+   "default": [
+    0.541176,
+    0.541176,
+    0.564706
+   ]
+  },
+  {
+   "key": "sand",
+   "default": [
+    0.858824,
+    0.811765,
+    0.611765
+   ]
+  },
+  {
+   "key": "water",
+   "default": [
+    0.184314,
+    0.4,
+    0.815686
+   ]
+  },
+  {
+   "key": "leaf",
+   "default": [
+    0.243137,
+    0.560784,
+    0.152941
+   ]
+  },
+  {
+   "key": "ore",
+   "default": [
+    0.301961,
+    0.890196,
+    1.0
+   ]
+  },
+  {
+   "key": "lava",
+   "default": [
+    1.0,
+    0.482353,
+    0.14902
+   ]
+  }
+ ],
+ "statePresets": {
+  "idle": {
+   "spin": 0.22,
+   "drift": 0.12,
+   "season": 0.3,
+   "shuffle": 0.8,
+   "glow": 0.9,
+   "core": 0.5,
+   "gain": 1,
+   "light": 1
+  },
+  "thinking": {
+   "spin": 0.04,
+   "drift": 1.7,
+   "season": 1.8,
+   "shuffle": 4.5,
+   "glow": 1.3,
+   "core": 0.35,
+   "gain": 0.95,
+   "light": 0.9
+  },
+  "speaking": {
+   "spin": 0.85,
+   "drift": 0.35,
+   "season": 0.6,
+   "shuffle": 1.6,
+   "glow": 1.6,
+   "core": 1,
+   "gain": 1.1,
+   "light": 1.15
+  }
+ },
+ "stateColors": {},
+ "shader": "shdr-24.frag.qsb"
+}

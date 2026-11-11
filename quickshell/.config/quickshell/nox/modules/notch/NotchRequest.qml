@@ -23,7 +23,8 @@ FocusScope {
     property string toast: ""
     signal later()
     implicitWidth: 560
-    implicitHeight: col.implicitHeight + 46 + 22
+    property real topPad: 46
+    implicitHeight: col.implicitHeight + topPad + 22
 
     function act(choice, msg) {
         if (!req) return;
@@ -43,7 +44,7 @@ FocusScope {
 
     Column {
         id: col
-        x: 22; y: 46
+        x: 22; y: card.topPad
         width: parent.width - 44
         spacing: 0
 

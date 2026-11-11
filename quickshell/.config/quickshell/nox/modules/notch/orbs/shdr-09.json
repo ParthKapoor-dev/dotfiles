@@ -1,0 +1,196 @@
+{
+ "key": "shdr-09",
+ "label": "SHDR-09",
+ "note": "torn rings of rainbow light worn as the ball's latitudes",
+ "credit": "Shader by XorDev (https://x.com/XorDev), ported for Orbkit with the author's permission; non-commercial use only, with attribution to XorDev",
+ "license": "XorDev-NC",
+ "params": [
+  {
+   "key": "speed",
+   "default": 0.6,
+   "integrate": true
+  },
+  {
+   "key": "spin",
+   "default": 0.12,
+   "integrate": true
+  },
+  {
+   "key": "tilt",
+   "default": 0.4,
+   "integrate": false
+  },
+  {
+   "key": "radius",
+   "default": 0.9,
+   "integrate": false
+  },
+  {
+   "key": "scale",
+   "default": 3.5,
+   "integrate": false
+  },
+  {
+   "key": "warp",
+   "default": 0.45,
+   "integrate": false
+  },
+  {
+   "key": "seed",
+   "default": 0.9,
+   "integrate": false
+  },
+  {
+   "key": "glow",
+   "default": 0.05,
+   "integrate": false
+  },
+  {
+   "key": "lineSoft",
+   "default": 0.05,
+   "integrate": false
+  },
+  {
+   "key": "inner",
+   "default": 3,
+   "integrate": false
+  },
+  {
+   "key": "fringe",
+   "default": 0.1,
+   "integrate": false
+  },
+  {
+   "key": "fringeSoft",
+   "default": 0.003,
+   "integrate": false
+  },
+  {
+   "key": "ringPhase",
+   "default": 0.8,
+   "integrate": false
+  },
+  {
+   "key": "exposure",
+   "default": 1.1,
+   "integrate": false
+  },
+  {
+   "key": "contrast",
+   "default": 1.1,
+   "integrate": false
+  },
+  {
+   "key": "saturation",
+   "default": 1.2,
+   "integrate": false
+  },
+  {
+   "key": "light",
+   "default": 0.5,
+   "integrate": false
+  },
+  {
+   "key": "rim",
+   "default": 0.4,
+   "integrate": false
+  }
+ ],
+ "colors": [
+  {
+   "key": "tint",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "key": "sheen",
+   "default": [
+    0.72549,
+    0.839216,
+    1.0
+   ]
+  }
+ ],
+ "statePresets": {
+  "idle": {
+   "speed": 0.6,
+   "spin": 0.12,
+   "warp": 0.45,
+   "glow": 0.05,
+   "lineSoft": 0.05,
+   "fringe": 0.1,
+   "exposure": 1.1,
+   "contrast": 1.15
+  },
+  "thinking": {
+   "warp": 2.54,
+   "glow": 0.2,
+   "lineSoft": 0.152,
+   "fringe": 0.96,
+   "fringeSoft": 0.854,
+   "ringPhase": 2.53,
+   "exposure": 1.75,
+   "contrast": 1.15,
+   "saturation": 2.22,
+   "light": 1.035,
+   "rim": 0.66
+  },
+  "speaking": {
+   "speed": 4.7,
+   "spin": 0.34,
+   "warp": 0.22,
+   "seed": 1.02,
+   "glow": 0.04,
+   "lineSoft": 0.22,
+   "fringe": 0.81,
+   "fringeSoft": 0.058,
+   "ringPhase": 1.03,
+   "exposure": 0.68,
+   "contrast": 0.85,
+   "light": 0.99,
+   "rim": 0.015
+  }
+ },
+ "stateColors": {
+  "idle": {
+   "tint": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "sheen": [
+    0.72549,
+    0.839216,
+    1.0
+   ]
+  },
+  "thinking": {
+   "tint": [
+    0.615686,
+    0.721569,
+    1.0
+   ],
+   "sheen": [
+    0.482353,
+    0.65098,
+    1.0
+   ]
+  },
+  "speaking": {
+   "tint": [
+    1.0,
+    0.768627,
+    0.572549
+   ],
+   "sheen": [
+    1.0,
+    0.698039,
+    0.466667
+   ]
+  }
+ },
+ "shader": "shdr-09.frag.qsb"
+}

@@ -1,0 +1,247 @@
+{
+ "key": "shdr-19",
+ "label": "SHDR-19",
+ "note": "beads swelling and shrinking in their cells, packed over the ball",
+ "credit": "Shader by XorDev (https://x.com/XorDev), ported for Orbkit with the author's permission; non-commercial use only, with attribution to XorDev",
+ "license": "XorDev-NC",
+ "params": [
+  {
+   "key": "speed",
+   "default": 0.5,
+   "integrate": true
+  },
+  {
+   "key": "swirl",
+   "default": 0.05,
+   "integrate": true
+  },
+  {
+   "key": "slide",
+   "default": 0.1,
+   "integrate": true
+  },
+  {
+   "key": "radius",
+   "default": 0.9,
+   "integrate": false
+  },
+  {
+   "key": "scale",
+   "default": 10,
+   "integrate": false
+  },
+  {
+   "key": "bulge",
+   "default": 0.3,
+   "integrate": false
+  },
+  {
+   "key": "grow",
+   "default": 0.185,
+   "integrate": false
+  },
+  {
+   "key": "vary",
+   "default": 0.13,
+   "integrate": false
+  },
+  {
+   "key": "skew",
+   "default": 0.62,
+   "integrate": false
+  },
+  {
+   "key": "jitter",
+   "default": 0.1,
+   "integrate": false
+  },
+  {
+   "key": "edge",
+   "default": 50,
+   "integrate": false
+  },
+  {
+   "key": "bead",
+   "default": 0,
+   "integrate": false
+  },
+  {
+   "key": "gain",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "contrast",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "saturation",
+   "default": 1.1,
+   "integrate": false
+  },
+  {
+   "key": "floorLevel",
+   "default": 0.06,
+   "integrate": false
+  },
+  {
+   "key": "light",
+   "default": 0.3,
+   "integrate": false
+  },
+  {
+   "key": "rim",
+   "default": 0.35,
+   "integrate": false
+  }
+ ],
+ "colors": [
+  {
+   "key": "low",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "key": "high",
+   "default": [
+    0.933333,
+    0.960784,
+    1.0
+   ]
+  },
+  {
+   "key": "body",
+   "default": [
+    0.019608,
+    0.027451,
+    0.047059
+   ]
+  },
+  {
+   "key": "sheen",
+   "default": [
+    0.615686,
+    0.74902,
+    0.894118
+   ]
+  }
+ ],
+ "statePresets": {
+  "idle": {
+   "speed": 0.52,
+   "swirl": 0.045,
+   "slide": 0.1,
+   "bulge": 0.08,
+   "grow": 0.12,
+   "vary": 0.19,
+   "skew": 0.63,
+   "jitter": 0.74,
+   "edge": 51,
+   "gain": 2.28,
+   "contrast": 2.6,
+   "rim": 0.345
+  },
+  "thinking": {
+   "speed": 2.55,
+   "swirl": 0.57,
+   "slide": 0.84,
+   "bulge": 0.14,
+   "grow": 0.19,
+   "vary": 0.165,
+   "skew": 1.13,
+   "jitter": 0.37,
+   "gain": 1.04,
+   "contrast": 0.55,
+   "light": 0.585,
+   "rim": 0.24
+  },
+  "speaking": {
+   "speed": 2.85,
+   "swirl": 0.585,
+   "slide": 0.55,
+   "bulge": 0.28,
+   "grow": 0.22,
+   "vary": 0.365,
+   "skew": 0,
+   "jitter": 0.17,
+   "edge": 141,
+   "gain": 1.35,
+   "contrast": 3.2,
+   "saturation": 2.04,
+   "floorLevel": 0
+  }
+ },
+ "stateColors": {
+  "idle": {
+   "low": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "high": [
+    0.933333,
+    0.960784,
+    1.0
+   ],
+   "body": [
+    0.019608,
+    0.027451,
+    0.047059
+   ],
+   "sheen": [
+    0.615686,
+    0.74902,
+    0.894118
+   ]
+  },
+  "thinking": {
+   "low": [
+    0.854902,
+    0.901961,
+    1.0
+   ],
+   "high": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "body": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "sheen": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  "speaking": {
+   "low": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "high": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "body": [
+    0.078431,
+    0.039216,
+    0.023529
+   ],
+   "sheen": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  }
+ },
+ "shader": "shdr-19.frag.qsb"
+}

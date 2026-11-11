@@ -1,0 +1,200 @@
+{
+ "key": "shdr-10",
+ "label": "SHDR-10",
+ "note": "a lattice of light knitted into the ball's own skin",
+ "credit": "Shader by XorDev (https://x.com/XorDev), ported for Orbkit with the author's permission; non-commercial use only, with attribution to XorDev",
+ "license": "XorDev-NC",
+ "params": [
+  {
+   "key": "speed",
+   "default": 0.6,
+   "integrate": true
+  },
+  {
+   "key": "scroll",
+   "default": 1.2,
+   "integrate": true
+  },
+  {
+   "key": "camDist",
+   "default": 7,
+   "integrate": false
+  },
+  {
+   "key": "focal",
+   "default": 2,
+   "integrate": false
+  },
+  {
+   "key": "shellR",
+   "default": 2.6,
+   "integrate": false
+  },
+  {
+   "key": "wrap",
+   "default": 8,
+   "integrate": false
+  },
+  {
+   "key": "climb",
+   "default": 4,
+   "integrate": false
+  },
+  {
+   "key": "turb",
+   "default": 0.35,
+   "integrate": false
+  },
+  {
+   "key": "layer",
+   "default": 0.5,
+   "integrate": false
+  },
+  {
+   "key": "cell",
+   "default": 0.45,
+   "integrate": false
+  },
+  {
+   "key": "stepScale",
+   "default": 0.15,
+   "integrate": false
+  },
+  {
+   "key": "hueStep",
+   "default": 0.4,
+   "integrate": false
+  },
+  {
+   "key": "spread",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "envRadius",
+   "default": 2.9,
+   "integrate": false
+  },
+  {
+   "key": "envCore",
+   "default": 0.92,
+   "integrate": false
+  },
+  {
+   "key": "fill",
+   "default": 0.1,
+   "integrate": false
+  },
+  {
+   "key": "stepClamp",
+   "default": 300,
+   "integrate": false
+  },
+  {
+   "key": "scatter",
+   "default": 0.004,
+   "integrate": false
+  },
+  {
+   "key": "exposure",
+   "default": 30,
+   "integrate": false
+  },
+  {
+   "key": "contrast",
+   "default": 1.15,
+   "integrate": false
+  },
+  {
+   "key": "saturation",
+   "default": 1.2,
+   "integrate": false
+  },
+  {
+   "key": "alphaGain",
+   "default": 2,
+   "integrate": false
+  },
+  {
+   "key": "edge",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "edgeFade",
+   "default": 0.98,
+   "integrate": false
+  }
+ ],
+ "colors": [
+  {
+   "key": "tint",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  }
+ ],
+ "statePresets": {
+  "idle": {
+   "speed": 0.6,
+   "scroll": 1.2,
+   "turb": 0.35,
+   "cell": 0.45,
+   "exposure": 30,
+   "scatter": 0.004,
+   "alphaGain": 2
+  },
+  "thinking": {
+   "speed": 1.9,
+   "scroll": 0.5,
+   "turb": 0.85,
+   "layer": 0.65,
+   "cell": 0.3,
+   "stepScale": 0.09,
+   "spread": 1.55,
+   "fill": 0.12,
+   "exposure": 13,
+   "scatter": 0.006,
+   "contrast": 1.05,
+   "saturation": 1.7,
+   "alphaGain": 2.6
+  },
+  "speaking": {
+   "speed": 1,
+   "scroll": 4.2,
+   "turb": 0.18,
+   "cell": 0.95,
+   "exposure": 11,
+   "scatter": 0.0015,
+   "contrast": 0.9,
+   "saturation": 1.45,
+   "alphaGain": 2.8
+  }
+ },
+ "stateColors": {
+  "idle": {
+   "tint": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  "thinking": {
+   "tint": [
+    0.909804,
+    0.956863,
+    1.0
+   ]
+  },
+  "speaking": {
+   "tint": [
+    1.0,
+    0.768627,
+    0.572549
+   ]
+  }
+ },
+ "shader": "shdr-10.frag.qsb"
+}

@@ -1,0 +1,155 @@
+{
+ "key": "shdr-31",
+ "label": "SHDR-31",
+ "note": "raymarched shell, volumetric godrays",
+ "credit": "Shader by XorDev (https://x.com/XorDev), ported for Orbkit with the author's permission; non-commercial use only, with attribution to XorDev",
+ "license": "XorDev-NC",
+ "params": [
+  {
+   "key": "speed",
+   "default": 1,
+   "integrate": true
+  },
+  {
+   "key": "sweepRate",
+   "default": 0.5,
+   "integrate": true
+  },
+  {
+   "key": "radius",
+   "default": 2.6,
+   "integrate": false
+  },
+  {
+   "key": "swell",
+   "default": 0.18,
+   "integrate": false
+  },
+  {
+   "key": "warp",
+   "default": 0.9,
+   "integrate": false
+  },
+  {
+   "key": "warpFreq",
+   "default": 5.25,
+   "integrate": false
+  },
+  {
+   "key": "warpSwing",
+   "default": 0,
+   "integrate": false
+  },
+  {
+   "key": "freqSwing",
+   "default": 0,
+   "integrate": false
+  },
+  {
+   "key": "smoothSwing",
+   "default": 0,
+   "integrate": false
+  },
+  {
+   "key": "smoothK",
+   "default": 0.42,
+   "integrate": false
+  },
+  {
+   "key": "rayGain",
+   "default": 0.8,
+   "integrate": false
+  },
+  {
+   "key": "rayFalloff",
+   "default": 10.5,
+   "integrate": false
+  },
+  {
+   "key": "surfaceLit",
+   "default": 0.105,
+   "integrate": false
+  },
+  {
+   "key": "ambient",
+   "default": 0,
+   "integrate": false
+  },
+  {
+   "key": "alphaGain",
+   "default": 3,
+   "integrate": false
+  },
+  {
+   "key": "edgeFade",
+   "default": 0.45,
+   "integrate": false
+  },
+  {
+   "key": "camDist",
+   "default": 12,
+   "integrate": false
+  },
+  {
+   "key": "fov",
+   "default": 3.5,
+   "integrate": false
+  },
+  {
+   "key": "stepScale",
+   "default": 9,
+   "integrate": false
+  },
+  {
+   "key": "maxDist",
+   "default": 22,
+   "integrate": false
+  }
+ ],
+ "colors": [],
+ "statePresets": {
+  "idle": {
+   "speed": 1,
+   "swell": 0.18,
+   "warp": 0.9,
+   "warpFreq": 5.25,
+   "smoothK": 0.42,
+   "rayGain": 0.8,
+   "rayFalloff": 10.5,
+   "alphaGain": 3,
+   "warpSwing": 0,
+   "freqSwing": 0,
+   "smoothSwing": 0
+  },
+  "thinking": {
+   "speed": 0.9,
+   "swell": 0.66,
+   "warp": 1,
+   "warpFreq": 7,
+   "smoothK": 0.58,
+   "rayGain": 0.52,
+   "rayFalloff": 8,
+   "alphaGain": 1.8,
+   "sweepRate": 0.5,
+   "freqSwing": 2,
+   "warpSwing": 0,
+   "smoothSwing": 0
+  },
+  "speaking": {
+   "speed": 0.9,
+   "swell": 0.66,
+   "warp": 3.75,
+   "warpSwing": 2.25,
+   "warpFreq": 19.5,
+   "freqSwing": 4.5,
+   "smoothK": 0.25,
+   "smoothSwing": 0.25,
+   "sweepRate": 0.8,
+   "rayGain": 0.52,
+   "rayFalloff": 8,
+   "alphaGain": 1.8
+  }
+ },
+ "stateColors": {},
+ "shader": "shdr-31.frag.qsb"
+}

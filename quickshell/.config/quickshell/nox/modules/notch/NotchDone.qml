@@ -16,7 +16,8 @@ FocusScope {
     signal replay(string id)
     signal close()
     implicitWidth: 520
-    implicitHeight: col.implicitHeight + 46 + 20
+    property real topPad: 46
+    implicitHeight: col.implicitHeight + topPad + 20
     onSidChanged: replying = false
 
     Keys.onPressed: event => {
@@ -32,7 +33,7 @@ FocusScope {
 
     Column {
         id: col
-        x: 22; y: 46
+        x: 22; y: card.topPad
         width: parent.width - 44
         Item {
             width: parent.width

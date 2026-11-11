@@ -24,7 +24,6 @@ import qs.modules.shot
 import qs.modules.desktop
 import qs.modules.switcher
 import qs.modules.notes
-import qs.modules.agents
 import qs.modules.notch
 import qs.modules.ask
 import qs.modules.voice
@@ -59,8 +58,6 @@ ShellRoot {
     // click anything: letter labels on windows, bar, dock and the focused app's controls
     // (Super+;, `nox hints`, IPC target hints; shell.json "hints")
     LazyLoader { active: Config.loaded && Config.moduleEnabled("hints"); component: Hints {} }
-    // coding agents at a glance (Ctrl+Super+M, `nox agents`, IPC target agents)
-    LazyLoader { active: Config.loaded && Config.moduleEnabled("agents"); component: AgentsView {} }
     // the agent notch under the bar: approve / steer / replay coding agents (Super+O, Super+Y,
     // IPC target notch; shell.json "notch"; answering needs the gate hook: `nox agents gate install`)
     LazyLoader { active: Config.loaded && Config.moduleEnabled("notch"); component: Notch {} }

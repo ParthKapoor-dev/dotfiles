@@ -1,0 +1,167 @@
+{
+ "key": "shdr-06",
+ "label": "SHDR-06",
+ "note": "a hundred glowing lattices stacked through the ball, interfering",
+ "credit": "Shader by XorDev (https://x.com/XorDev), ported for Orbkit with the author's permission; non-commercial use only, with attribution to XorDev",
+ "license": "XorDev-NC",
+ "params": [
+  {
+   "key": "speed",
+   "default": 0.5,
+   "integrate": true
+  },
+  {
+   "key": "drift",
+   "default": 0.02,
+   "integrate": false
+  },
+  {
+   "key": "radius",
+   "default": 0.9,
+   "integrate": false
+  },
+  {
+   "key": "scale",
+   "default": 4,
+   "integrate": false
+  },
+  {
+   "key": "bulge",
+   "default": 0.3,
+   "integrate": false
+  },
+  {
+   "key": "depth",
+   "default": 0.7,
+   "integrate": false
+  },
+  {
+   "key": "freq",
+   "default": 0.7,
+   "integrate": false
+  },
+  {
+   "key": "glowSize",
+   "default": 0.05,
+   "integrate": false
+  },
+  {
+   "key": "hueRate",
+   "default": 0.037,
+   "integrate": false
+  },
+  {
+   "key": "exposure",
+   "default": 4,
+   "integrate": false
+  },
+  {
+   "key": "contrast",
+   "default": 1.1,
+   "integrate": false
+  },
+  {
+   "key": "saturation",
+   "default": 1.2,
+   "integrate": false
+  },
+  {
+   "key": "light",
+   "default": 0.45,
+   "integrate": false
+  },
+  {
+   "key": "rim",
+   "default": 0.4,
+   "integrate": false
+  }
+ ],
+ "colors": [
+  {
+   "key": "tint",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "key": "sheen",
+   "default": [
+    0.737255,
+    0.847059,
+    1.0
+   ]
+  }
+ ],
+ "statePresets": {
+  "idle": {
+   "speed": 0.5,
+   "drift": 0.02,
+   "depth": 0.7,
+   "glowSize": 0.05,
+   "hueRate": 0.037,
+   "exposure": 4,
+   "contrast": 1.1
+  },
+  "thinking": {
+   "speed": 2.6,
+   "drift": 0.105,
+   "bulge": 2.18,
+   "depth": 1.25,
+   "glowSize": 0.016,
+   "hueRate": 0.095,
+   "exposure": 6.5,
+   "contrast": 1.55
+  },
+  "speaking": {
+   "speed": 4.5,
+   "drift": 0.13,
+   "depth": 0.26,
+   "glowSize": 0.062,
+   "hueRate": 0.045,
+   "exposure": 2.7,
+   "contrast": 0.9,
+   "light": 1.11
+  }
+ },
+ "stateColors": {
+  "idle": {
+   "tint": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "sheen": [
+    0.737255,
+    0.847059,
+    1.0
+   ]
+  },
+  "thinking": {
+   "tint": [
+    0.615686,
+    0.721569,
+    1.0
+   ],
+   "sheen": [
+    0.494118,
+    0.662745,
+    1.0
+   ]
+  },
+  "speaking": {
+   "tint": [
+    1.0,
+    0.768627,
+    0.572549
+   ],
+   "sheen": [
+    1.0,
+    0.698039,
+    0.466667
+   ]
+  }
+ },
+ "shader": "shdr-06.frag.qsb"
+}

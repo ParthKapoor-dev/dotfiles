@@ -1,0 +1,145 @@
+{
+ "key": "shdr-15",
+ "label": "SHDR-15",
+ "note": "an iridescent particle-track web worn as the ball's skin",
+ "credit": "Shader by XorDev (https://x.com/XorDev), ported for Orbkit with the author's permission; non-commercial use only, with attribution to XorDev",
+ "license": "XorDev-NC",
+ "params": [
+  {
+   "key": "speed",
+   "default": 0.5,
+   "integrate": true
+  },
+  {
+   "key": "wander",
+   "default": 0.15,
+   "integrate": true
+  },
+  {
+   "key": "camDist",
+   "default": 7,
+   "integrate": false
+  },
+  {
+   "key": "focal",
+   "default": 2.25,
+   "integrate": false
+  },
+  {
+   "key": "fieldScale",
+   "default": 2.4,
+   "integrate": false
+  },
+  {
+   "key": "turb",
+   "default": 0.8,
+   "integrate": false
+  },
+  {
+   "key": "stepScale",
+   "default": 0.015,
+   "integrate": false
+  },
+  {
+   "key": "disperse",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "envRadius",
+   "default": 2.6,
+   "integrate": false
+  },
+  {
+   "key": "envCore",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "fill",
+   "default": 0.3,
+   "integrate": false
+  },
+  {
+   "key": "stepClamp",
+   "default": 150,
+   "integrate": false
+  },
+  {
+   "key": "scatter",
+   "default": 0.01,
+   "integrate": false
+  },
+  {
+   "key": "exposure",
+   "default": 50,
+   "integrate": false
+  },
+  {
+   "key": "contrast",
+   "default": 1.35,
+   "integrate": false
+  },
+  {
+   "key": "saturation",
+   "default": 1.35,
+   "integrate": false
+  },
+  {
+   "key": "alphaGain",
+   "default": 2,
+   "integrate": false
+  },
+  {
+   "key": "edge",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "edgeFade",
+   "default": 0.98,
+   "integrate": false
+  }
+ ],
+ "colors": [
+  {
+   "key": "tint",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  }
+ ],
+ "statePresets": {
+  "idle": {
+   "speed": 0.4,
+   "wander": 0.12,
+   "turb": 0.75,
+   "disperse": 1,
+   "exposure": 72,
+   "scatter": 0.01,
+   "alphaGain": 2
+  },
+  "thinking": {
+   "speed": 1,
+   "wander": 0.7,
+   "turb": 0.95,
+   "disperse": 0.8,
+   "exposure": 66,
+   "scatter": 0.0095,
+   "alphaGain": 2.1
+  },
+  "speaking": {
+   "speed": 2,
+   "wander": 0.3,
+   "turb": 1.1,
+   "disperse": 1.6,
+   "exposure": 46,
+   "scatter": 0.0075,
+   "alphaGain": 2.5
+  }
+ },
+ "stateColors": {},
+ "shader": "shdr-15.frag.qsb"
+}

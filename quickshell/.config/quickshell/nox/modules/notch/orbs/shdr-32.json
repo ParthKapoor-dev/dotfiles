@@ -1,0 +1,390 @@
+{
+ "key": "shdr-32",
+ "label": "SHDR-32",
+ "note": "a galaxy marched as gas and dust inside the ball",
+ "credit": "Orbkit (MIT, (c) 2026 zzzzshawn)",
+ "license": "MIT",
+ "params": [
+  {
+   "key": "spin",
+   "default": 0.06,
+   "integrate": true
+  },
+  {
+   "key": "churn",
+   "default": 0.25,
+   "integrate": true
+  },
+  {
+   "key": "beat",
+   "default": 0.8,
+   "integrate": true
+  },
+  {
+   "key": "twinkle",
+   "default": 1.2,
+   "integrate": true
+  },
+  {
+   "key": "camDist",
+   "default": 7,
+   "integrate": false
+  },
+  {
+   "key": "focal",
+   "default": 2.25,
+   "integrate": false
+  },
+  {
+   "key": "envRadius",
+   "default": 2.6,
+   "integrate": false
+  },
+  {
+   "key": "tilt",
+   "default": 0.85,
+   "integrate": false
+  },
+  {
+   "key": "arms",
+   "default": 2,
+   "integrate": false
+  },
+  {
+   "key": "wind",
+   "default": 3.4,
+   "integrate": false
+  },
+  {
+   "key": "ragged",
+   "default": 3,
+   "integrate": false
+  },
+  {
+   "key": "armSharp",
+   "default": 2.2,
+   "integrate": false
+  },
+  {
+   "key": "falloff",
+   "default": 1.7,
+   "integrate": false
+  },
+  {
+   "key": "thick",
+   "default": 0.035,
+   "integrate": false
+  },
+  {
+   "key": "bulge",
+   "default": 40,
+   "integrate": false
+  },
+  {
+   "key": "core",
+   "default": 5,
+   "integrate": false
+  },
+  {
+   "key": "turbScale",
+   "default": 9,
+   "integrate": false
+  },
+  {
+   "key": "threshold",
+   "default": 0.35,
+   "integrate": false
+  },
+  {
+   "key": "density",
+   "default": 14,
+   "integrate": false
+  },
+  {
+   "key": "absorb",
+   "default": 3.5,
+   "integrate": false
+  },
+  {
+   "key": "stars",
+   "default": 1.2,
+   "integrate": false
+  },
+  {
+   "key": "starDensity",
+   "default": 0.5,
+   "integrate": false
+  },
+  {
+   "key": "starScale",
+   "default": 48,
+   "integrate": false
+  },
+  {
+   "key": "hueReach",
+   "default": 0.6,
+   "integrate": false
+  },
+  {
+   "key": "pulse",
+   "default": 0.2,
+   "integrate": false
+  },
+  {
+   "key": "breathe",
+   "default": 0,
+   "integrate": false
+  },
+  {
+   "key": "exposure",
+   "default": 1.1,
+   "integrate": false
+  },
+  {
+   "key": "contrast",
+   "default": 1.15,
+   "integrate": false
+  },
+  {
+   "key": "saturation",
+   "default": 1.35,
+   "integrate": false
+  },
+  {
+   "key": "alphaGain",
+   "default": 2,
+   "integrate": false
+  },
+  {
+   "key": "fill",
+   "default": 0.85,
+   "integrate": false
+  },
+  {
+   "key": "rim",
+   "default": 0.35,
+   "integrate": false
+  },
+  {
+   "key": "edge",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "edgeFade",
+   "default": 0.98,
+   "integrate": false
+  }
+ ],
+ "colors": [
+  {
+   "key": "tint",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "key": "core",
+   "default": [
+    1.0,
+    0.952941,
+    0.839216
+   ]
+  },
+  {
+   "key": "inner",
+   "default": [
+    0.498039,
+    0.705882,
+    1.0
+   ]
+  },
+  {
+   "key": "outer",
+   "default": [
+    0.768627,
+    0.419608,
+    1.0
+   ]
+  },
+  {
+   "key": "deep",
+   "default": [
+    0.015686,
+    0.019608,
+    0.058824
+   ]
+  },
+  {
+   "key": "rim",
+   "default": [
+    0.560784,
+    0.690196,
+    1.0
+   ]
+  }
+ ],
+ "statePresets": {
+  "idle": {
+   "tilt": 0.85,
+   "spin": 0.06,
+   "churn": 0.25,
+   "beat": 0.8,
+   "twinkle": 1.2,
+   "pulse": 0.2,
+   "breathe": 0,
+   "ragged": 3,
+   "armSharp": 2.2,
+   "thick": 0.035,
+   "threshold": 0.35,
+   "density": 14,
+   "core": 5,
+   "absorb": 3.5,
+   "stars": 1.2,
+   "exposure": 1.1,
+   "contrast": 1.15,
+   "saturation": 1.35
+  },
+  "thinking": {
+   "tilt": 1.45,
+   "spin": 0.45,
+   "churn": 1.6,
+   "beat": 2.4,
+   "twinkle": 4.5,
+   "pulse": 0.25,
+   "breathe": 0,
+   "ragged": 8,
+   "armSharp": 1,
+   "thick": 0.07,
+   "threshold": 0.5,
+   "density": 20,
+   "core": 3,
+   "absorb": 6,
+   "stars": 1.8,
+   "exposure": 1.05,
+   "contrast": 1.3,
+   "saturation": 1.2
+  },
+  "speaking": {
+   "tilt": 1.3,
+   "spin": 0.2,
+   "churn": 0.6,
+   "beat": 4.8,
+   "twinkle": 2.4,
+   "pulse": 1,
+   "breathe": 0.45,
+   "ragged": 2,
+   "armSharp": 1.8,
+   "thick": 0.04,
+   "threshold": 0.25,
+   "density": 18,
+   "core": 12,
+   "absorb": 1.6,
+   "stars": 2,
+   "exposure": 0.75,
+   "contrast": 1.05,
+   "saturation": 1.6
+  }
+ },
+ "stateColors": {
+  "idle": {
+   "tint": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "core": [
+    1.0,
+    0.952941,
+    0.839216
+   ],
+   "inner": [
+    0.498039,
+    0.705882,
+    1.0
+   ],
+   "outer": [
+    0.768627,
+    0.419608,
+    1.0
+   ],
+   "deep": [
+    0.015686,
+    0.019608,
+    0.058824
+   ],
+   "rim": [
+    0.560784,
+    0.690196,
+    1.0
+   ]
+  },
+  "thinking": {
+   "tint": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "core": [
+    0.901961,
+    0.941176,
+    1.0
+   ],
+   "inner": [
+    0.435294,
+    0.690196,
+    1.0
+   ],
+   "outer": [
+    0.309804,
+    0.890196,
+    1.0
+   ],
+   "deep": [
+    0.011765,
+    0.023529,
+    0.078431
+   ],
+   "rim": [
+    0.498039,
+    0.658824,
+    1.0
+   ]
+  },
+  "speaking": {
+   "tint": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "core": [
+    1.0,
+    0.956863,
+    0.784314
+   ],
+   "inner": [
+    1.0,
+    0.65098,
+    0.235294
+   ],
+   "outer": [
+    1.0,
+    0.247059,
+    0.556863
+   ],
+   "deep": [
+    0.039216,
+    0.019608,
+    0.031373
+   ],
+   "rim": [
+    1.0,
+    0.72549,
+    0.541176
+   ]
+  }
+ },
+ "shader": "shdr-32.frag.qsb"
+}

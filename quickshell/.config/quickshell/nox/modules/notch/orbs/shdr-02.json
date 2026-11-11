@@ -1,0 +1,119 @@
+{
+ "key": "shdr-02",
+ "label": "SHDR-02",
+ "note": "ornate scrollwork on a rolling dome",
+ "credit": "Shader by XorDev (https://x.com/XorDev), ported for Orbkit with the author's permission; non-commercial use only, with attribution to XorDev",
+ "license": "XorDev-NC",
+ "params": [
+  {
+   "key": "speed",
+   "default": 0.5,
+   "integrate": true
+  },
+  {
+   "key": "swirl",
+   "default": 0.06,
+   "integrate": false
+  },
+  {
+   "key": "radius",
+   "default": 0.9,
+   "integrate": false
+  },
+  {
+   "key": "swell",
+   "default": 0.06,
+   "integrate": false
+  },
+  {
+   "key": "zoom",
+   "default": 4.4,
+   "integrate": false
+  },
+  {
+   "key": "bulge",
+   "default": 0.35,
+   "integrate": false
+  },
+  {
+   "key": "warpFreq",
+   "default": 1.5,
+   "integrate": false
+  },
+  {
+   "key": "hueShift",
+   "default": 0,
+   "integrate": false
+  },
+  {
+   "key": "coreClamp",
+   "default": 0.12,
+   "integrate": false
+  },
+  {
+   "key": "falloff",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "gain",
+   "default": 0.55,
+   "integrate": false
+  },
+  {
+   "key": "rim",
+   "default": 0.12,
+   "integrate": false
+  },
+  {
+   "key": "rimPow",
+   "default": 2.2,
+   "integrate": false
+  },
+  {
+   "key": "alphaGain",
+   "default": 2.4,
+   "integrate": false
+  },
+  {
+   "key": "baseVis",
+   "default": 0.08,
+   "integrate": false
+  }
+ ],
+ "colors": [],
+ "statePresets": {
+  "idle": {
+   "speed": 0.5,
+   "zoom": 4.4,
+   "warpFreq": 1.5,
+   "coreClamp": 0.12,
+   "falloff": 1,
+   "gain": 0.55,
+   "rim": 0.12,
+   "alphaGain": 2.4
+  },
+  "thinking": {
+   "speed": 0.65,
+   "zoom": 4.6,
+   "warpFreq": 1.6,
+   "coreClamp": 0.11,
+   "falloff": 0.96,
+   "gain": 0.6,
+   "rim": 0.13,
+   "alphaGain": 2.5
+  },
+  "speaking": {
+   "speed": 3,
+   "zoom": 4.4,
+   "warpFreq": 1.2,
+   "coreClamp": 0.07,
+   "falloff": 1.1,
+   "gain": 0.85,
+   "rim": 0.2,
+   "alphaGain": 3
+  }
+ },
+ "stateColors": {},
+ "shader": "shdr-02.frag.qsb"
+}

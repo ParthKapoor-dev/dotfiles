@@ -11,7 +11,7 @@ import qs.core
 // - closes on outside click (HyprlandFocusGrab; bar windows are included so bar buttons
 //   switch popups in one click) and on Esc
 // - placement (mock Menu._mount): align "item" = left edge under anchorItem (menus),
-//   "itemRight" = right edge under anchorItem (status popovers), "right"/"left" = screen edge
+//   "itemRight" = right edge under anchorItem (status popovers), "itemCenter" = centred under it, "right"/"left" = screen edge
 //   panels (Control Center, Notification Center)
 // - motion (mock .menu/.pop/#cc/#nc): popovers fade in over motion.pop (ease) while growing from
 //   0.96 at their anchor and dropping 4px into place (sheet curve); panels slide (`slide`: "down" |
@@ -88,6 +88,7 @@ Scope {
                 if (root.align === "right") return sw - root.edge - root.popupWidth;
                 if (root.align === "left") return root.edge;
                 if (root.align === "itemRight") return Math.max(6, Math.min(root.anchorX + root.anchorW - root.popupWidth, sw - root.popupWidth - 6));
+                if (root.align === "itemCenter") return Math.max(6, Math.min(root.anchorX + (root.anchorW - root.popupWidth) / 2, sw - root.popupWidth - 6));
                 return Math.max(6, Math.min(root.anchorX, sw - root.popupWidth - 6));
             }
             anchors.top: !root.fromBottom
@@ -129,7 +130,7 @@ Scope {
                 readonly property real s0: root.slide !== "" ? 1 : (root.open ? 0.96 : 0.98)
                 transform: [
                     Scale {
-                        origin.x: root.align === "itemRight" || root.align === "right" ? body.x + body.width : body.x
+                        origin.x: root.align === "itemRight" || root.align === "right" ? body.x + body.width : root.align === "itemCenter" ? body.x + body.width / 2 : body.x
                         origin.y: root.fromBottom ? body.y + body.height : body.y
                         xScale: motion.s0 + (1 - motion.s0) * motion.grow
                         yScale: xScale

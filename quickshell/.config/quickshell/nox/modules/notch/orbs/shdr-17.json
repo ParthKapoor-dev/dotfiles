@@ -1,0 +1,254 @@
+{
+ "key": "shdr-17",
+ "label": "SHDR-17",
+ "note": "a grainy many-coloured storm with band shear and lightning",
+ "credit": "Orbkit (MIT, (c) 2026 zzzzshawn)",
+ "license": "MIT",
+ "params": [
+  {
+   "key": "speed",
+   "default": 0.9,
+   "integrate": true
+  },
+  {
+   "key": "spin",
+   "default": 0.12,
+   "integrate": true
+  },
+  {
+   "key": "radius",
+   "default": 0.9,
+   "integrate": false
+  },
+  {
+   "key": "scale",
+   "default": 2.4,
+   "integrate": false
+  },
+  {
+   "key": "bands",
+   "default": 6,
+   "integrate": false
+  },
+  {
+   "key": "shear",
+   "default": 1.1,
+   "integrate": false
+  },
+  {
+   "key": "warp",
+   "default": 2.2,
+   "integrate": false
+  },
+  {
+   "key": "churn",
+   "default": 1.4,
+   "integrate": false
+  },
+  {
+   "key": "gain",
+   "default": 1.15,
+   "integrate": false
+  },
+  {
+   "key": "contrast",
+   "default": 1.35,
+   "integrate": false
+  },
+  {
+   "key": "grain",
+   "default": 0.4,
+   "integrate": false
+  },
+  {
+   "key": "filmGrain",
+   "default": 0.35,
+   "integrate": false
+  },
+  {
+   "key": "grainSize",
+   "default": 2,
+   "integrate": false
+  },
+  {
+   "key": "rainbow",
+   "default": 0.65,
+   "integrate": false
+  },
+  {
+   "key": "flashRate",
+   "default": 1.6,
+   "integrate": false
+  },
+  {
+   "key": "flash",
+   "default": 1.2,
+   "integrate": false
+  },
+  {
+   "key": "light",
+   "default": 0.85,
+   "integrate": false
+  },
+  {
+   "key": "rim",
+   "default": 0.5,
+   "integrate": false
+  }
+ ],
+ "colors": [
+  {
+   "key": "deep",
+   "default": [
+    0.164706,
+    0.058824,
+    0.305882
+   ]
+  },
+  {
+   "key": "low",
+   "default": [
+    0.058824,
+    0.815686,
+    0.764706
+   ]
+  },
+  {
+   "key": "mid",
+   "default": [
+    1.0,
+    0.368627,
+    0.615686
+   ]
+  },
+  {
+   "key": "hot",
+   "default": [
+    1.0,
+    0.819608,
+    0.4
+   ]
+  },
+  {
+   "key": "flash",
+   "default": [
+    0.917647,
+    0.956863,
+    1.0
+   ]
+  }
+ ],
+ "statePresets": {
+  "idle": {
+   "speed": 0.9,
+   "shear": 1.1,
+   "warp": 2.2,
+   "churn": 1.4,
+   "flash": 0.7,
+   "gain": 1.15,
+   "contrast": 1.35
+  },
+  "thinking": {
+   "speed": 2.2,
+   "shear": 0.6,
+   "warp": 3.4,
+   "churn": 2.1,
+   "flash": 0.6,
+   "gain": 1.05,
+   "contrast": 1.5
+  },
+  "speaking": {
+   "speed": 1.6,
+   "shear": 2.2,
+   "warp": 2.6,
+   "churn": 1.6,
+   "flash": 2.6,
+   "gain": 1.45,
+   "contrast": 1.2
+  }
+ },
+ "stateColors": {
+  "idle": {
+   "deep": [
+    0.164706,
+    0.058824,
+    0.305882
+   ],
+   "low": [
+    0.058824,
+    0.815686,
+    0.764706
+   ],
+   "mid": [
+    1.0,
+    0.368627,
+    0.615686
+   ],
+   "hot": [
+    1.0,
+    0.819608,
+    0.4
+   ],
+   "flash": [
+    0.917647,
+    0.956863,
+    1.0
+   ]
+  },
+  "thinking": {
+   "deep": [
+    0.05098,
+    0.078431,
+    0.25098
+   ],
+   "low": [
+    0.298039,
+    0.298039,
+    0.941176
+   ],
+   "mid": [
+    0.615686,
+    0.298039,
+    0.878431
+   ],
+   "hot": [
+    0.298039,
+    0.878431,
+    1.0
+   ],
+   "flash": [
+    0.835294,
+    0.898039,
+    1.0
+   ]
+  },
+  "speaking": {
+   "deep": [
+    0.227451,
+    0.058824,
+    0.117647
+   ],
+   "low": [
+    1.0,
+    0.415686,
+    0.239216
+   ],
+   "mid": [
+    1.0,
+    0.180392,
+    0.533333
+   ],
+   "hot": [
+    1.0,
+    0.823529,
+    0.247059
+   ],
+   "flash": [
+    1.0,
+    0.952941,
+    0.878431
+   ]
+  }
+ },
+ "shader": "shdr-17.frag.qsb"
+}

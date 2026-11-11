@@ -1,0 +1,355 @@
+{
+ "key": "shdr-30",
+ "label": "SHDR-30",
+ "note": "a meadow folding into itself toward a blue vanishing point",
+ "credit": "Orbkit (MIT, (c) 2026 zzzzshawn)",
+ "license": "MIT",
+ "params": [
+  {
+   "key": "fall",
+   "default": 0.12,
+   "integrate": true
+  },
+  {
+   "key": "tilt",
+   "default": 0,
+   "integrate": false
+  },
+  {
+   "key": "drift",
+   "default": 0.2,
+   "integrate": true
+  },
+  {
+   "key": "radius",
+   "default": 0.9,
+   "integrate": false
+  },
+  {
+   "key": "scale",
+   "default": 4.5,
+   "integrate": false
+  },
+  {
+   "key": "bulge",
+   "default": 0.25,
+   "integrate": false
+  },
+  {
+   "key": "ratio",
+   "default": 1.8,
+   "integrate": false
+  },
+  {
+   "key": "horizon",
+   "default": 0.14,
+   "integrate": false
+  },
+  {
+   "key": "cloudScale",
+   "default": 1.6,
+   "integrate": false
+  },
+  {
+   "key": "cloudCover",
+   "default": 0.46,
+   "integrate": false
+  },
+  {
+   "key": "streakFreq",
+   "default": 5,
+   "integrate": false
+  },
+  {
+   "key": "streakRad",
+   "default": 0.5,
+   "integrate": false
+  },
+  {
+   "key": "water",
+   "default": 0.7,
+   "integrate": false
+  },
+  {
+   "key": "flowerScale",
+   "default": 44,
+   "integrate": false
+  },
+  {
+   "key": "flowerDensity",
+   "default": 0.55,
+   "integrate": false
+  },
+  {
+   "key": "flowerSize",
+   "default": 0.26,
+   "integrate": false
+  },
+  {
+   "key": "frameShade",
+   "default": 0.62,
+   "integrate": false
+  },
+  {
+   "key": "haze",
+   "default": 0.85,
+   "integrate": false
+  },
+  {
+   "key": "hazeRange",
+   "default": 0.09,
+   "integrate": false
+  },
+  {
+   "key": "gain",
+   "default": 1.05,
+   "integrate": false
+  },
+  {
+   "key": "contrast",
+   "default": 1.05,
+   "integrate": false
+  },
+  {
+   "key": "saturation",
+   "default": 1.1,
+   "integrate": false
+  },
+  {
+   "key": "light",
+   "default": 0.35,
+   "integrate": false
+  },
+  {
+   "key": "rim",
+   "default": 0.55,
+   "integrate": false
+  }
+ ],
+ "colors": [
+  {
+   "key": "sky",
+   "default": [
+    0.290196,
+    0.572549,
+    0.878431
+   ]
+  },
+  {
+   "key": "cloud",
+   "default": [
+    0.968627,
+    0.984314,
+    1.0
+   ]
+  },
+  {
+   "key": "canopy",
+   "default": [
+    0.070588,
+    0.25098,
+    0.121569
+   ]
+  },
+  {
+   "key": "meadow",
+   "default": [
+    0.352941,
+    0.65098,
+    0.227451
+   ]
+  },
+  {
+   "key": "water",
+   "default": [
+    0.082353,
+    0.435294,
+    0.415686
+   ]
+  },
+  {
+   "key": "bloom",
+   "default": [
+    1.0,
+    0.415686,
+    0.227451
+   ]
+  },
+  {
+   "key": "sheen",
+   "default": [
+    0.811765,
+    0.901961,
+    1.0
+   ]
+  }
+ ],
+ "statePresets": {
+  "idle": {
+   "fall": 0.12,
+   "drift": 0.2,
+   "bulge": 0.2,
+   "ratio": 3.06,
+   "horizon": -0.11,
+   "cloudScale": 1.2,
+   "cloudCover": 0.42,
+   "streakFreq": 2.9,
+   "streakRad": 0.54,
+   "water": 0,
+   "flowerScale": 24,
+   "flowerDensity": 0.27,
+   "flowerSize": 0.43,
+   "haze": 0.8,
+   "hazeRange": 0.09,
+   "gain": 1.38,
+   "saturation": 1.56,
+   "light": 0.345,
+   "rim": 0.555
+  },
+  "thinking": {
+   "fall": 0.6,
+   "drift": 0.5,
+   "haze": 1,
+   "hazeRange": 0.3,
+   "cloudCover": 0.3,
+   "flowerDensity": 0.28,
+   "gain": 1.42,
+   "contrast": 1.45,
+   "saturation": 2,
+   "light": 0.96
+  },
+  "speaking": {
+   "fall": 1.47,
+   "tilt": 0.03,
+   "drift": 1.54,
+   "scale": 8.7,
+   "horizon": 0.03,
+   "cloudScale": 3.65,
+   "cloudCover": 0.44,
+   "streakFreq": 11,
+   "streakRad": 1.48,
+   "flowerScale": 32,
+   "flowerDensity": 0.95,
+   "haze": 0.38,
+   "hazeRange": 0.315,
+   "gain": 1.36,
+   "contrast": 1.45,
+   "saturation": 2.32,
+   "light": 0.57
+  }
+ },
+ "stateColors": {
+  "idle": {
+   "sky": [
+    0.290196,
+    0.572549,
+    0.878431
+   ],
+   "cloud": [
+    0.968627,
+    0.984314,
+    1.0
+   ],
+   "canopy": [
+    0.070588,
+    0.25098,
+    0.121569
+   ],
+   "meadow": [
+    0.352941,
+    0.65098,
+    0.227451
+   ],
+   "water": [
+    0.082353,
+    0.435294,
+    0.415686
+   ],
+   "bloom": [
+    1.0,
+    0.415686,
+    0.227451
+   ],
+   "sheen": [
+    0.811765,
+    0.901961,
+    1.0
+   ]
+  },
+  "thinking": {
+   "sky": [
+    0.247059,
+    0.435294,
+    0.658824
+   ],
+   "cloud": [
+    0.866667,
+    0.909804,
+    0.956863
+   ],
+   "canopy": [
+    0.054902,
+    0.172549,
+    0.180392
+   ],
+   "meadow": [
+    0.247059,
+    0.498039,
+    0.360784
+   ],
+   "water": [
+    0.070588,
+    0.321569,
+    0.372549
+   ],
+   "bloom": [
+    0.490196,
+    0.54902,
+    1.0
+   ],
+   "sheen": [
+    0.713725,
+    0.803922,
+    0.941176
+   ]
+  },
+  "speaking": {
+   "sky": [
+    0.435294,
+    0.690196,
+    0.92549
+   ],
+   "cloud": [
+    1.0,
+    0.964706,
+    0.909804
+   ],
+   "canopy": [
+    0.12549,
+    0.290196,
+    0.086275
+   ],
+   "meadow": [
+    0.486275,
+    0.760784,
+    0.247059
+   ],
+   "water": [
+    0.113725,
+    0.541176,
+    0.462745
+   ],
+   "bloom": [
+    1.0,
+    0.690196,
+    0.180392
+   ],
+   "sheen": [
+    1.0,
+    0.890196,
+    0.768627
+   ]
+  }
+ },
+ "shader": "shdr-30.frag.qsb"
+}

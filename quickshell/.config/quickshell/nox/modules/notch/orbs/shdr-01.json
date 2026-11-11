@@ -1,0 +1,153 @@
+{
+ "key": "shdr-01",
+ "label": "SHDR-01",
+ "note": "cut-glass orb with a dispersive, turbulent interior",
+ "credit": "Shader by XorDev (https://x.com/XorDev), ported for Orbkit with the author's permission; non-commercial use only, with attribution to XorDev",
+ "license": "XorDev-NC",
+ "params": [
+  {
+   "key": "speed",
+   "default": 0.5,
+   "integrate": true
+  },
+  {
+   "key": "spin",
+   "default": 0.25,
+   "integrate": true
+  },
+  {
+   "key": "camDist",
+   "default": 7,
+   "integrate": false
+  },
+  {
+   "key": "focal",
+   "default": 2.25,
+   "integrate": false
+  },
+  {
+   "key": "tilt",
+   "default": 0.5,
+   "integrate": false
+  },
+  {
+   "key": "turb",
+   "default": 0.3,
+   "integrate": false
+  },
+  {
+   "key": "sheets",
+   "default": 7,
+   "integrate": false
+  },
+  {
+   "key": "disperse",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "stria",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "envRadius",
+   "default": 2.6,
+   "integrate": false
+  },
+  {
+   "key": "envCore",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "fill",
+   "default": 1.5,
+   "integrate": false
+  },
+  {
+   "key": "stepClamp",
+   "default": 20,
+   "integrate": false
+  },
+  {
+   "key": "scatter",
+   "default": 0.02,
+   "integrate": false
+  },
+  {
+   "key": "exposure",
+   "default": 60,
+   "integrate": false
+  },
+  {
+   "key": "contrast",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "saturation",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "alphaGain",
+   "default": 2,
+   "integrate": false
+  },
+  {
+   "key": "edge",
+   "default": 1,
+   "integrate": false
+  },
+  {
+   "key": "edgeFade",
+   "default": 0.98,
+   "integrate": false
+  }
+ ],
+ "colors": [
+  {
+   "key": "tint",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  }
+ ],
+ "statePresets": {
+  "idle": {
+   "speed": 0.5,
+   "spin": 0.25,
+   "turb": 0.3,
+   "disperse": 1,
+   "sheets": 7,
+   "exposure": 60,
+   "scatter": 0.02,
+   "alphaGain": 2
+  },
+  "thinking": {
+   "speed": 0.6,
+   "spin": 0.5,
+   "turb": 0.35,
+   "disperse": 1.1,
+   "sheets": 7,
+   "exposure": 57,
+   "scatter": 0.019,
+   "alphaGain": 2.1
+  },
+  "speaking": {
+   "speed": 1.2,
+   "spin": 0.7,
+   "turb": 0.55,
+   "disperse": 1.5,
+   "sheets": 5.5,
+   "exposure": 45,
+   "scatter": 0.015,
+   "alphaGain": 2.5
+  }
+ },
+ "stateColors": {},
+ "shader": "shdr-01.frag.qsb"
+}

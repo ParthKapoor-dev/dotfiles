@@ -1,0 +1,223 @@
+{
+ "key": "shdr-25",
+ "label": "SHDR-25",
+ "note": "the folds of a warped field, drawn by their own steepness",
+ "credit": "Shader by XorDev (https://x.com/XorDev), ported for Orbkit with the author's permission; non-commercial use only, with attribution to XorDev",
+ "license": "XorDev-NC",
+ "params": [
+  {
+   "key": "speed",
+   "default": 3,
+   "integrate": true
+  },
+  {
+   "key": "drift",
+   "default": 0.6,
+   "integrate": true
+  },
+  {
+   "key": "swirl",
+   "default": 0.05,
+   "integrate": true
+  },
+  {
+   "key": "radius",
+   "default": 0.9,
+   "integrate": false
+  },
+  {
+   "key": "scale",
+   "default": 7.5,
+   "integrate": false
+  },
+  {
+   "key": "bulge",
+   "default": 0.3,
+   "integrate": false
+  },
+  {
+   "key": "warp",
+   "default": 0.4,
+   "integrate": false
+  },
+  {
+   "key": "zoom",
+   "default": 1.111,
+   "integrate": false
+  },
+  {
+   "key": "ripple",
+   "default": 0.3,
+   "integrate": false
+  },
+  {
+   "key": "edgeGain",
+   "default": 10,
+   "integrate": false
+  },
+  {
+   "key": "blur",
+   "default": 2.5,
+   "integrate": false
+  },
+  {
+   "key": "fringe",
+   "default": 0.09,
+   "integrate": false
+  },
+  {
+   "key": "exposure",
+   "default": 0.8,
+   "integrate": false
+  },
+  {
+   "key": "contrast",
+   "default": 1.15,
+   "integrate": false
+  },
+  {
+   "key": "saturation",
+   "default": 1.5,
+   "integrate": false
+  },
+  {
+   "key": "floorLevel",
+   "default": 0.16,
+   "integrate": false
+  },
+  {
+   "key": "light",
+   "default": 0.35,
+   "integrate": false
+  },
+  {
+   "key": "rim",
+   "default": 0.45,
+   "integrate": false
+  }
+ ],
+ "colors": [
+  {
+   "key": "tint",
+   "default": [
+    0.858824,
+    0.909804,
+    0.968627
+   ]
+  },
+  {
+   "key": "body",
+   "default": [
+    0.05098,
+    0.066667,
+    0.094118
+   ]
+  },
+  {
+   "key": "sheen",
+   "default": [
+    0.658824,
+    0.784314,
+    0.941176
+   ]
+  }
+ ],
+ "statePresets": {
+  "idle": {
+   "speed": 3,
+   "drift": 0.6,
+   "swirl": 0.05,
+   "warp": 0.4,
+   "zoom": 1.07,
+   "edgeGain": 12.5,
+   "exposure": 0.8,
+   "contrast": 1.15
+  },
+  "thinking": {
+   "speed": 4.7,
+   "drift": 0.15,
+   "swirl": 0.02,
+   "bulge": 0.38,
+   "warp": 0.34,
+   "zoom": 1.12,
+   "ripple": 0.18,
+   "edgeGain": 33,
+   "blur": 2.75,
+   "fringe": 0.2,
+   "exposure": 0.55,
+   "contrast": 1.5,
+   "saturation": 2,
+   "light": 0.525,
+   "rim": 0.69
+  },
+  "speaking": {
+   "speed": 1.4,
+   "drift": 0.8,
+   "swirl": 0.6,
+   "scale": 11.5,
+   "bulge": 2.22,
+   "warp": 1.55,
+   "zoom": 0.945,
+   "ripple": 1.18,
+   "edgeGain": 5,
+   "blur": 2,
+   "fringe": 0.23,
+   "exposure": 2.35,
+   "contrast": 1.35
+  }
+ },
+ "stateColors": {
+  "idle": {
+   "tint": [
+    0.858824,
+    0.909804,
+    0.968627
+   ],
+   "body": [
+    0.05098,
+    0.066667,
+    0.094118
+   ],
+   "sheen": [
+    0.658824,
+    0.784314,
+    0.941176
+   ]
+  },
+  "thinking": {
+   "tint": [
+    0.760784,
+    0.839216,
+    0.960784
+   ],
+   "body": [
+    0.035294,
+    0.05098,
+    0.109804
+   ],
+   "sheen": [
+    0.560784,
+    0.705882,
+    0.94902
+   ]
+  },
+  "speaking": {
+   "tint": [
+    0.760784,
+    0.839216,
+    0.960784
+   ],
+   "body": [
+    0.035294,
+    0.05098,
+    0.109804
+   ],
+   "sheen": [
+    0.560784,
+    0.705882,
+    0.94902
+   ]
+  }
+ },
+ "shader": "shdr-25.frag.qsb"
+}

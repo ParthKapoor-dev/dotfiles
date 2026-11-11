@@ -6,21 +6,19 @@ import Quickshell.Io
 import Quickshell.Hyprland
 import qs.core
 
-// Coding-agent sessions for the agents panel (bar dot "agents" + Ctrl+Super+M: Needs you / Done /
-// Working, modules/agents/AgentsPanel) and the full-screen grid (modules/agents/AgentsView, "expand").
+// Coding-agent sessions for the agent notch (bar widget "notch", modules/notch, services/AgentNotch).
 // Source: the Claude Code hook ~/.local/lib/nox/agent-hook writes one JSON file per session to
 // $XDG_RUNTIME_DIR/nox/agents and rewrites .stamp on every call; this watches .stamp (inotify, no
 // polling) and re-reads the folder (debounced). While any session is alive a 5 s check marks
 // sessions whose process died as ended; ended ones are dropped after agents.keepEndedMinutes (10).
 // Tokens / context % / cost come from `nox agents usage` (transcripts, incremental), only while
-// the panel or the grid is open (every agents.usageInterval ms, 3000) - never from the hook.
+// the notch popover is open (every agents.usageInterval ms, 3000) - never from the hook.
 // Done cards: when a turn ends, `nox agents turn <id>` (off the hook path) gives its diff stat
 // since the prompt, files, PR link and summary; a card stays until dismissed (D) or the next turn.
 // Actions (all user-triggered): jump (focus the session's window / Orca tab / tmux client),
 // reply (Orca: orca terminal send; tmux: paste-buffer + Enter; plain terminals: focus + paste
 // without Enter), openDiff, openPr, dismiss, launch (launcher provider "agent").
-// Answer seam: answer(id, choice) -> `nox agents answer`, which runs an optional backend
-// (~/.local/lib/nox/agent-answer); without one it jumps to the session instead.
+// Answers / steers: answerReq / steer -> `nox agents answer | steer` (the gate hook agent-gate).
 // Notifications (agents.notify, true): needs you -> Jump / Show; turn done (agents.notifyDone, true,
 // turns longer than agents.notifyDoneAfter s, 20, and not while that session's window is focused)
 // -> Open diff / Reply / Jump.
@@ -43,39 +41,15 @@ Singleton {
     property var dismissed: ({})         // id -> turn.at of the dismissed Done card
     property bool loaded: false
 
-    // ---- panel (a bar popover) and grid ----
-    readonly property string popupId: "bar:agents"
-    readonly property bool panelOpen: Panels.popup === popupId
-    property bool gridOpen: false
-    property bool gridVisible: false     // AgentsView: the grid's window is really mapped
-    // something on screen shows the sessions (notifications hold back only then). gridOpen alone
-    // is not enough: a grid that never mapped, or was torn down without closeGrid(), left it true
-    // and silenced every notification
-    readonly property bool open: panelOpen || (gridOpen && gridVisible)
-    onGridVisibleChanged: if (!gridVisible && gridOpen && !gridHold.running) gridOpen = false
-    Timer { id: gridHold; interval: 1500 }     // the grid maps a moment after gridOpen turns on
-    onGridOpenChanged: if (gridOpen) gridHold.restart()
-    property string focusId: ""          // item to select on open
-    property string replyId: ""          // open the reply box on this session (panel)
-    property int openSerial: 0           // bumps on every show() (the panel re-selects)
-    function toggle() { if (panelOpen) close(); else show(""); }
-    function show(id, reply) {
-        focusId = id ?? ""; replyId = reply ? (id ?? "") : "";
-        openSerial++;
-        gridOpen = false;
-        // no bar (or no agents widget in it): the grid is the only surface
-        if (!Panels.exists(popupId)) { gridOpen = true; refreshUsage(); return; }
-        Panels.open(popupId);
-        refreshUsage();
-    }
-    function close() { Panels.close(popupId); gridOpen = false; }
+    // ---- the agent notch (bar widget "notch", services/AgentNotch) shows the sessions ----
+    readonly property bool open: AgentNotch.open
+    function toggle() { AgentNotch.toggle(); }
+    function show(id, reply) { AgentNotch.show(); refreshUsage(); }
+    function close() { AgentNotch.close(); }
     // from a notification button: the click that dismisses the card lands as a click outside the
-    // panel and closed it again at once, so open it once that click has settled
-    property var pendingShow: null
-    function showSoon(id, reply) { pendingShow = [id, !!reply]; showLater.restart(); }
-    Timer { id: showLater; interval: 280; onTriggered: if (root.pendingShow) { root.show(root.pendingShow[0], root.pendingShow[1]); root.pendingShow = null; } }
-    function expand(id) { focusId = id ?? ""; Panels.close(popupId); gridOpen = true; refreshUsage(); }
-    function closeGrid() { gridOpen = false; }
+    // popover and closed it again at once, so open it once that click has settled
+    function showSoon(id, reply) { showLater.restart(); }
+    Timer { id: showLater; interval: 280; onTriggered: root.show("") }
 
     readonly property var alive: sessions.filter(s => s.status !== "ended")
     readonly property int working: alive.filter(s => s.status === "working").length
@@ -105,7 +79,7 @@ Singleton {
         printErrors: false
         onFileChanged: debounce.restart()
     }
-    Timer { id: debounce; interval: 90; onTriggered: root.reload() }
+    Timer { id: debounce; interval: 250; onTriggered: root.reload() }
     function reload() { if (reader.running) again = true; else reader.running = true; }
     property bool again: false
     Process {
