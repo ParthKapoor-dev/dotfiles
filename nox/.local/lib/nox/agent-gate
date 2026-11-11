@@ -1,0 +1,92 @@
+#!/bin/bash
+# agent-gate: the nox agent notch's answering hook (opt-in: `nox agents gate install`).
+# The status reporter (agent-hook) only watches; this hook lets the notch answer and steer:
+#
+#   PermissionRequest  writes the request to $XDG_RUNTIME_DIR/nox/agents/req-<sid>-<id>.json and
+#                      waits for ans-<sid>-<id>.json (written by `nox agents answer`). Claude Code
+#                      shows its own permission prompt in the terminal at the same time; whichever
+#                      answers first wins. When the terminal answers (the session stops waiting),
+#                      the process dies or the time runs out, the hook exits with no decision, so
+#                      it can never block a session: no answer = the normal terminal prompt.
+#   PostToolUse        delivers a steer (`nox agents steer`, file <sid>.steer) as additionalContext:
+#                      Claude reads it with the result of the tool call it just made.
+#   Stop               a steer still pending when the turn ends keeps the turn going once, with the
+#                      steer as the instruction (decision "block"), so it is never lost.
+#
+# It never decides on its own: no answer file, no decision. AskUserQuestion / ExitPlanMode are
+# left to the terminal (their answers need the full dialog). Sessions started with NOX_ASK=1
+# (Circle to Ask) are skipped. stdout carries only the decision JSON; stderr is dropped.
+exec 2>/dev/null
+[ "${NOX_ASK:-}" = 1 ] && exit 0
+for b in rm sleep mv; do [ -f "/usr/lib/bash/$b" ] && enable -f "/usr/lib/bash/$b" "$b" 2>/dev/null; done
+
+IFS= read -r -d '' payload || :
+[[ $payload =~ \"session_id\":\ *\"([A-Za-z0-9_.-]+)\" ]] || exit 0
+sid=${BASH_REMATCH[1]}
+[[ $payload =~ \"hook_event_name\":\ *\"([A-Za-z]+)\" ]] || exit 0
+ev=${BASH_REMATCH[1]}
+dir=${XDG_RUNTIME_DIR:-/run/user/$UID}/nox/agents
+[ -d "$dir" ] || exit 0
+
+# take the pending steer, if any (mv = only one hook call gets it)
+take_steer() {
+    local f=$dir/$sid.steer
+    [ -s "$f" ] || return 1
+    mv -f "$f" "$f.$$" || return 1
+    steer=$(<"$f.$$"); rm -f "$f.$$"
+    [ -n "$steer" ] || return 1
+    printf '%s\n' "${EPOCHREALTIME/[.,]/}" > "$dir/$sid.steered"
+    return 0
+}
+
+case "$ev" in
+PostToolUse)
+    take_steer || exit 0
+    jq -cn --arg t "$steer" '{hookSpecificOutput: {hookEventName: "PostToolUse",
+        additionalContext: ("While you were working, the user sent this message from their desktop (nox): \"" + $t + "\". Take it into account from now on; it overrides earlier instructions where they conflict.")}}'
+    exit 0 ;;
+Stop)
+    [[ $payload =~ \"stop_hook_active\":\ *true ]] && exit 0
+    take_steer || exit 0
+    jq -cn --arg t "$steer" '{decision: "block", reason: ("The user sent this message from their desktop (nox) while you were finishing: \"" + $t + "\". Continue with it.")}'
+    exit 0 ;;
+PermissionRequest) ;;
+*) exit 0 ;;
+esac
+
+[[ $payload =~ \"tool_name\":\ *\"(AskUserQuestion|ExitPlanMode)\" ]] && exit 0
+now() { local t=${EPOCHREALTIME/[.,]/}; echo "${t:0:13}"; }
+id=$(now)
+req=$dir/req-$sid-$id.json ans=$dir/ans-$sid-$id.json state=$dir/$sid.json
+pid=${CLAUDE_PID:-$PPID}
+jq -c --arg sid "$sid" --argjson id "$id" --argjson pid "${pid:-0}" '{
+    v: 1, id: $id, sid: $sid, pid: $pid, at: $id, cwd: (.cwd // ""),
+    tool: (.tool_name // ""), mcp: (.mcp_server // null),
+    input: ((.tool_input // {}) | with_entries(
+        if (.value | type) == "string" and (.value | length) > 4000 then .value = .value[0:4000] + "…" else . end)),
+    suggestions: (.permission_suggestions // [])
+}' <<< "$payload" > "$req.tmp" && mv -f "$req.tmp" "$req" || exit 0
+trap 'rm -f "$req" "$req.tmp"' EXIT
+printf '%s %s\n' "$id" "$sid" > "$dir/.stamp"
+
+# wait for the notch, the terminal, or the end; 0.2 s polls are bash builtins + one stat
+limit=$(( ${NOX_GATE_WAIT:-1780} * 5 )) n=0 off=0
+while (( n++ < limit )); do
+    if [ -s "$ans" ]; then
+        out=$(jq -c 'select(.decision.behavior == "allow" or .decision.behavior == "deny")
+            | {hookSpecificOutput: {hookEventName: "PermissionRequest", decision: .decision}}' "$ans")
+        rm -f "$ans"
+        [ -n "$out" ] && printf '%s\n' "$out"
+        exit 0
+    fi
+    if (( n % 5 == 0 )); then
+        kill -0 "$pid" 2>/dev/null || exit 0
+        # answered in the terminal (or interrupted): the reporter moves the session off needs-you
+        if (( n >= 10 )); then
+            s=$(<"$state")
+            if [[ $s == *'"status":"needs-you"'* ]]; then off=0; else (( ++off >= 2 )) && exit 0; fi
+        fi
+    fi
+    sleep 0.2
+done
+exit 0

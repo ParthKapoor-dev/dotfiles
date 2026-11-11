@@ -35,6 +35,7 @@ Singleton {
     readonly property string helper: lib + "/agents"
 
     property var sessions: []            // parsed state files, display order
+    property var requests: []            // pending gate requests (agent-gate): { id, sid, tool, input, suggestions, at, cwd }
     property var usage: ({})             // id -> { ctx, window, pct, cost, model, title, say }
     property var today: ({ cost: 0, tokens: 0 })
     property var dead: ({})              // id -> ms first seen dead
@@ -109,14 +110,20 @@ Singleton {
     property bool again: false
     Process {
         id: reader
-        command: ["sh", "-c", "for f in \"$1\"/*.json; do [ -f \"$f\" ] && { cat \"$f\"; echo; }; done; exit 0", "sh", root.dir]
+        // sessions, plus the gate's pending requests (req-*.json, lines marked "R"); answers skipped
+        command: ["sh", "-c", "for f in \"$1\"/*.json; do [ -f \"$f\" ] || continue; case ${f##*/} in ans-*) continue;; req-*) printf R;; esac; cat \"$f\"; echo; done; exit 0", "sh", root.dir]
         stdout: StdioCollector {
             onStreamFinished: {
-                const out = [];
+                const out = [], reqs = [];
                 for (const line of text.split("\n")) {
                     if (!line.trim()) continue;
-                    try { const s = JSON.parse(line); if (s && s.id) out.push(s); } catch (e) {}
+                    try {
+                        if (line[0] === "R") { const r = JSON.parse(line.slice(1)); if (r && r.sid) reqs.push(r); }
+                        else { const s = JSON.parse(line); if (s && s.id) out.push(s); }
+                    } catch (e) {}
                 }
+                reqs.sort((a, b) => a.at - b.at);
+                root.requests = reqs;
                 root.apply(out);
             }
         }
@@ -336,16 +343,63 @@ Singleton {
         });
     }
 
-    // ---- answer seam: allow / deny a pending permission from nox ----
-    // A backend plugs in as ~/.local/lib/nox/agent-answer <session-id> <choice> <state-file>
-    // (see `nox agents answer`). Until one exists (or it can't deliver), this jumps to the session.
-    readonly property bool answerBackend: false
-    function canAnswer(s) { return answerBackend && s?.status === "needs-you" && !!s?.perm; }
-    function answer(id, choice) {
-        helperRun(["answer", id, choice], (code, out) => {
-            if (code === 0) { Panels.hud(choice === "deny" ? "Denied" : "Allowed", choice === "deny" ? "x" : "check"); return; }
-            jump(id);
+    // ---- answer + steer (the agent notch; the gate hook ~/.local/lib/nox/agent-gate) ----
+    // A pending request is answered through `nox agents answer` (the hook polls for the answer
+    // file); the terminal asks at the same time, whichever answers first wins.
+    readonly property bool notchOn: Config.moduleEnabled("notch")
+    property bool gateOn: false
+    Process {
+        id: gateCheck
+        running: true
+        command: [root.helper, "gate", "status"]
+        onExited: (code, status) => { root.gateOn = code === 0; }
+    }
+    function checkGate() { if (!gateCheck.running) gateCheck.running = true; }
+    function reqFor(id) { return requests.find(r => r.sid === id) ?? null; }
+    function canAnswer(s) { return !!s && !!reqFor(s.id); }
+    signal answered(string sid, string choice, bool ok, string rule)
+    function answerReq(req, choice, msg) {
+        if (!req) return;
+        const argv = ["answer", req.sid, choice, "--req", String(req.id)];
+        if (msg) argv.push("--", String(msg));
+        // drop it from view right away; the next reload confirms
+        requests = requests.filter(r => !(r.sid === req.sid && r.id === req.id));
+        helperRun(argv, (code, out) => {
+            const r = parse(out);
+            answered(req.sid, choice, code === 0, r.rule ?? "");
+            if (code !== 0) Panels.hud(r.error ? String(r.error).replace(/ \(.*$/, "") : "Couldn't answer", "x");
+            reload();
         });
+    }
+    function answer(id, choice, msg) { answerReq(reqFor(id), choice, msg); }
+    signal steered(string id, bool ok, string route)
+    function steer(id, text) {
+        text = String(text ?? "").trim();
+        const s = byId(id);
+        if (!s || !text) return;
+        if (reqFor(id)) { answer(id, "deny", text); steered(id, true, "deny"); return; }
+        helperRun(["steer", id, "--", text], (code, out) => {
+            const r = parse(out);
+            if (code === 0) { steered(id, true, r.route ?? (r.choice ? "deny" : "send")); return; }
+            if (code === 3 && r.route === "window") { pasteIntoWindow(s, text); steered(id, true, "paste"); return; }
+            Panels.hud(r.error ? String(r.error) : "Couldn't send", "x");
+            steered(id, false, "");
+        });
+    }
+    // files two or more live sessions in the same repo edited in the last 15 min
+    readonly property var overlaps: {
+        const by = {}, cut = Date.now() - 15 * 60000;
+        for (const s of alive) {
+            const base = s.root || s.cwd || "";
+            for (const a of (s.activity ?? [])) {
+                if (a.k !== "tool" || !/^(Edit|Write|MultiEdit|NotebookEdit)$/.test(a.n ?? "") || (a.ts ?? 0) < cut || !a.a) continue;
+                const k = base + "\u0001" + a.a;
+                (by[k] = by[k] ?? new Set()).add(s.id);
+            }
+        }
+        const out = [];
+        for (const k in by) if (by[k].size > 1) { const [r, f] = k.split("\u0001"); out.push({ root: r, file: f, ids: [...by[k]] }); }
+        return out;
     }
 
     // ---- notifications (actions come back on stdout: notify-send --wait) ----
@@ -353,7 +407,7 @@ Singleton {
         run(argv, (code, out) => onAction(out.trim()));
     }
     function notifyNeed(s) {
-        if (open) return;
+        if (open || (notchOn && reqFor(s.id))) return;
         const title = (s.project || "agent") + " · " + kindName(s) + " needs you";
         const p = s.perm ?? {};
         const body = [p.desc, p.cmd].filter(x => x).join(" · ") || (p.tool ? "Permission: " + p.tool : "Waiting for your answer");

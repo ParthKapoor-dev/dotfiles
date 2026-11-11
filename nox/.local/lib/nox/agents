@@ -24,14 +24,47 @@ usage: nox agents [toggle|open|close|grid]  the bar panel (Ctrl+Super+M; IPC tar
                                             the panel or `nox agents attach`; ghostty = a new
                                             Ghostty window, inside tmux unless agents.tmux is
                                             false; orca = a new Orca worktree with the agent
-                                            (falls back to background)
+                                            (falls back to background); --worktree = in a new
+                                            git worktree + branch nox/<slug>-<rand> off HEAD
+                                            (<repo-parent>/.nox-worktrees/<repo>/); --model M =
+                                            claude --model M
        nox agents attach [<session-id>|<tmux-name>]  attach this terminal to a background agent
                                             (no argument = list them)
-       nox agents answer <session-id> <choice>      the answer-backend seam: runs
-                                            ~/.local/lib/nox/agent-answer if present, else exit 3
+       nox agents answer <session-id> allow|always|deny [--req ID] [MESSAGE]   answer a permission
+                                            request from the notch (needs the gate hook); always =
+                                            allow + a project rule (.claude/settings.local.json);
+                                            deny MESSAGE = tell it what to do instead
+       nox agents steer <session-id> TEXT   working: Claude gets TEXT after its next tool call (or
+                                            when its turn ends); waiting on a request: deny + TEXT;
+                                            idle: same as send
+       nox agents requests [<session-id>]   pending notch requests (JSON)
+       nox agents gate [status|install|uninstall]   the answering hook ~/.local/lib/nox/agent-gate
+                                            (PermissionRequest, PostToolUse, Stop). The terminal
+                                            still asks as usual; whichever answers first wins
+       nox agents replay <session-id> [--turn N|--all] --json   the numbered steps of the last turn
+                                            (or turn N, or all, max 400) from the transcript
+                                            (Claude Code or Codex): you / tool / say / decide,
+                                            edit diffs (12 lines), turns for the scrubber
+       nox agents laps [--date YYYY-MM-DD] --json   the day as lanes per session: working segments,
+                                            waits, the moments you stepped in; agent vs wall time,
+                                            parallel peak, leverage; commits + PRs shipped
+       nox agents receipts [--limit N] [--all] --json   what the notch did for you, newest first
+                                            (~/.local/state/nox/agents/receipts.jsonl)
+       nox agents undo <receipt-id> [--dry-run]     undo an "always" rule or an undelivered steer
+       nox agents race [--models opus,sonnet,haiku | -n 3] [--dry-run] <dir> TASK...   one task
+                                            on N background agents in N worktrees
+       nox agents races --json              races: each entry's status, diff vs base, tests
+       nox agents race-test <race-id> [--dry-run]   run agents.raceTest in each worktree (cached)
+       nox agents merge <race-id> <entry> [--dry-run]   commit the winner's changes, merge --no-ff
+                                            into the base branch (refuses when it's dirty)
+       nox agents race-clean <race-id> [--discard] [--dry-run]   remove the losers' clean
+                                            worktrees; delete their branches when merged (or --discard)
+       nox agents overlap --json            files edited by 2+ live sessions in one repo (15 min)
        nox agents prune                     drop ended / dead sessions now
        nox agents hook [status|install|uninstall]   the status hook in ~/.claude/settings.json
-                                            (install/uninstall keep a backup next to the file)
+                                            (install/uninstall keep a backup next to the file);
+                                            --codex = the same hook in ~/.codex/hooks.json (observe
+                                            only; trust it once in Codex with /hooks)
 
 The state comes from the Claude Code hook ~/.local/lib/nox/agent-hook (`nox agents hook install`): one JSON file per session in $XDG_RUNTIME_DIR/nox/agents. Tokens and cost are read from
 the transcripts here, incrementally (byte offsets cached in that directory), never in the hook.
@@ -77,6 +110,8 @@ def lookup(table, model):
 def sessions():
     out = []
     for p in glob.glob(os.path.join(RUN, "*.json")):
+        if os.path.basename(p).startswith(("req-", "ans-")):
+            continue
         try:
             with open(p) as f:
                 s = json.load(f)
@@ -368,24 +403,38 @@ def agent_cmd():
 
 
 def start(argv):
-    mode, dry, rest = None, False, []
+    mode, dry, rest, worktree, model = None, False, [], False, None
     i = 0
     while i < len(argv):
         a = argv[i]
         if a == "--mode" and i + 1 < len(argv):
             mode = argv[i + 1]; i += 2; continue
+        if a == "--model" and i + 1 < len(argv):
+            model = argv[i + 1]; i += 2; continue
         if a == "--dry-run":
             dry = True
+        elif a == "--worktree":
+            worktree = True
         else:
             rest.append(a)
         i += 1
     if len(rest) < 2:
-        print("usage: nox agents start [--mode ghostty|orca] [--dry-run] <dir> TASK...", file=sys.stderr)
+        print("usage: nox agents start [--mode ghostty|orca] [--worktree] [--model M] [--dry-run] <dir> TASK...", file=sys.stderr)
         return 2
     d, task = os.path.realpath(expand(rest[0])), " ".join(rest[1:]).strip()
     if not os.path.isdir(d) or not task:
         return emit({"ok": False, "error": "no such directory" if not os.path.isdir(d) else "empty task"}, 1)
     mode = mode or shell_opts().get("launch") or "background"
+    extra = {"model": model} if model else {}
+    if worktree:                                 # a fresh git worktree + branch off HEAD (agent_data)
+        sys.path.insert(0, LIB)
+        import agent_data
+        wt = agent_data.make_worktree(d, task, dry)
+        if not wt.get("ok"):
+            return emit(wt, 1)
+        d, extra["worktree"] = wt["path"], wt
+        if mode == "orca":                       # Orca makes its own worktree
+            mode = "background"
     if mode == "background" and not which("tmux"):
         mode, note = "ghostty", "tmux isn't installed · started in Ghostty"
     else:
@@ -417,19 +466,19 @@ def start(argv):
     os.makedirs(ldir, mode=0o700, exist_ok=True)
     tf = os.path.join(ldir, "%d-%s.task" % (time.time() * 1000, os.urandom(3).hex()))
     name = os.path.basename(d) + "-" + os.urandom(2).hex()
-    inner = [os.path.join(LIB, "agents"), "run", d, tf, name]
+    inner = [os.path.join(LIB, "agents"), "run", d, tf, name] + (["--model", model] if model else [])
     if mode == "background":
         argv = inner + ["--detached"]
     else:
         argv = term_argv(d, inner, title=os.path.basename(d) + " · claude")
     if dry:
-        return emit({"ok": True, "mode": mode, "tmux": mode == "background" or shell_opts().get("tmux", True) is not False, "argv": argv, "note": note})
+        return emit({"ok": True, "mode": mode, "tmux": mode == "background" or shell_opts().get("tmux", True) is not False, "argv": argv, "note": note, **extra})
     fd = os.open(tf, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "w") as f:
         f.write(task)
     spawn(argv, cwd=d)
     return emit({"ok": True, "mode": mode, "session": name, "note": note,
-                 "attach": "nox agents attach " + name if mode == "background" else None})
+                 "attach": "nox agents attach " + name if mode == "background" else None, **extra})
 
 
 def run_in_terminal(d, tf, name, detached=False):
@@ -677,20 +726,174 @@ def diff(sid, dry=False):
     return emit({"ok": True, "route": "terminal"})
 
 
-# ---- answer-backend seam ----
-def answer(sid, choice):
-    """Allow / deny a pending permission from nox. Delegates to an optional backend
-    ($NOX_LIB/agent-answer <session-id> <choice> <state-file>): exit 0 = delivered."""
-    s = find(sid)
+# ---- answer + steer (the agent notch; needs the gate hook: `nox agents gate install`) ----
+GATE = os.path.join(os.path.expanduser("~"), ".local/lib/nox/agent-gate")
+GATE_EVENTS = ("PermissionRequest", "PostToolUse", "Stop")
+GATE_TIMEOUTS = {"PermissionRequest": 1800, "PostToolUse": 5, "Stop": 5}
+# commands whose second word is the real verb: "always" keeps both words (git push *, not git *)
+TWO_WORD = {"git", "npm", "pnpm", "yarn", "bun", "npx", "cargo", "go", "docker", "podman", "kubectl", "gh",
+            "uv", "pip", "python", "python3", "make", "just", "systemctl", "pacman", "yay", "paru", "nox", "orca"}
+
+
+def requests(sid=None):
+    """Pending gate requests (newest last), only those whose hook is still waiting."""
+    out = []
+    for p in sorted(glob.glob(os.path.join(RUN, "req-*.json"))):
+        try:
+            with open(p) as f:
+                r = json.load(f)
+        except Exception:
+            continue
+        if sid and r.get("sid") != sid:
+            continue
+        r["_file"] = p
+        out.append(r)
+    return out
+
+
+def receipt(entry):
+    try:
+        sys.path.insert(0, LIB)
+        import agent_data
+        agent_data.receipt_add(entry)
+    except Exception as e:                       # a receipt must never break an answer
+        print(f"nox agents: receipt not written ({e})", file=sys.stderr)
+
+
+def always_rule(r):
+    """The permission rule "Always" adds: Claude's own addRules suggestion when it made one,
+    else a prefix rule built here (Bash: the command's first word, two for git/npm/...)."""
+    for sg in r.get("suggestions") or []:
+        if sg.get("type") == "addRules" and sg.get("behavior", "allow") == "allow" and sg.get("rules"):
+            return dict(sg, destination="localSettings")
+    tool, inp = r.get("tool") or "", r.get("input") or {}
+    rule = {"toolName": tool}
+    if tool == "Bash":
+        words = (inp.get("command") or "").strip().split()
+        words = [w for w in words if "=" not in w or w.startswith(("-", "/"))][:2] if words else []
+        if not words:
+            return None
+        pre = words[:2] if words[0] in TWO_WORD and len(words) > 1 and not words[1].startswith("-") else words[:1]
+        rule["ruleContent"] = " ".join(pre) + " *"
+    elif tool in ("WebFetch",) and inp.get("url"):
+        from urllib.parse import urlparse
+        host = urlparse(inp["url"]).hostname
+        if host:
+            rule["ruleContent"] = "domain:" + host
+    elif not r.get("mcp") and tool not in ("Edit", "Write", "MultiEdit", "NotebookEdit", "Read", "Glob", "Grep", "WebSearch"):
+        return None                              # unknown tool: no blanket rule, allow once instead
+    return {"type": "addRules", "rules": [rule], "behavior": "allow", "destination": "localSettings"}
+
+
+def rule_str(rule):
+    return rule["toolName"] + ("(" + rule["ruleContent"] + ")" if rule.get("ruleContent") else "")
+
+
+def answer(argv):
+    """nox agents answer <session-id> allow|always|deny [--req ID] [--] [MESSAGE]: answers the
+    oldest pending request of that session (or --req). deny MESSAGE = tell it what to do instead."""
+    a = [x for x in argv if x != "--"]
+    req_id = None
+    if "--req" in a:
+        i = a.index("--req")
+        req_id = a[i + 1] if i + 1 < len(a) else None
+        del a[i:i + 2]
+    if len(a) < 2 or a[1] not in ("allow", "always", "deny"):
+        print("usage: nox agents answer <session-id> allow|always|deny [--req ID] [MESSAGE]", file=sys.stderr)
+        return 2
+    s = find(a[0])
+    sid = s["id"] if s else a[0]
+    choice, msg = a[1], " ".join(a[2:]).strip()
+    rs = [r for r in requests(sid) if req_id is None or str(r.get("id")) == str(req_id)]
+    if not rs:
+        return emit({"ok": False, "error": "nothing to answer (no notch request pending; the gate hook may be off: nox agents gate status)"}, 4)
+    r = rs[0]
+    dec, rule = {"behavior": "allow"}, None
+    if choice == "always":
+        up = always_rule(r)
+        if up:
+            dec["updatedPermissions"] = [up]
+            rule = up["rules"][0]
+    elif choice == "deny":
+        dec = {"behavior": "deny", "message": ("The user denied this from their desktop and says: " + msg) if msg
+               else "The user denied this from their desktop (nox). Don't retry it; ask or pick another way."}
+    ans = os.path.join(RUN, "ans-%s-%s.json" % (r["sid"], r["id"]))
+    tmp = ans + ".tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        json.dump({"id": r["id"], "decision": dec}, f)
+    os.replace(tmp, ans)
+    # the hook polls every 0.2 s: wait for it to take the answer (and remove the request)
+    took = False
+    for _ in range(25):
+        time.sleep(0.1)
+        if not os.path.exists(ans):
+            took = True
+            break
+    if not took:
+        try:
+            os.unlink(ans)
+        except OSError:
+            pass
+        return emit({"ok": False, "error": "the session stopped waiting (answered in the terminal?)"}, 1)
+    inp = r.get("input") or {}
+    cmd = inp.get("command") or inp.get("file_path") or inp.get("url") or inp.get("pattern") or ""
+    root = r.get("cwd") or (s or {}).get("root") or ""
+    receipt({"kind": "always" if rule else ("allow" if choice != "deny" else "deny"), "sid": r["sid"],
+             "project": (s or {}).get("project") or os.path.basename(root), "tool": r.get("tool"),
+             "cmd": str(cmd)[:300], "text": msg[:300] if choice == "deny" else "", "requestedAt": r.get("at"),
+             "rule": {"file": os.path.join(root, ".claude", "settings.local.json"), "toolName": rule["toolName"],
+                      "ruleContent": rule.get("ruleContent"), "str": rule_str(rule)} if rule else None,
+             "undoable": bool(rule)})
+    return emit({"ok": True, "choice": choice, "rule": rule_str(rule) if rule else None})
+
+
+def steer(argv):
+    """nox agents steer <session-id> [--] TEXT: working -> delivered after its next tool call (or
+    when its turn ends); waiting on a request -> deny it with TEXT; idle -> `send` (a new prompt)."""
+    a = [x for x in argv if x != "--"]
+    if len(a) < 2:
+        print("usage: nox agents steer <session-id> [--] TEXT", file=sys.stderr)
+        return 2
+    s = find(a[0])
+    text = " ".join(a[1:]).strip()
+    if text == "-":
+        text = sys.stdin.read().strip()
     if not s:
         return emit({"ok": False, "error": "no such session"}, 1)
-    if s.get("status") != "needs-you":
-        return emit({"ok": False, "error": "nothing to answer"}, 4)
-    be = os.path.join(LIB, "agent-answer")
-    if not os.access(be, os.X_OK):
-        return emit({"ok": False, "error": "no answer backend"}, 3)
-    code, out, err = run([be, s["id"], choice, s["_file"]], timeout=10)
-    return emit({"ok": code == 0, "out": out.strip()[-300:], "error": err.strip()[-200:]}, code)
+    if not text:
+        return emit({"ok": False, "error": "empty message"}, 2)
+    st = s.get("status") if alive(s) else "ended"
+    if requests(s["id"]):
+        return answer([s["id"], "deny", text])
+    if st == "working":
+        if not gate_installed():
+            return emit({"ok": False, "error": "steering needs the gate hook: nox agents gate install"}, 3)
+        p = os.path.join(RUN, s["id"] + ".steer")
+        old = ""
+        try:
+            with open(p) as f:
+                old = f.read().strip()
+        except OSError:
+            pass
+        tmp = p + ".tmp"
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
+            f.write((old + "\n" + text).strip() if old else text)
+        os.replace(tmp, p)
+        receipt({"kind": "steer", "sid": s["id"], "project": s.get("project"), "text": text[:300], "undoable": True})
+        return emit({"ok": True, "route": "steer"})
+    return send([s["id"], "--", text])
+
+
+def gate_installed():
+    path = os.path.expanduser(os.environ.get("NOX_CLAUDE_SETTINGS", "~/.claude/settings.json"))
+    try:
+        with open(path) as f:
+            hooks = json.load(f).get("hooks") or {}
+    except Exception:
+        return False
+    return all(any(h.get("command") == GATE for g in hooks.get(ev, []) for h in (g.get("hooks") or [])) for ev in GATE_EVENTS)
 
 
 # ---- jump to the session's window ----
@@ -810,9 +1013,12 @@ HOOK_EVENTS = ("SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", 
                "SubagentStart", "SubagentStop", "SessionEnd")
 
 
-def hook(action):
+def hook(action, HOOK=None, HOOK_EVENTS=None, TIMEOUTS=None, name="hook"):
     """status (exit 1 = not installed for every event) | install | uninstall. Absolute path on
     purpose: expai sessions run with another HOME. No matcher = every tool."""
+    HOOK = HOOK or globals()["HOOK"]
+    HOOK_EVENTS = HOOK_EVENTS or globals()["HOOK_EVENTS"]
+    TIMEOUTS = TIMEOUTS or {}
     path = os.path.expanduser(os.environ.get("NOX_CLAUDE_SETTINGS", "~/.claude/settings.json"))
     try:
         with open(path) as f:
@@ -827,17 +1033,17 @@ def hook(action):
         if len(have) == len(HOOK_EVENTS):
             print(f"installed: {HOOK} on all {len(HOOK_EVENTS)} events ({path})")
             return 0
-        print(f"not installed: {len(have)}/{len(HOOK_EVENTS)} events ({path}); fix: nox agents hook install")
+        print(f"not installed: {len(have)}/{len(HOOK_EVENTS)} events ({path}); fix: nox agents {name} install")
         return 1
     if action not in ("install", "uninstall"):
-        print("usage: nox agents hook [status|install|uninstall]", file=sys.stderr)
+        print(f"usage: nox agents {name} [status|install|uninstall]", file=sys.stderr)
         return 2
     for ev in list(hooks) if action == "uninstall" else HOOK_EVENTS:
         groups = [dict(g, hooks=[h for h in (g.get("hooks") or []) if h.get("command") != HOOK])
                   for g in hooks.get(ev, [])]
         groups = [g for g in groups if g["hooks"]]
         if action == "install":
-            groups.append({"hooks": [{"type": "command", "command": HOOK, "timeout": 5}]})
+            groups.append({"hooks": [{"type": "command", "command": HOOK, "timeout": TIMEOUTS.get(ev, 5)}]})
         if groups:
             hooks[ev] = groups
         else:
@@ -864,8 +1070,16 @@ def hook(action):
 
 def main(argv):
     cmd = argv[0] if argv else "toggle"
+    if cmd == "hook" and "--codex" in argv:     # the same agent-hook, in ~/.codex/hooks.json
+        sys.path.insert(0, LIB)
+        import agent_data
+        return agent_data.main("codex-hook", argv[1:], hook_path=HOOK)
     if cmd == "hook":
         return hook(argv[1] if len(argv) > 1 else "status")
+    if cmd in ("replay", "laps", "receipts", "undo", "race", "races", "race-test", "merge", "race-clean", "overlap"):
+        sys.path.insert(0, LIB)
+        import agent_data
+        return agent_data.main(cmd, argv[1:], start=start)
     if cmd in ("toggle", "open", "close", "grid"):
         os.execvp(QS[0], QS + [cmd])
     if cmd == "usage":
@@ -893,12 +1107,21 @@ def main(argv):
     if cmd == "start":
         return start(argv[1:])
     if cmd == "run" and len(argv) >= 4:
+        if "--model" in argv[4:-1]:              # start --model M: claude --model M (no env leaks to the agent)
+            m, base = argv[argv.index("--model", 4) + 1], agent_cmd
+            globals()["agent_cmd"] = lambda: base() + ["--model", m]
         run_in_terminal(argv[1], argv[2], argv[3], detached="--detached" in argv[4:])
     if cmd == "attach":
         return attach(argv[1:])
         return 1
-    if cmd == "answer" and len(argv) > 2:
-        return answer(argv[1], argv[2])
+    if cmd == "answer":
+        return answer(argv[1:])
+    if cmd == "steer":
+        return steer(argv[1:])
+    if cmd == "requests":
+        return emit([{k: v for k, v in r.items() if k != "_file"} for r in requests(argv[1] if len(argv) > 1 else None)])
+    if cmd == "gate":
+        return hook(argv[1] if len(argv) > 1 else "status", GATE, GATE_EVENTS, GATE_TIMEOUTS, "gate")
     if cmd == "prune":
         return prune(0)
     if cmd in ("list", "ls", "status"):

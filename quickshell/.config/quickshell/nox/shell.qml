@@ -25,6 +25,7 @@ import qs.modules.desktop
 import qs.modules.switcher
 import qs.modules.notes
 import qs.modules.agents
+import qs.modules.notch
 import qs.modules.ask
 import qs.modules.voice
 import qs.modules.draw
@@ -60,6 +61,9 @@ ShellRoot {
     LazyLoader { active: Config.loaded && Config.moduleEnabled("hints"); component: Hints {} }
     // coding agents at a glance (Ctrl+Super+M, `nox agents`, IPC target agents)
     LazyLoader { active: Config.loaded && Config.moduleEnabled("agents"); component: AgentsView {} }
+    // the agent notch under the bar: approve / steer / replay coding agents (Super+O, Super+Y,
+    // IPC target notch; shell.json "notch"; answering needs the gate hook: `nox agents gate install`)
+    LazyLoader { active: Config.loaded && Config.moduleEnabled("notch"); component: Notch {} }
     LazyLoader { active: Config.loaded && Config.moduleEnabled("session"); component: Session {} }
     // keyboard shortcuts sheet
     LazyLoader { active: Config.loaded && Config.moduleEnabled("cheatsheet"); component: Cheatsheet {} }

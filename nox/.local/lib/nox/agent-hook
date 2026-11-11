@@ -17,6 +17,11 @@
 # touched this turn), add/del (lines from those patches), pr (a github.com/.../pull/N seen in this
 # turn's tool output), end + say (the final message, 2 lines) at Stop. The diff stat itself is
 # computed later, off the hook path (`nox agents turn <id>`).
+# Codex CLI (observe only): the same script in ~/.codex/hooks.json (`nox agents hook install --codex`;
+# trust it once in Codex: /hooks). Codex sends the same payload names (session_id, transcript_path =
+# its rollout, cwd, hook_event_name, tool_name/tool_input/tool_response, prompt, last_assistant_message)
+# plus turn_id; kind = codex, apply_patch counts as an edit, Interrupt ends the turn. Codex runs hooks
+# as `$SHELL -lc CMD`, so the pid is the nearest `codex` ancestor (none found = no pid recorded).
 # Tokens / context % / cost are NOT computed here: `nox agents usage` reads the transcripts lazily
 # while the overlay is open. Sessions started with NOX_ASK=1 (Circle to Ask) are skipped.
 # Cost: two processes per call (jq + mv; git only at session start / prompt / stop: rev-parse, plus
@@ -88,15 +93,29 @@ if [ "$ev" = UserPromptSubmit ] && [ -n "$top" ]; then
 fi
 
 # which tool runs this session (env is inherited from the agent process)
-kind=claude bg=false
-if [ -n "${EXPAI_REAL_HOME:-}" ]; then kind=expai
+kind=claude bg=false codex=
+[[ $payload =~ \"transcript_path\":\ *\"[^\"]*/rollout-[^\"/]*\.jsonl\" || $payload =~ \"turn_id\": ]] && codex=1
+if [ -n "$codex" ]; then kind=codex
+elif [ -n "${EXPAI_REAL_HOME:-}" ]; then kind=expai
 elif [ -n "${ORCA_PANE_KEY:-}" ] && [ -z "${CLAUDE_JOB_DIR:-}" ]; then kind=orca; fi
 [ -n "${CLAUDE_JOB_DIR:-}" ] && bg=true
 
 # pid chain (agent process up to init) only once: the window lookup walks it in the shell
 pid=${CLAUDE_PID:-$PPID} chain= pstart=
+if [ -n "$codex" ]; then
+    # Codex: hook -> ($SHELL -lc) -> codex. The nearest codex ancestor is the agent process.
+    pid= p=$PPID
+    for _ in 1 2 3 4 5 6; do
+        [ -r "/proc/$p/stat" ] || break
+        read -r comm < "/proc/$p/comm"
+        case $comm in codex*) pid=$p; break ;; esac
+        read -r st < "/proc/$p/stat" || break
+        r=${st##*) }; set -- $r; p=$2
+        [ "${p:-0}" -le 1 ] && break
+    done
+fi
 if [ $have = 0 ] || [ "$ev" = SessionStart ]; then
-    p=$pid
+    p=${pid:-$PPID}
     for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16; do
         [ -r "/proc/$p/stat" ] || break
         read -r st < "/proc/$p/stat" || break
@@ -116,8 +135,11 @@ def cut($n): tostring | gsub("[\\r\\n\\t]+"; " ") | gsub("^ +| +$"; "") | if len
 def firstline: tostring | split("\n") | map(select(test("\\S"))) | (.[0] // "");
 def lastline: tostring | split("\n") | map(select(test("\\S"))) | (.[-1] // "");
 def rel($cwd): tostring | if $cwd != "" and startswith($cwd + "/") then .[($cwd | length) + 1:] else . end;
+def patchops($t): [$t | tostring | match("(?m)^\\*\\*\\* (Add|Update|Delete) File: (.+)$"; "g") | {op: .captures[0].string, f: .captures[1].string}];
 def arg($p): ($p.tool_input // {}) as $i | ($p.cwd // "") as $c |
-  if $i.command then $i.command | firstline
+  if $p.tool_name == "apply_patch" then patchops($i.command // $i.input // $i) as $o
+    | (($o[0].f // "patch") | rel($c)) + (if ($o | length) > 1 then " +\(($o | length) - 1) more" else "" end)
+  elif $i.command then $i.command | firstline
   elif $i.file_path then $i.file_path | rel($c)
   elif $i.notebook_path then $i.notebook_path | rel($c)
   elif $p.tool_name == "Grep" then "\"" + ($i.pattern // "") + "\"" + (if $i.path then " in " + ($i.path | rel($c)) else "" end)
@@ -165,7 +187,7 @@ input as $p | (try input catch {}) as $s0 | ($s0 // {}) as $s
 | if $top != "" then .project = ($top | split("/") | .[-1]) | .root = $top | .branch = $branch
   elif (.project // "") == "" then .project = ($cwd | split("/") | .[-1]) else . end
 | .transcript = ($p.transcript_path // .transcript)
-| if $chain != "" then .pid = ($pid | tonumber) | .pidStart = $pstart | .chain = ($chain | split(",") | map(tonumber)) else . end
+| if $chain != "" then (if $pid != "" then .pid = ($pid | tonumber) | .pidStart = $pstart else . end) | .chain = ($chain | split(",") | map(tonumber)) else . end
 | if $orca != "" then .orca = {handle: $orca, cli: $orcacli} else . end
 | if $tpane != "" then .tmux = {sock: ($tmux | split(",") | .[0]), pane: $tpane} else . end
 | if $p.model then .model = ($p.model | tostring) else . end
@@ -223,6 +245,16 @@ PostToolUse | PostToolUseFailure | PermissionDenied) J_EV='
         | if .turn != null and $fp != "" then .turn.files = (([.turn.files[]? | select(. != $fp)] + [$fp])[-60:])
             | .turn.add += $n[0] | .turn.del += $n[1] else . end
       else . end
+    | if $ok and $p.tool_name == "apply_patch" then
+        (($p.tool_input.command // $p.tool_input.input // $p.tool_input) | tostring) as $pt
+        | ($pt | split("\n")) as $ls
+        | [([$ls[] | select(startswith("+") and (startswith("+++") | not))] | length),
+           ([$ls[] | select(startswith("-") and (startswith("---") | not))] | length)] as $n
+        | reduce (patchops($pt)[] | {p: (.f | rel($cwd)), m: (if .op == "Add" then "A" elif .op == "Delete" then "D" else "M" end)}) as $x (.;
+            .files = ([(.files // [])[] | select(.p != $x.p)] + [{p: $x.p, m: ((.files // []) | map(select(.p == $x.p)) | .[0].m // $x.m)}])[-40:]
+            | if .turn != null then .turn.files = (([.turn.files[]? | select(. != $x.p)] + [$x.p])[-60:]) else . end)
+        | if .turn != null then .turn.add += $n[0] | .turn.del += $n[1] else . end
+      else . end
     | (if $ok and .turn != null then
         ($p.tool_response // "") as $r
         | (if ($r | type) == "object" then (($r.stdout // "") + "\n" + ($r.stderr // "")) else ($r | tostring) end) as $out
@@ -246,6 +278,7 @@ StopFailure) J_EV='
 SubagentStart) J_EV='.subagents = ((.subagents // 0) + 1)' ;;
 SubagentStop) J_EV='.subagents = ([(.subagents // 1) - 1, 0] | max)' ;;
 SessionEnd) J_EV='.perm = null | .endReason = ($p.reason // "") | status("ended")' ;;
+Interrupt) J_EV='.perm = null | .subagents = 0 | (if .turn != null then .turn.end = $now else . end) | status("done")' ;;   # Codex: Esc
 *) J_EV='.' ;;
 esac
 jq -cn --arg ev "$ev" --arg sid "$sid" --argjson now "$now" --arg top "$top" --arg branch "$branch" \

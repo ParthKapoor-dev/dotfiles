@@ -55,6 +55,10 @@ P.GLOBAL = {
     draw                = "drawToggle",                     -- live (Super+A, draw on screen)
     hints               = "hintsToggle",                    -- live (Super+;, click anything)
     selbar_dismiss      = "selbarDismiss",                  -- live (Esc dismisses the selection bar)
+    notch_allow         = "notchAllow",                     -- live (Super+Y, agent notch: allow)
+    notch_always        = "notchAlways",                    -- live (Super+Shift+Y: always allow)
+    notch_deny          = "notchDeny",                      -- live (Super+Backspace: deny)
+    notch_toggle        = "notchToggle",                    -- live (Super+O: open the notch)
 }
 
 -- exits != 0 only when no nox instance answers (`ipc call` to a missing
@@ -175,6 +179,11 @@ function P.binds(ctx)
         { "CTRL + SUPER + S", X("nox notes toggle"), desc = "Show or hide Notes" },
         -- Super+Shift+M / Super+Alt+M are mute / mic mute (binds/system.lua)
         { "CTRL + SUPER + M", X(ipc("agents")), desc = "Agent mission control" },
+        -- agent notch (modules/notch): answer the oldest permission request from any window
+        { "SUPER + Y", G("notch_allow"), desc = "Agent notch: allow the request" },
+        { "SUPER + SHIFT + Y", G("notch_always"), desc = "Agent notch: always allow the request" },
+        { "SUPER + BackSpace", G("notch_deny"), desc = "Agent notch: deny the request" },
+        { "SUPER + O", G("notch_toggle"), desc = "Agent notch: open it" },
         -- Alt+Tab window switcher (most recently used); releasing Alt switches. The Alt release is a
         -- release bind (fires when Alt_L / Alt_R comes up, whatever was pressed in between) and
         -- non-consuming + transparent so apps still see Alt (menus, Alt+key shortcuts)
@@ -262,6 +271,8 @@ function P.layer_rules(ctx)
         { match = { namespace = "^nox:shelf$" }, no_anim = true, ignore_alpha = padded },
         -- selection bar: animates itself; its shadow stays out of the blur
         { match = { namespace = "^nox:selbar$" }, no_anim = true, ignore_alpha = padded },
+        -- agent notch: opaque black, animates itself; its halo / shadow stay out of the blur
+        { match = { namespace = "^nox:notch$" }, blur = false, no_anim = true },
     }
 end
 
