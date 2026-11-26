@@ -49,7 +49,7 @@ P.GLOBAL = {
     switcher_next       = "switcherNext",                   -- live (Alt+Tab)
     switcher_prev       = "switcherPrev",                   -- live (Alt+Shift+Tab)
     switcher_alt        = "switcherAlt",                    -- live (Alt_L release = switch)
-    voice_hold          = "voiceHold",                      -- live (hold Super+Shift+Space = voice typing)
+    voice_hold          = "voiceHold",                      -- live (hold Super+Space = voice typing, tap = launcher)
     voice_release       = "voiceRelease",                   -- live (any Space release ends a hold)
     shelf               = "shelfToggle",                    -- live (Super+Shift+D, drop shelf)
     draw                = "drawToggle",                     -- live (Super+A, draw on screen)
@@ -149,9 +149,9 @@ P.gestures = {
 -- Super+keypad -/+ zoom (ii ipc)     in-process cursor zoom (same 1..3 clamp)
 -- New: Super+Alt+D Do Not Disturb, Alt+Print window shot, Shift+Print monitor shot,
 -- Ctrl+Super+Space command palette (launcher ">": actions, toggles, binds with their keys),
--- hold Super+Shift+Space voice typing (Super+Space = launcher, Super+Alt+Space = float are taken),
+-- hold Super+Space voice typing (a tap opens the launcher; Super+Alt+Space = float),
 -- Super+Shift+D drop shelf (Super+D = maximize).
--- (Super+Space launcher and Super+Alt+N Control Center live in binds/custom.lua.)
+-- (Super+Alt+N Control Center lives in binds/custom.lua; the launcher is a Super tap or a Super+Space tap.)
 ---------------------------------------------------------------------------
 function P.binds(ctx)
     local C = ctx.core
@@ -196,7 +196,7 @@ function P.binds(ctx)
         { "CTRL + SUPER + Space", X(ipc("palette") .. " || pkill fuzzel || fuzzel"), desc = "Command palette (launcher, >)" },
         -- voice typing (nox voice): hold to talk, release to type it. The Space release bind ends a
         -- hold even when Super / Shift came up first; non-consuming, so apps still get every Space
-        { "SUPER + SHIFT + Space", G("voice_hold"), desc = "Voice typing (hold to talk)" },
+        { "SUPER + Space", G("voice_hold"), desc = "Voice typing (hold to talk; tap = launcher)" },
         -- selection bar (modules/selbar): Esc dismisses it; non-consuming, apps still get every Esc
         { "Escape", G("selbar_dismiss"), ignore_mods = true, non_consuming = true, transparent = true, desc = "Internal: Esc dismisses the selection bar" },
         { "Space", G("voice_release"), release = true, ignore_mods = true, non_consuming = true, transparent = true, desc = "Internal: voice typing, Space release ends the hold" },

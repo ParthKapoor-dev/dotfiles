@@ -32,7 +32,7 @@ usage: nox <command> [args]
   notes  [toggle|show|hide|new|open <file>|start|quit|qt <cmd>]   (floating markdown notepad, ~/Notes)
   files  terminal|copypath|ocr|webp|png|jpg|half|strip <file>...   (Dolphin right-click nox menu)
   agents [toggle|grid|list|usage|focus|turn|diff|send|repos|start|answer <id>|prune|hook]   (coding agents panel, Ctrl+Super+M)
-  voice  [toggle|start|stop|cancel|status|tidy on|off|last|setup|server|doctor|bench]   (dictation: hold Super+Shift+Space)
+  voice  [toggle|start|stop|cancel|status|tidy on|off|last|setup|server|doctor|bench]   (dictation: hold Super+Space)
   draw   [toggle|on [tool]|off|tool <name>|undo|clear|status]   (draw on screen: pointer, pens, shapes; Super+A)
   selbar [status|on|off|toggle|reset|dismiss]   (selection action bar: select text, actions appear; shell.json selbar)
   timer  [<time> [label]|stop|pause|resume|toggle|add <time>|status|left]   (countdown in the bar island)

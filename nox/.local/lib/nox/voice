@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# nox voice - voice typing: hold Super+Shift+Space, speak, release; the text is typed into the
+# nox voice - voice typing: hold Super+Space, speak, release; the text is typed into the
 # focused field. Speech-to-text runs locally (whisper.cpp, Vulkan GPU) and never leaves the machine.
 #
 #   nox voice start|stop|toggle|cancel   control the shell (IPC target voice; toggle = press to
@@ -155,7 +155,9 @@ transcribe() {
     local t0 lang prompt text backend
     t0=$(now_ms); lang=$(cfg .language auto); prompt=$(cfg .prompt "")
     server_start >/dev/null 2>&1
-    if server_wait 30; then
+    # a server that is still loading the model gets longer (a second GPU job next to it only slows both)
+    local wait=30; systemctl --user is-active -q "$UNIT" 2>/dev/null && wait=90
+    if server_wait "$wait"; then
         touch "$RUN/used"
         local form=(-F "file=@$f" -F response_format=json -F "language=$lang" -F temperature=0 -F temperature_inc=0.2)
         [ -n "$prompt" ] && form+=(-F "prompt=$prompt")
@@ -167,12 +169,12 @@ transcribe() {
     fi
     # server unavailable: one-shot CLI (GPU unless voice.gpu is false; CPU if that fails too)
     [ -x "$BIN/whisper-cli" ] || die "whisper-cli missing: run nox voice setup"
-    local cli=("$BIN/whisper-cli" -m "$(model_path)" -f "$f" -nt -np -l "$lang" -bs 1 -bo 1 -t "$(cfg .threads 4)")
+    local cli=(timeout 90 "$BIN/whisper-cli" -m "$(model_path)" -f "$f" -nt -np -l "$lang" -bs 1 -bo 1 -t "$(cfg .threads 4)")
     [ -n "$prompt" ] && cli+=(--prompt "$prompt")
     backend=gpu
     [ "$(cfg .gpu true)" = false ] && { cli+=(-ng); backend=cpu; }
     if ! text=$("${cli[@]}" 2>/dev/null); then
-        text=$("${cli[@]}" -ng 2>/dev/null) || die "transcription failed (nox voice doctor)"
+        text=$("${cli[@]}" -ng 2>/dev/null) || die "whisper failed (server and CLI): run nox voice doctor"
         backend=cpu
     fi
     json_out "$text" "$backend-cli" $(( $(now_ms) - t0 ))

@@ -24,7 +24,7 @@ const HELP = `usage: nox <command> [args]
   notes  [toggle|show|hide|new|open <file>|start|quit|qt <cmd>]   (floating markdown notepad, ~/Notes)
   files  terminal|copypath|ocr|webp|png|jpg|half|strip <file>...   (Dolphin right-click nox menu)
   agents [toggle|grid|list|usage|focus|turn|diff|send|repos|start|answer <id>|prune|hook]   (coding agents panel, Ctrl+Super+M)
-  voice  [toggle|start|stop|cancel|status|tidy on|off|last|setup|server|doctor|bench]   (dictation: hold Super+Shift+Space)
+  voice  [toggle|start|stop|cancel|status|tidy on|off|last|setup|server|doctor|bench]   (dictation: hold Super+Space)
   detect [--yes|--print|--check|--get KEY]     (machine values -> git-ignored local files)
   update [--check|--no-pull|--migrate]          (git pull --ff-only, migrations, re-stow, theme apply, doctor)
   doctor [--summary]                            (check everything: packages, links, theme, extras; fix commands)

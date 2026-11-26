@@ -50,7 +50,7 @@ ShellRoot {
     LazyLoader { active: Config.loaded && Config.moduleEnabled("switcher"); component: Switcher {} }
     // floating markdown notepad (Ctrl+Super+S)
     LazyLoader { active: Config.loaded && Config.moduleEnabled("notes"); component: Notes {} }
-    // voice typing: hold Super+Shift+Space, speak, release (IPC target voice, `nox voice`).
+    // voice typing: hold Super+Space, speak, release (IPC target voice, `nox voice`).
     // Pill only while in use; whisper-server only while warm (services/Voice)
     LazyLoader { active: Config.loaded && Config.moduleEnabled("voice"); component: VoiceTyping {} }
     // draw on the screen: pointer, pens, shapes, spotlight (Super+A, IPC target draw, `nox draw`)

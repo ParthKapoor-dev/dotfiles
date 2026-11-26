@@ -10,7 +10,8 @@ import qs.services
 
 // Voice typing (mock C2): the pill at the bottom centre while recording / transcribing, plus the
 // controls. Logic in services/Voice; `nox voice` is the CLI.
-//   hold Super+Shift+Space        GlobalShortcut nox:voiceHold (press = record, release = stop);
+//   hold Super+Space              GlobalShortcut nox:voiceHold (press = record, release = stop;
+//                                 a tap under 300 ms opens the launcher instead);
 //                                 nox:voiceRelease = any Space release (keys let go out of order)
 //   qs -c nox ipc call voice start | stop | toggle | cancel | status | copyLast | tidy | setTidy <bool> | toggleTidy
 // The window exists only while the pill is up; it never takes keyboard focus (the field being
@@ -18,7 +19,8 @@ import qs.services
 Scope {
     id: root
     readonly property var opts: Config.opt.voice ?? ({})
-    readonly property bool up: Voice.phase !== "idle"
+    // a Super+Space tap opens the launcher: the pill waits 250 ms so a tap never flashes it
+    readonly property bool up: Voice.phase !== "idle" && !(Voice.quiet && Voice.phase === "rec")
     property bool shown: false
     onUpChanged: if (up) { killTimer.stop(); shown = true; } else killTimer.restart()
     Timer { id: killTimer; interval: Theme.durSheet + 60; onTriggered: if (!root.up) root.shown = false }
@@ -83,7 +85,7 @@ Scope {
             }
             VoicePill {
                 id: pill
-                readonly property bool on: Voice.phase !== "idle"
+                readonly property bool on: root.up
                 x: Math.round((win.width - width) / 2)
                 y: win.pad + (on ? 0 : 12)
                 width: implicitWidth

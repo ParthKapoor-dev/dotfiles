@@ -12,7 +12,7 @@ const GROUPS: G[] = [
   ] },
   { id: "shell", name: "Shell", rows: [
     ["SUPER", "Open launcher (tap)"],
-    ["SUPER + Space", "Open launcher"],
+    ["SUPER + Space", "Voice typing (hold), launcher (tap)"],
     ["SUPER + Tab", "Mission Control: all windows"],
     ["SUPER + SHIFT + Tab", "Mission Control: desktops"],
     ["ALT + Tab", "Switch to the previous window (hold Alt, Tab to step)"],

@@ -13,6 +13,7 @@
 # being spoken when the key comes up). Audio only ever goes to OUT.wav; nothing else is kept.
 import math
 import os
+import select
 import signal
 import subprocess
 import sys
@@ -88,7 +89,14 @@ def main(argv):
         while True:
             if stop_at[0] is not None and time.monotonic() >= stop_at[0]:
                 break
+            # wait at most 100 ms: a stalled mic (Bluetooth profile switch, suspended source) must not
+            # keep a stop request from ending the recording
             try:
+                ready_fds, _, _ = select.select([proc.stdout], [], [], 0.1)
+                if not ready_fds:
+                    if proc.poll() is not None:
+                        break
+                    continue
                 data = proc.stdout.read(CHUNK * 2)
             except Stop:
                 break

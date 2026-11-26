@@ -101,7 +101,7 @@ Shift+Delete uninstalls.
 | `nox agents start [--mode background\|ghostty\|orca] <dir> TASK...` | start a Claude Code session (background = detached tmux on `-L nox-agents`) |
 | `nox agents attach [id]` / `repos` / `prune` / `answer <id> <choice>` | attach to a background agent / repos under `agents.roots` / drop dead sessions / answer seam |
 | `nox agents hook [status\|install\|uninstall]` | the read-only status hook in `~/.claude/settings.json` (backup kept) |
-| `nox voice [toggle\|start\|stop\|cancel\|status]` | dictation control (normally: hold Super+Shift+Space) |
+| `nox voice [toggle\|start\|stop\|cancel\|status]` | dictation control (normally: hold Super+Space) |
 | `nox voice tidy on\|off\|toggle` / `last` | filler-word removal / copy the last transcript again |
 | `nox voice setup [--model q5_0\|q8_0] [--cpu]` | build whisper.cpp (Vulkan) and download the model |
 | `nox voice server start\|stop\|status` / `bench` / `doctor` | the local whisper-server / timing / check every piece |

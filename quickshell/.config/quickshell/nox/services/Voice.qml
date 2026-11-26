@@ -6,7 +6,7 @@ import Quickshell.Io
 import Quickshell.Hyprland
 import qs.core
 
-// Voice typing (mock C2 #voice): hold Super+Shift+Space (or `nox voice toggle`), speak, release;
+// Voice typing (mock C2 #voice): hold Super+Space (or `nox voice toggle`), speak, release;
 // whisper.cpp transcribes on the GPU (nox voice transcribe -> whisper-server, kept warm only
 // while in use), optional tidy, then the text is pasted into the focused window the same way the
 // launcher's pins/emoji paste (clipboard + Ctrl+V / Ctrl+Shift+V in terminals, Pins.sendPaste).
@@ -35,10 +35,12 @@ Singleton {
     property string lastText: ""
     property string file: ""
     property bool smartFailed: false
+    property bool fromKey: false          // started by the Super+Space hold key (a quick tap = launcher)
+    property bool quiet: false            // first 250 ms of a key hold: no pill yet (it may be a tap)
 
     readonly property bool tidy: state.data.tidy ?? opts.tidy ?? true
     readonly property bool smartTidy: opts.smartTidy ?? false
-    readonly property bool busy: phase === "tx" || phase === "tidy"
+    readonly property bool busy: phase === "tx" || phase === "tidy" || tx.running || smart.running
     readonly property string sourceLabel: {
         const n = String(opts.source || (Audio.source?.name ?? "")).toLowerCase();
         return n.startsWith("bluez") ? "BT" : n.indexOf("usb") !== -1 ? "USB" : "MIC";
@@ -53,27 +55,36 @@ Singleton {
     function setTidy(on) { state.data = Object.assign({}, state.data, { tidy: !!on }); state.save(); }
 
     // ---- hold key (GlobalShortcut voiceHold: press + release; voiceRelease: Space came up) ----
+    // Super+Space: hold = talk; a tap (released within 300 ms) opens the launcher instead.
     function press() {
         if (phase === "rec") { stop(); return; }    // second press = stop (a missed release too)
         start("hold");
+        if (phase !== "rec") return;
+        fromKey = true; quiet = true; quietTimer.restart();
     }
     function release() {
         if (phase !== "rec" || mode !== "hold") return;
-        if (Date.now() - startedAt < 300) cancel(); else stop();
+        if (Date.now() - startedAt < 300) {
+            const tap = fromKey;
+            cancel();
+            if (tap) Panels.launcherOpen = !Panels.launcherOpen;
+        } else stop();
     }
+    Timer { id: quietTimer; interval: 250; onTriggered: root.quiet = false }
     function toggle() { if (phase === "rec") stop(); else start("toggle"); }
 
     function start(m) {
-        if (phase === "rec" || busy) return;
+        if (phase === "rec" || busy || rec.running) return;
         if (!Config.moduleEnabled("voice")) return;
         mode = m ?? "toggle";
+        fromKey = false; quiet = false; quietTimer.stop();
         hist = []; level = 0; elapsed = 0; micLive = false; removed = []; message = ""; detail = ""; smartFailed = false;
         const dir = (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/nox-voice";
         file = dir + "/rec-" + Date.now() + ".wav";
         const cmd = ["nox", "voice", "rec", file, "--max", String((opts.maxSeconds ?? 120) + 2)];
         if (opts.source) cmd.push("--target", String(opts.source));
         rec.command = cmd;
-        rec.peak = -120; rec.secs = 0; rec.err = "";
+        rec.peak = -120; rec.secs = 0; rec.err = ""; rec.out = file;
         rec.running = true;
         // load the model while the user talks (no-op when the server is up)
         Quickshell.execDetached(["nox", "voice", "warm"]);
@@ -89,12 +100,15 @@ Singleton {
     function cancel() {
         const was = phase;
         phase = "idle";
-        if (rec.running) { rec.discard = true; rec.signal(15); }
+        quiet = false; fromKey = false;
+        if (rec.running) rec.discard = true;       // the recording is deleted when voice-rec exits
+        if (rec.running) rec.signal(15);
         if (tx.running) tx.signal(15);
         if (smart.running) smart.signal(15);
-        if (was === "rec" || was === "tx") removeFile();
+        if (!rec.running && (was === "rec" || was === "tx")) removeFile(file);
+        file = "";
     }
-    function removeFile() { if (file) Quickshell.execDetached(["rm", "-f", "--", file]); file = ""; }
+    function removeFile(f) { if (f) Quickshell.execDetached(["rm", "-f", "--", f]); }
     function fail(msg, det) { message = msg; detail = det ?? ""; phase = "error"; hideTimer.interval = 2600; hideTimer.restart(); }
 
     // ---- recording: nox voice rec (pw-record 16 kHz mono -> wav; levels on stdout) ----
@@ -104,12 +118,14 @@ Singleton {
         property real secs: 0
         property string err: ""
         property bool discard: false
+        property string out: ""            // this recording's wav (root.file can already be the next one)
         function finished() {
-            const d = discard; discard = false;
-            if (d || root.phase !== "tx") { root.removeFile(); return; }
-            if (err && secs <= 0) { root.removeFile(); root.fail("Mic unavailable", err); return; }
-            if (secs < 0.3 || peak < (root.opts.silenceDb ?? -50)) { root.removeFile(); root.fail("No speech", secs < 0.3 ? "too short" : "silence"); return; }
-            tx.command = ["nox", "voice", "transcribe", root.file];
+            const d = discard, f = out; discard = false; out = "";
+            if (d || root.phase !== "tx" || f !== root.file) { root.removeFile(f); return; }
+            if (err && secs <= 0) { root.removeFile(f); root.fail("Mic unavailable", err); return; }
+            if (secs < 0.3 || peak < (root.opts.silenceDb ?? -50)) { root.removeFile(f); root.fail("No speech", secs < 0.3 ? "too short" : "silence"); return; }
+            if (tx.running) { root.removeFile(f); root.fail("Transcription failed", "still busy"); return; }
+            tx.command = ["nox", "voice", "transcribe", f];
             tx.arm();
         }
         stdout: SplitParser {
@@ -145,17 +161,19 @@ Singleton {
     Process {
         id: tx
         property string buf: ""
+        property string err: ""
         property int waits: 0
-        function arm() { buf = ""; waits = 2; running = true; }
+        function arm() { buf = ""; err = ""; waits = 2; running = true; }
         function step() { if (--waits === 0) done(); }
         stdout: StdioCollector { onStreamFinished: { tx.buf = text; tx.step(); } }
+        stderr: SplitParser { onRead: line => { if (line.trim()) tx.err = line.replace(/^nox voice: /, "").trim(); } }
         onExited: (code, status) => { root.file = ""; step(); }    // transcribe deleted the wav
         function done() {
             if (root.phase !== "tx") return;
             let r = null;
             try { r = JSON.parse(tx.buf); } catch (e) { r = null; }
             tx.buf = "";
-            if (!r) { root.fail("Transcription failed", "nox voice doctor"); return; }
+            if (!r) { root.fail("Transcription failed", tx.err || "run nox voice doctor"); return; }
             root.backend = r.backend ?? "";
             root.process(r.text ?? "");
         }

@@ -23,7 +23,7 @@ return function(ctx)
 
         -- ##! Nox shell
         { "SUPER + Slash", X("qs -c nox ipc call cheatsheet toggle"), desc = "Show keyboard shortcuts" },
-        { "SUPER + Space", X("qs -c nox ipc call launcher toggle"), desc = "Open launcher" }, -- Spotlight-style
+        -- Super+Space: hold = voice typing, tap = launcher (shells/nox.lua, services/Voice.qml)
         { "SUPER + ALT + N", X("qs -c nox ipc call controlCenter toggle"), desc = "Open Control Center" },
 
     }

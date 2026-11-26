@@ -62,7 +62,7 @@ a specific machine (monitors, battery, mic, GPU) is detected and kept in git-ign
   back to your apps while the drawings stay. Shows up in screen shares and recordings.
   Chips for OCR, explain more, translate, table to CSV, Google Lens, or sending the region to an
   agent (Claude, Codex, Gemini, opencode or a command of your own).
-- **Voice typing** (hold Super+Shift+Space): local speech-to-text with whisper.cpp on the GPU
+- **Voice typing** (hold Super+Space): local speech-to-text with whisper.cpp on the GPU
   (Vulkan), typed into the focused field. Audio never leaves the machine; transcripts are never
   logged.
 - **Plan usage** in the bar: Claude 5-hour / weekly and Codex rate limits.
@@ -70,7 +70,7 @@ a specific machine (monitors, battery, mic, GPU) is detected and kept in git-ign
 **Desktop**
 - Bar with app menus, workspaces, layout indicator, agent status, tray, stats, phone, network,
   Bluetooth, battery, recording and Do Not Disturb indicators.
-- Spotlight-style launcher (Super+Space or a Super tap): apps, calculator `=`, windows `@`,
+- Spotlight-style launcher (a Super tap or a Super+Space tap): apps, calculator `=`, windows `@`,
   clipboard `:`, wallpapers `#`, commands `/`, command palette `>`, emoji, files, pinned snippets.
 - App Manager in the launcher (`+`): installed apps from pacman, the AUR, Flatpak and AppImages in
   one list; search and install from the repos, the AUR and Flathub; pending updates, clean up
@@ -249,7 +249,7 @@ their keys. The binds live in `hypr/.config/hypr/nox/binds/*.lua` and `nox/shell
 
 | Keys | Action |
 |---|---|
-| Super (tap), Super+Space | launcher |
+| Super (tap), Super+Space (tap) | launcher |
 | Ctrl+Super+Space | command palette |
 | Super+Return, Super+T | terminal |
 | Super+E / Super+W / Super+C / Super+X | files / browser / code editor / Neovim |
@@ -262,7 +262,7 @@ their keys. The binds live in `hypr/.config/hypr/nox/binds/*.lua` and `nox/shell
 | Super+V / Super+. | clipboard history / emoji |
 | Super+Shift+S, Print | screenshot a region |
 | Super+Shift+A | Circle to Ask |
-| hold Super+Shift+Space | voice typing |
+| hold Super+Space | voice typing |
 | Super+Shift+D | drop shelf |
 | Ctrl+Super+S | Notes |
 | Ctrl+Super+M | Mission Control |
@@ -292,7 +292,7 @@ their keys. The binds live in `hypr/.config/hypr/nox/binds/*.lua` and `nox/shell
 
 | Keys | Action |
 |---|---|
-| Super (tap), Super+Space | launcher (fuzzel when the shell is down) |
+| Super (tap), Super+Space (tap) | launcher |
 | Ctrl+Super+Space | command palette |
 | Super+V | clipboard history |
 | Super+. | emoji picker |
@@ -309,7 +309,7 @@ their keys. The binds live in `hypr/.config/hypr/nox/binds/*.lua` and `nox/shell
 | Ctrl+Super+S | Notes |
 | Ctrl+Super+M | Mission Control |
 | Super+Shift+A | Circle to Ask |
-| hold Super+Shift+Space | voice typing |
+| hold Super+Space | voice typing |
 | Super+Shift+D | drop shelf |
 | Ctrl+Super+T / Ctrl+Super+Alt+T | pick a wallpaper / random wallpaper |
 | Ctrl+Super+R | restart the shell |
