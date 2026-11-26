@@ -15,7 +15,7 @@ writes /etc/greetd/config.toml.
 | X11/xorg.conf.d/00-keyboard.conf | keyboard layout for X11/XWayland |
 | NetworkManager/NetworkManager.conf | wifi.scan-rand-mac-address=no |
 | mkinitcpio.conf, default/grub | boot / initramfs |
-| pacman.conf, systemd/journald.conf | package manager (`IgnorePkg = hyprland`: Hyprland is held at the version the Lua config is tested on) + journal limits |
+| pacman.conf, systemd/journald.conf | package manager + journal limits |
 
 Refresh: re-copy from /etc and commit; `git diff` shows what changed on the system.
 
