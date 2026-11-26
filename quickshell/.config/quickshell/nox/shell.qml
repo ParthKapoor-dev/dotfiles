@@ -260,18 +260,19 @@ ShellRoot {
             id: superTap
             appid: "nox"; name: "launcherToggleRelease"; description: "Toggle the launcher when Super is released alone"
             property bool mightTrigger: false
-            property bool pressGuard: false
-            onPressed: { mightTrigger = true; pressGuard = true; }
+            property real pressedAt: 0
+            onPressed: { mightTrigger = true; pressedAt = Date.now(); }
             onReleased: {
-                pressGuard = false;
                 if (mightTrigger) Panels.launcherOpen = !Panels.launcherOpen;
                 mightTrigger = false;
             }
         }
         GlobalShortcut {
             appid: "nox"; name: "launcherToggleReleaseInterrupt"; description: "Cancel the Super-tap launcher toggle (bind to a catchall)"
-            // the catchall also fires on the Super press itself (Hyprland 0.55.3+): absorb that one
-            onPressed: { if (superTap.pressGuard) { superTap.pressGuard = false; return; } superTap.mightTrigger = false; }
+            // Hyprland 0.55.3-0.56 also fired the catchall for the Super press itself: ignore an interrupt
+            // that comes with the press (no hand presses Super and another key within 15 ms). 0.57+
+            // does not, so the old "absorb the next one" guard ate the real Super+<key> interrupt.
+            onPressed: { if (Date.now() - superTap.pressedAt < 15) return; superTap.mightTrigger = false; }
         }
         // Alt+Tab: next / prev step the switcher; switcherAlt (Alt release) commits the selection
         GlobalShortcut { appid: "nox"; name: "notesToggle"; description: "Show / hide Notes"; onPressed: Panels.notesCommand("toggle") }

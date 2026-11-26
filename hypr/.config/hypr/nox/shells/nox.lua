@@ -72,6 +72,9 @@ P.ipc = ipc
 
 local function G(name) return hl.dsp.global("nox:" .. P.GLOBAL[name]) end
 local function X(cmd) return hl.dsp.exec_cmd(cmd) end
+-- keybinds.lua adds this (non-consuming) to every bound Super combo: Hyprland 0.57+ fires the
+-- catchall only for unbound keys, so bound combos must cancel the Super-tap launcher themselves
+P.tap_interrupt = G("launcher_interrupt")
 
 local HS = "~/.config/hypr/nox/scripts"
 

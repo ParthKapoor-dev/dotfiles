@@ -30,6 +30,31 @@ return function(ctx)
         end
     end
 
+    -- Super tap = launcher: the shell opens it when Super comes up, unless another key was pressed
+    -- meanwhile. Unbound keys reach the shell's catchall; since Hyprland 0.57 a catchall only fires
+    -- for keys no other bind matches, so every bound Super combo also sends the interrupt
+    -- (non-consuming: the combo's own action still runs, and Binds/cheatsheet skip "Internal:").
+    local okShell, shellMod = pcall(require, "nox.shells." .. S.shell)
+    local intr = okShell and type(shellMod) == "table" and shellMod.tap_interrupt or nil
+    if intr then
+        local function is_super_combo(key)
+            if type(key) ~= "string" then return false end
+            local k = key:upper()
+            return k:find("SUPER", 1, true) ~= nil and not k:find("SUPER_[LR]") and not k:find("MOUSE")
+                and k ~= "CATCHALL"
+        end
+        for gi, list in ipairs(groups) do
+            local out = {}
+            for _, b in ipairs(list) do
+                out[#out + 1] = b
+                if type(b) == "table" and not b.submap and b.enabled ~= false and b[2] ~= intr and is_super_combo(b[1]) then
+                    out[#out + 1] = { b[1], intr, non_consuming = true, desc = "Internal: cancel Super-tap launcher" }
+                end
+            end
+            groups[gi] = out
+        end
+    end
+
     local function register(in_submap)
         for _, list in ipairs(groups) do C.apply_binds(list, ctx, in_submap) end
     end
